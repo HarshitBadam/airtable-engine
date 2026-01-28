@@ -6,11 +6,7 @@ export const env = createEnv({
    * Server-side environment variables
    */
   server: {
-    AUTH_SECRET:
-      process.env.NODE_ENV === "production"
-        ? z.string()
-        : z.string().optional(),
-
+    AUTH_SECRET: z.string(),
     AUTH_GOOGLE_ID: z.string(),
     AUTH_GOOGLE_SECRET: z.string(),
 
