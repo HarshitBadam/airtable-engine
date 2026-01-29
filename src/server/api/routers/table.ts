@@ -31,7 +31,7 @@ export const tableRouter = createTRPCRouter({
       });
       if (!base) throw new Error("Base not found");
 
-      const seedCount = 120; // pick 50–200; 120 is a nice middle
+      const seedCount = 120; 
 
       const defaultViewConfig: ViewConfig = {
         search: "",

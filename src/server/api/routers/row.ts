@@ -99,4 +99,50 @@ export const rowRouter = createTRPCRouter({
 
       return result;
     }),
+
+  updateCell: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        rowId: z.string(),
+        columnId: z.string(),
+        value: z.union([z.string(), z.number(), z.null()]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: userId } },
+        select: { id: true },
+      });
+      if (!table) throw new Error("Table not found");
+
+      const row = await ctx.db.row.findFirst({
+        where: { id: input.rowId, tableId: input.tableId },
+        select: { id: true, cells: true },
+      });
+      if (!row) throw new Error("Row not found");
+
+      const cells = (row.cells ?? {}) as Record<string, unknown>;
+
+      if (input.value === null || input.value === "") {
+        delete cells[input.columnId];
+      } else {
+        cells[input.columnId] = input.value;
+      }
+
+      const searchText = Object.values(cells)
+        .map((v) => (v == null ? "" : String(v)))
+        .join(" ");
+
+      return ctx.db.row.update({
+        where: { id: input.rowId },
+        data: {
+          cells: cells as unknown as object,
+          searchText,
+        },
+        select: { id: true, rowIndex: true, cells: true, updatedAt: true },
+      });
+    }),
 });
