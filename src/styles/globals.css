@@ -3,4 +3,35 @@
 @theme {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* Airtable Auth - Custom breakpoint */
+  --breakpoint-atPromo: 1152px;
+}
+
+/* Airtable Auth - Global tokens */
+:root {
+  /* Colors */
+  --at-text: #1d1f25;
+  --at-subtle: #616670;
+  --at-focus-blue: #166ee1;
+  --at-primary-blue: #1b61c9;
+  --at-divider: #e6e6e6;
+
+  /* Radii */
+  --at-radius-big: 6px;
+  --at-radius-promo: 12px;
+
+  /* Elevation shadows */
+  --at-elevation-low: 0px 0px 1px rgba(0, 0, 0, 0.32),
+    0px 0px 2px rgba(0, 0, 0, 0.08), 0px 1px 3px rgba(0, 0, 0, 0.08);
+  --at-elevation-low-hover: 0px 0px 1px rgba(0, 0, 0, 0.32),
+    0px 0px 3px rgba(0, 0, 0, 0.11), 0px 1px 4px rgba(0, 0, 0, 0.12);
+
+  /* Font stacks */
+  --at-font-body: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto,
+    Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --at-font-heading: HaasText, -apple-system, system-ui, "system-ui", "Segoe UI",
+    Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }

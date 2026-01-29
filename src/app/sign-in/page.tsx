@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "~/server/auth";
-import { SignInForm } from "./sign-in/SignInForm";
+import { SignInForm } from "./SignInForm";
 
-export default async function Home() {
+export default async function SignInPage() {
   const session = await auth();
 
   // Redirect to dashboard if already authenticated

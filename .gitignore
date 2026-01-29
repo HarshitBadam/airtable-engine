@@ -46,3 +46,6 @@ yarn-error.log*
 .idea
 # Prisma generated client
 generated/prisma
+
+# documentation (local notes)
+/docs
