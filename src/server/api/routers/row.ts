@@ -8,6 +8,7 @@ export const rowRouter = createTRPCRouter({
         tableId: z.string(),
         limit: z.number().min(1).max(500).default(200),
         cursor: z.number().nullable().optional(),
+        search: z.string().optional(), // Push 7
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -22,12 +23,18 @@ export const rowRouter = createTRPCRouter({
 
       const cursorRowIndex = input.cursor ?? 0;
       const take = input.limit + 1;
+      const search = input.search?.trim();
+
+      const where = {
+        tableId: input.tableId,
+        rowIndex: { gt: cursorRowIndex },
+        ...(search && search.length > 0
+          ? { searchText: { contains: search, mode: "insensitive" as const } }
+          : {}),
+      } as const;
 
       const rows = await ctx.db.row.findMany({
-        where: {
-          tableId: input.tableId,
-          rowIndex: { gt: cursorRowIndex },
-        },
+        where,
         orderBy: { rowIndex: "asc" },
         take,
         select: {
@@ -45,10 +52,20 @@ export const rowRouter = createTRPCRouter({
         ? items[items.length - 1]!.rowIndex
         : null;
 
+      const totalCount =
+        search && search.length > 0
+          ? await ctx.db.row.count({
+              where: {
+                tableId: input.tableId,
+                searchText: { contains: search, mode: "insensitive" },
+              },
+            })
+          : table.rowCount;
+
       return {
         items,
         nextCursor,
-        totalCount: table.rowCount,
+        totalCount,
       };
     }),
 
@@ -132,8 +149,18 @@ export const rowRouter = createTRPCRouter({
         cells[input.columnId] = input.value;
       }
 
+      // Lint-safe stringification (avoids "[object Object]")
       const searchText = Object.values(cells)
-        .map((v) => (v == null ? "" : String(v)))
+        .map((v) => {
+          if (v == null) return "";
+          if (typeof v === "string") return v;
+          if (typeof v === "number" || typeof v === "boolean") return String(v);
+          try {
+            return JSON.stringify(v);
+          } catch {
+            return "";
+          }
+        })
         .join(" ");
 
       return ctx.db.row.update({
