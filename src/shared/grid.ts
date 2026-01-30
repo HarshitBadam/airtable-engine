@@ -40,18 +40,23 @@ export function normalizeViewConfig(raw: unknown): ViewConfig {
 }
 
 export function configFingerprint(c: ViewConfig): string {
-  const filters = [...c.filters].sort((a, b) => {
-    const ak = `${a.columnId}|${a.op}|${"value" in a ? String((a as any).value) : ""}`;
-    const bk = `${b.columnId}|${b.op}|${"value" in b ? String((b as any).value) : ""}`;
-    return ak.localeCompare(bk);
-  });
-
-  const hidden = [...c.hiddenColumnIds].sort();
-
-  return JSON.stringify({
-    search: c.search,
-    filters,
-    sort: c.sort,
-    hiddenColumnIds: hidden,
-  });
-}
+    const filters = [...c.filters].sort((a, b) => {
+      const av = "value" in a ? String(a.value) : "";
+      const bv = "value" in b ? String(b.value) : "";
+  
+      const ak = `${a.columnId}|${a.op}|${av}`;
+      const bk = `${b.columnId}|${b.op}|${bv}`;
+  
+      return ak.localeCompare(bk);
+    });
+  
+    const hidden = [...c.hiddenColumnIds].sort();
+  
+    return JSON.stringify({
+      search: c.search,
+      filters,
+      sort: c.sort,
+      hiddenColumnIds: hidden,
+    });
+  }
+  
