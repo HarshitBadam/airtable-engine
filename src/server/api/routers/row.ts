@@ -43,63 +43,61 @@ type RowSelect = {
 
 type CountRow = { count: number };
 
+/**
+ * Sorting helpers (Step 10)
+ * We only inject columnId as a literal after validating it belongs to this table.
+ * We reuse the same escape function for filter literal injection too.
+ */
+function escapeLiteral(input: string): string {
+  return input.replace(/'/g, "''");
+}
+
+/**
+ * PERF UPGRADE (after Push 11):
+ * Build filter SQL using literal JSONB keys (cells->>'<colId>') so Postgres can use
+ * expression indexes created by column.ensureIndexes.
+ *
+ * IMPORTANT: caller must validate all columnIds belong to this table before calling.
+ * Values remain parameterized.
+ */
 function buildFilterSql(filters: FilterInput[], params: SqlParam[]): string {
   const clauses: string[] = [];
 
   for (const f of filters) {
+    const colId = escapeLiteral(f.columnId);
+    const colExpr = `("Row"."cells" ->> '${colId}')`;
+
     switch (f.op) {
       case "is_empty": {
-        params.push(f.columnId);
-        const p = params.length;
-        clauses.push(
-          `(("Row"."cells" ->> $${p}) IS NULL OR ("Row"."cells" ->> $${p}) = '')`,
-        );
+        clauses.push(`(${colExpr} IS NULL OR ${colExpr} = '')`);
         break;
       }
       case "is_not_empty": {
-        params.push(f.columnId);
-        const p = params.length;
-        clauses.push(
-          `(("Row"."cells" ->> $${p}) IS NOT NULL AND ("Row"."cells" ->> $${p}) <> '')`,
-        );
+        clauses.push(`(${colExpr} IS NOT NULL AND ${colExpr} <> '')`);
         break;
       }
       case "contains": {
-        params.push(f.columnId);
-        const colP = params.length;
         params.push(`%${f.value}%`);
-        const valP = params.length;
-        clauses.push(`(("Row"."cells" ->> $${colP}) ILIKE $${valP})`);
+        clauses.push(`(${colExpr} ILIKE $${params.length})`);
         break;
       }
       case "not_contains": {
-        params.push(f.columnId);
-        const colP = params.length;
         params.push(`%${f.value}%`);
-        const valP = params.length;
         clauses.push(
-          `(("Row"."cells" ->> $${colP}) IS NULL OR ("Row"."cells" ->> $${colP}) NOT ILIKE $${valP})`,
+          `(${colExpr} IS NULL OR ${colExpr} NOT ILIKE $${params.length})`,
         );
         break;
       }
       case "equals": {
-        params.push(f.columnId);
-        const colP = params.length;
         params.push(f.value);
-        const valP = params.length;
-        clauses.push(`(("Row"."cells" ->> $${colP}) = $${valP})`);
+        clauses.push(`(${colExpr} = $${params.length})`);
         break;
       }
       case "gt":
       case "lt": {
-        params.push(f.columnId);
-        const colP = params.length;
         params.push(f.value);
-        const valP = params.length;
         const op = f.op === "gt" ? ">" : "<";
-        clauses.push(
-          `(NULLIF(("Row"."cells" ->> $${colP}), '')::double precision ${op} $${valP})`,
-        );
+        clauses.push(`(NULLIF(${colExpr}, '')::double precision ${op} $${params.length})`);
         break;
       }
       default: {
@@ -126,14 +124,6 @@ async function queryRawUnsafe<T>(
   params: SqlParam[],
 ): Promise<T> {
   return (await db.$queryRawUnsafe<T>(sql, ...params)) as T;
-}
-
-/**
- * Sorting helpers (Step 10)
- * We only inject columnId as a literal after validating it belongs to this table.
- */
-function escapeLiteral(input: string): string {
-  return input.replace(/'/g, "''");
 }
 
 function getSortExpr(sort: SortInput): string {
@@ -168,7 +158,7 @@ function buildSortedCursorSql(
   params.push(cursor.rowIndex);
   const pRowIndex = params.length;
 
-  // Cursor in NULL group: only rowIndex within group; and for DESC allow moving to non-NULL group
+  // Cursor in NULL group
   if (cursorNullRank) {
     const nullRankOp = sort.direction === "asc" ? ">" : "<";
 
@@ -181,7 +171,7 @@ function buildSortedCursorSql(
     )`;
   }
 
-  // Non-null cursor: full tuple comparison
+  // Non-null cursor
   params.push(false);
   const pNullRank = params.length;
 
@@ -258,6 +248,19 @@ export const rowRouter = createTRPCRouter({
         });
         if (!col) throw new Error("Invalid sort column");
         if (col.type !== sort.type) throw new Error("Sort type mismatch");
+      }
+
+      // Validate filter columnIds belong to this table (required before literal injection)
+      if (filters.length > 0) {
+        const uniqueColIds = [...new Set(filters.map((f) => f.columnId))];
+
+        const count = await ctx.db.column.count({
+          where: { tableId: input.tableId, id: { in: uniqueColIds } },
+        });
+
+        if (count !== uniqueColIds.length) {
+          throw new Error("Invalid filter column");
+        }
       }
 
       const take = input.limit + 1;
