@@ -1,20 +1,27 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
+import type { inferProcedureInput } from "@trpc/server";
+
 import { api } from "~/trpc/react";
 import { useDebouncedValue } from "~/hooks/useDebouncedValue";
+import type { AppRouter } from "~/server/api/root";
+
 import { useGridStore } from "./grid-store";
-import { useMemo, useEffect } from "react";
+
+export type RowInfiniteInput = inferProcedureInput<AppRouter["row"]["infinite"]>;
 
 export function useGridRows(tableId: string) {
   const search = useGridStore((s) => s.search);
   const filters = useGridStore((s) => s.filters);
   const sort = useGridStore((s) => s.sort);
+
   const fingerprint = useGridStore((s) => s.fingerprint);
   const clearSelection = useGridStore((s) => s.clearSelection);
 
   const debouncedSearch = useDebouncedValue(search, 250);
 
-  const input = useMemo(
+  const input: RowInfiniteInput = useMemo(
     () => ({
       tableId,
       limit: 200,
@@ -36,7 +43,7 @@ export function useGridRows(tableId: string) {
   });
 
   const rows = q.data?.pages.flatMap((p) => p.items) ?? [];
-  const totalCount = q.data?.pages?.[0]?.totalCount ?? 0;
+  const totalCount: number = q.data?.pages?.[0]?.totalCount ?? 0;
 
   return { q, rows, totalCount, input };
 }
