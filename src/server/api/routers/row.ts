@@ -20,6 +20,19 @@ const filterSchema = z.discriminatedUnion("op", [
 
 type FilterInput = z.infer<typeof filterSchema>;
 
+const sortSchema = z.object({
+  columnId: z.string(),
+  direction: z.enum(["asc", "desc"]),
+  type: z.enum(["TEXT", "NUMBER"]),
+});
+type SortInput = z.infer<typeof sortSchema>;
+
+const sortedCursorSchema = z.object({
+  sortValue: z.union([z.string(), z.number(), z.null()]),
+  rowIndex: z.number(),
+});
+type SortedCursorInput = z.infer<typeof sortedCursorSchema>;
+
 type RowSelect = {
   id: string;
   rowIndex: number;
@@ -106,11 +119,107 @@ function buildFilterSql(filters: FilterInput[], params: SqlParam[]): string {
  * Prisma's $queryRawUnsafe returns a PrismaPromise, which is awaitable.
  */
 async function queryRawUnsafe<T>(
-  db: { $queryRawUnsafe: <R = unknown>(query: string, ...values: unknown[]) => PromiseLike<R> },
+  db: {
+    $queryRawUnsafe: <R = unknown>(query: string, ...values: unknown[]) => PromiseLike<R>;
+  },
   sql: string,
   params: SqlParam[],
 ): Promise<T> {
   return (await db.$queryRawUnsafe<T>(sql, ...params)) as T;
+}
+
+/**
+ * Sorting helpers (Step 10)
+ * We only inject columnId as a literal after validating it belongs to this table.
+ */
+function escapeLiteral(input: string): string {
+  return input.replace(/'/g, "''");
+}
+
+function getSortExpr(sort: SortInput): string {
+  const colId = escapeLiteral(sort.columnId);
+
+  if (sort.type === "TEXT") {
+    return `("Row"."cells" ->> '${colId}')`;
+  }
+  // NUMBER
+  return `(NULLIF(("Row"."cells" ->> '${colId}'), '')::double precision)`;
+}
+
+/**
+ * Keyset predicate for sorted pagination.
+ * Stable tie-breaker is ALWAYS rowIndex ASC.
+ *
+ * Deterministic NULL ordering:
+ * - ASC: NULLs last
+ * - DESC: NULLs first
+ */
+function buildSortedCursorSql(
+  sort: SortInput,
+  cursor: SortedCursorInput,
+  params: SqlParam[],
+): string {
+  const sortExpr = getSortExpr(sort);
+  const nullRankExpr = `(${sortExpr} IS NULL)`;
+
+  const cursorNullRank = cursor.sortValue === null;
+
+  // Always push rowIndex param (used in both branches)
+  params.push(cursor.rowIndex);
+  const pRowIndex = params.length;
+
+  // Cursor in NULL group: only rowIndex within group; and for DESC allow moving to non-NULL group
+  if (cursorNullRank) {
+    const nullRankOp = sort.direction === "asc" ? ">" : "<";
+
+    params.push(true);
+    const pNullRank = params.length;
+
+    return ` AND (
+      (${nullRankExpr} ${nullRankOp} $${pNullRank})
+      OR (${nullRankExpr} = $${pNullRank} AND "Row"."rowIndex" > $${pRowIndex})
+    )`;
+  }
+
+  // Non-null cursor: full tuple comparison
+  params.push(false);
+  const pNullRank = params.length;
+
+  params.push(cursor.sortValue);
+  const pSortVal = params.length;
+
+  const nullRankOp = sort.direction === "asc" ? ">" : "<";
+  const sortOp = sort.direction === "asc" ? ">" : "<";
+
+  return ` AND (
+    (${nullRankExpr} ${nullRankOp} $${pNullRank})
+    OR (${nullRankExpr} = $${pNullRank} AND ${sortExpr} ${sortOp} $${pSortVal})
+    OR (${nullRankExpr} = $${pNullRank} AND ${sortExpr} = $${pSortVal} AND "Row"."rowIndex" > $${pRowIndex})
+  )`;
+}
+
+function normalizeSortValueFromCells(
+  sort: SortInput,
+  cellsUnknown: unknown,
+): string | number | null {
+  const cells = (cellsUnknown ?? {}) as Record<string, unknown>;
+  const raw = cells[sort.columnId];
+
+  if (raw == null) return null;
+
+  if (sort.type === "NUMBER") {
+    const n = typeof raw === "number" ? raw : Number(raw);
+    return Number.isNaN(n) ? null : n;
+  }
+
+  // TEXT: avoid "[object Object]"
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "number" || typeof raw === "boolean") return String(raw);
+  try {
+    return JSON.stringify(raw);
+  } catch {
+    return null;
+  }
 }
 
 export const rowRouter = createTRPCRouter({
@@ -119,9 +228,15 @@ export const rowRouter = createTRPCRouter({
       z.object({
         tableId: z.string(),
         limit: z.number().min(1).max(500).default(200),
-        cursor: z.number().nullable().default(null), // last rowIndex
+
+        // cursor:
+        // - unsorted: number (rowIndex)
+        // - sorted: { sortValue, rowIndex }
+        cursor: z.union([z.number(), sortedCursorSchema]).nullable().default(null),
+
         search: z.string().optional(),
         filters: z.array(filterSchema).optional(),
+        sort: sortSchema.nullable().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -131,13 +246,44 @@ export const rowRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      const cursorRowIndex = input.cursor ?? 0;
-      const take = input.limit + 1;
       const search = input.search?.trim();
       const filters = input.filters ?? [];
+      const sort = input.sort ?? null;
 
-      const params: SqlParam[] = [input.tableId, cursorRowIndex, take];
-      let whereSql = `WHERE "Row"."tableId" = $1 AND "Row"."rowIndex" > $2`;
+      // Validate sort column belongs to this table + type matches DB
+      if (sort) {
+        const col = await ctx.db.column.findFirst({
+          where: { id: sort.columnId, tableId: input.tableId },
+          select: { id: true, type: true },
+        });
+        if (!col) throw new Error("Invalid sort column");
+        if (col.type !== sort.type) throw new Error("Sort type mismatch");
+      }
+
+      const take = input.limit + 1;
+
+      // Cursor normalization
+      const cursor = input.cursor;
+      const isSorted = !!sort;
+
+      const cursorRowIndex =
+        !isSorted
+          ? typeof cursor === "number"
+            ? cursor
+            : 0
+          : typeof cursor === "object" && cursor
+            ? cursor.rowIndex
+            : 0;
+
+      const sortedCursor =
+        isSorted && typeof cursor === "object" && cursor
+          ? cursor
+          : null;
+
+      // Build WHERE
+      const params: SqlParam[] = [];
+      params.push(input.tableId);
+      let whereSql = `WHERE "Row"."tableId" = $${params.length}`;
 
       if (search && search.length > 0) {
         params.push(`%${search}%`);
@@ -146,25 +292,70 @@ export const rowRouter = createTRPCRouter({
 
       whereSql += buildFilterSql(filters, params);
 
+      // Cursor predicate
+      if (!sort) {
+        params.push(cursorRowIndex);
+        whereSql += ` AND "Row"."rowIndex" > $${params.length}`;
+      } else if (sortedCursor) {
+        whereSql += buildSortedCursorSql(sort, sortedCursor, params);
+      }
+
+      // ORDER BY
+      let orderBySql = `"Row"."rowIndex" ASC`;
+
+      if (sort) {
+        const sortExpr = getSortExpr(sort);
+        const nullRankOrder = sort.direction === "asc" ? "ASC" : "DESC"; // asc => nulls last; desc => nulls first
+        orderBySql = `
+          (${sortExpr} IS NULL) ${nullRankOrder},
+          ${sortExpr} ${sort.direction.toUpperCase()},
+          "Row"."rowIndex" ASC
+        `;
+      }
+
+      // LIMIT
+      params.push(take);
+      const limitP = params.length;
+
       const sql = `
         SELECT "Row"."id", "Row"."rowIndex", "Row"."cells", "Row"."createdAt", "Row"."updatedAt"
         FROM "Row"
         ${whereSql}
-        ORDER BY "Row"."rowIndex" ASC
-        LIMIT $3
+        ORDER BY ${orderBySql}
+        LIMIT $${limitP}
       `;
 
       const rows = await queryRawUnsafe<RowSelect[]>(ctx.db, sql, params);
 
       const hasNextPage = rows.length > input.limit;
       const items = hasNextPage ? rows.slice(0, input.limit) : rows;
-      const nextCursor = hasNextPage ? items[items.length - 1]!.rowIndex : null;
 
+      let nextCursor:
+        | number
+        | { sortValue: string | number | null; rowIndex: number }
+        | null = null;
+
+      if (hasNextPage && items.length > 0) {
+        const last = items[items.length - 1]!;
+        if (!sort) {
+          nextCursor = last.rowIndex;
+        } else {
+          nextCursor = {
+            sortValue: normalizeSortValueFromCells(sort, last.cells),
+            rowIndex: last.rowIndex,
+          };
+        }
+      }
+
+      // COUNT:
+      // - if neither search nor filters -> use table.rowCount
+      // - else run COUNT with the SAME (search + filters) but WITHOUT cursor predicate
       let totalCount = table.rowCount;
 
       if ((search && search.length > 0) || filters.length > 0) {
-        const countParams: SqlParam[] = [input.tableId];
-        let countWhere = `WHERE "Row"."tableId" = $1`;
+        const countParams: SqlParam[] = [];
+        countParams.push(input.tableId);
+        let countWhere = `WHERE "Row"."tableId" = $${countParams.length}`;
 
         if (search && search.length > 0) {
           countParams.push(`%${search}%`);
