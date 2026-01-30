@@ -1,29 +1,93 @@
-# Create T3 App
+# Lyra Take Home Assessment - Airtable Data Grid (T3 Stack)
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+This project is **still in active development**.
 
-## What's next? How do I make an app with this?
+---
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+## Current Scope
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+- Authentication flows implemented (Google OAuth)
+- Core backend data layer implemented
+- Query engine designed to scale from small datasets to 100k–1M rows
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+The frontend grid UI is intentionally incomplete at this stage.
 
-## Learn More
+---
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+## Architecture Overview
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+### Data Model (PostgreSQL + Prisma)
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+- `Base` → `Table` → `Column`, `View`, `Row`
+- Rows store dynamic schema in `JSONB` (`cells`)
+- Stable ordering via `rowIndex`
+- Derived `searchText` column for efficient full-table search
 
-## How do I deploy this?
+Views persist query configuration:
+- search
+- filters
+- sort
+- hidden columns
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+---
+
+## Query Engine Features
+
+### Infinite Scrolling
+- Keyset pagination (no OFFSET)
+- Cursor-based paging using `rowIndex`
+- Works correctly with filtering and sorting
+
+### Bulk Inserts
+- Insert up to 100k rows in a single SQL statement
+- Uses Postgres `generate_series`
+- Atomic reservation of row index ranges
+
+### Cell Editing
+- Updates JSONB cell values
+- Keeps derived `searchText` in sync
+- Safe handling of dynamic values
+
+### Search
+- Database-level search across all cells
+- Case-insensitive (`ILIKE`)
+- Backed by trigram GIN index
+
+### Filters
+- Text and numeric operators (`contains`, `equals`, `gt`, `lt`, `is_empty`, etc.)
+- Implemented in SQL (not client-side)
+- Filter columns validated against table schema
+
+### Sorting
+- Database-level sorting on dynamic JSONB columns
+- Stable ordering with deterministic tie-breaker
+- Cursor includes sort value + row index to avoid duplicates or skips
+
+---
+
+## Performance Strategy
+
+- No OFFSET pagination
+- No client-side filtering or sorting
+- Expression indexes on JSONB columns
+- Indexes created on-demand per column
+- Query shapes designed to remain index-friendly
+
+---
+
+## Tech Stack
+
+- Next.js (App Router)
+- tRPC
+- Prisma + PostgreSQL
+- NextAuth
+- Tailwind CSS
+
+---
+
+## Development
+
+```bash
+pnpm install
+pnpm prisma migrate dev
+pnpm dev
