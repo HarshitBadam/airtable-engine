@@ -1,18 +1,17 @@
-/**
- * OrDivider - "or" divider between auth methods
- * Matches Airtable's actual implementation: margin-based (my2-and-half class)
- * Note: Airtable does NOT have lines, just centered "or" text
- */
+import styles from "./auth.module.css";
 
-export function OrDivider() {
+interface OrDividerProps {
+  size?: "default" | "small";
+  wide?: boolean;
+}
+
+export function OrDivider({ size = "default", wide = false }: OrDividerProps) {
+  const wrapperClass = `${styles.divider} ${wide ? styles.dividerWide : ""}`;
+  const textClass = `${styles.dividerText} ${size === "small" ? styles.dividerTextSmall : ""}`;
+
   return (
-    <div
-      className="flex w-[500px] items-center justify-center"
-      style={{ fontFamily: "var(--at-font-body)", marginTop: 24, marginBottom: 24 }}
-    >
-      <span className="text-[16px] font-normal leading-[20px] text-[#616670]">
-        or
-      </span>
+    <div className={wrapperClass}>
+      <span className={textClass}>or</span>
     </div>
   );
 }

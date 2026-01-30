@@ -1,7 +1,3 @@
-/**
- * Auth components barrel export
- */
-
 export { AuthShell } from "./AuthShell";
 export { AirtableLogo } from "./AirtableLogo";
 export { EmailField } from "./EmailField";

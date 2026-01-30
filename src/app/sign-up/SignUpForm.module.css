@@ -1,0 +1,135 @@
+.logo {
+  margin-bottom: 48px;
+}
+
+.title {
+  font-family: var(--at-font-heading);
+  font-size: var(--auth-font-size-heading-lg);
+  font-weight: 500;
+  line-height: var(--auth-line-height-heading);
+  color: var(--auth-color-text);
+  width: var(--auth-form-width-signup);
+  height: 88px;
+  margin: 0;
+  padding-top: 3px;
+  box-sizing: border-box;
+}
+
+.providerButtonsWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.termsText {
+  font-size: var(--auth-font-size-small);
+  line-height: var(--auth-line-height-small);
+  color: var(--auth-color-text-subtle);
+  margin: 0;
+  margin-top: 32px;
+  margin-bottom: 16px;
+  padding-left: 24px;
+}
+
+.termsLink {
+  color: var(--auth-color-primary);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: flex-start;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.checkboxInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkboxBox {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  border-radius: var(--auth-radius-checkbox);
+  border: 2px solid var(--auth-color-border-muted);
+  background-color: var(--auth-color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.checkboxInput:checked + .checkboxBox {
+  border: none;
+  background-color: var(--auth-color-primary);
+}
+
+.checkboxInput:focus-visible + .checkboxBox {
+  outline: 2px solid var(--auth-color-primary);
+  outline-offset: 2px;
+}
+
+.checkboxIcon {
+  display: none;
+}
+
+.checkboxInput:checked + .checkboxBox .checkboxIcon {
+  display: block;
+}
+
+.checkboxText {
+  font-size: var(--auth-font-size-small);
+  line-height: var(--auth-line-height-small);
+  color: var(--auth-color-text-subtle);
+}
+
+.footer {
+  font-size: var(--auth-font-size-small);
+  line-height: var(--auth-line-height-small);
+  color: var(--auth-color-text-subtle);
+  margin: 0;
+}
+
+.footerLink {
+  color: var(--auth-color-primary);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+@media (max-width: 1151px) {
+  .logo {
+    margin-bottom: 41px;
+  }
+
+  .title {
+    font-size: var(--auth-font-size-heading-mobile);
+    height: 68px;
+  }
+
+  .checkboxLabel {
+    margin-bottom: 18px;
+  }
+
+  .footer {
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 639px) {
+  .title {
+    font-size: var(--auth-font-size-heading-mobile);
+    line-height: 31.2px;
+    height: 63px;
+    width: auto;
+    padding-bottom: 32px;
+  }
+}

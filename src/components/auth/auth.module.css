@@ -1,0 +1,252 @@
+.emailFieldWrapper {
+  position: relative;
+  margin-bottom: 24px;
+  width: 500px;
+  padding: 2px;
+}
+
+.emailFieldWrapperWide {
+  width: 512px;
+}
+
+.emailLabel {
+  display: block;
+  font-size: var(--auth-font-size-body);
+  font-weight: 500;
+  line-height: var(--auth-line-height-label);
+  color: var(--auth-color-text);
+}
+
+.emailLabelNormal {
+  font-weight: 400;
+}
+
+.emailSpacer {
+  margin-top: 8px;
+}
+
+.emailInput {
+  width: 100%;
+  height: var(--auth-input-height);
+  border-radius: var(--auth-radius-input);
+  border: none;
+  background-color: var(--auth-color-bg);
+  padding: 4px 8px;
+  font-size: var(--auth-font-size-body);
+  font-family: var(--at-font-body);
+  color: var(--auth-color-text);
+  outline: none;
+  box-shadow: var(--auth-shadow-base);
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.emailInput::placeholder {
+  color: var(--auth-color-border-muted);
+}
+
+.emailInput:focus,
+.emailInput:focus-visible {
+  box-shadow: var(--auth-shadow-focus);
+}
+
+.emailInputWrapper {
+  width: 100%;
+}
+
+.primaryButton {
+  width: 500px;
+  height: var(--auth-button-height);
+  min-width: 200px;
+  border-radius: var(--auth-radius-button);
+  background-color: var(--auth-color-primary-dark);
+  border: 1px solid rgba(1, 20, 53, 0.12);
+  box-shadow: var(--auth-shadow-base);
+  padding: 0 14px;
+  font-size: var(--auth-font-size-body);
+  font-weight: 500;
+  font-family: var(--at-font-body);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.primaryButtonWide {
+  width: 512px;
+}
+
+.primaryButtonFullWidth {
+  width: 100%;
+}
+
+.primaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primaryButtonText {
+  transform: translateY(-1px);
+}
+
+.primaryButtonSignUp {
+  background-color: var(--auth-color-primary);
+  border: none;
+}
+
+.primaryButtonTextSignUp {
+  transform: translateY(-2px);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 500px;
+  font-family: var(--at-font-body);
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+.dividerWide {
+  width: 512px;
+}
+
+.dividerText {
+  font-size: var(--auth-font-size-divider);
+  font-weight: 400;
+  line-height: var(--auth-line-height-footer);
+  color: var(--auth-color-text-subtle);
+}
+
+.dividerTextSmall {
+  font-size: var(--auth-font-size-small);
+  line-height: var(--auth-line-height-divider);
+}
+
+.providerButton {
+  width: 500px;
+  height: var(--auth-button-height);
+  border-radius: var(--auth-radius-button);
+  background-color: var(--auth-color-bg);
+  border: none;
+  box-shadow: var(--auth-shadow-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  font-family: var(--at-font-body);
+  color: var(--auth-color-text);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.providerButtonWide {
+  width: 512px;
+}
+
+.providerButtonFullWidth {
+  width: 100%;
+}
+
+.providerButton:hover:not(:disabled) {
+  box-shadow: var(--auth-shadow-hover);
+}
+
+.providerButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.providerButtonContent {
+  display: flex;
+  align-items: center;
+  gap: 9.75px;
+  font-size: var(--auth-font-size-body);
+  font-weight: 400;
+  letter-spacing: 0.002em;
+  transform: translate(0px, -1px);
+}
+
+.providerButtonContentSSO {
+  transform: translate(4px, -1px);
+}
+
+.providerButtonIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.providerButtonIconApple {
+  transform: translateY(-2px);
+}
+
+.providerButtonLabel {
+  white-space: nowrap;
+}
+
+.providerButtonLabelBold {
+  font-weight: 600;
+}
+
+.promoCard {
+  width: var(--auth-promo-width);
+  height: 580px;
+  border-radius: var(--at-radius-promo, 12px);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out;
+}
+
+.promoCard:hover {
+  transform: scale(1.03);
+}
+
+.svgIcon {
+  display: block;
+  shape-rendering: geometricPrecision;
+}
+
+@media (max-width: 639px) {
+  .emailFieldWrapper {
+    width: var(--auth-form-width-mobile);
+  }
+
+  .emailFieldWrapperWide {
+    width: 100%;
+  }
+
+  .primaryButton {
+    width: var(--auth-form-width-mobile);
+  }
+
+  .primaryButtonWide,
+  .primaryButtonFullWidth {
+    width: 100%;
+  }
+
+  .divider {
+    width: var(--auth-form-width-mobile);
+  }
+
+  .dividerWide {
+    width: 100%;
+  }
+
+  .providerButton {
+    width: var(--auth-form-width-mobile);
+  }
+
+  .providerButtonWide,
+  .providerButtonFullWidth {
+    width: 100%;
+  }
+}

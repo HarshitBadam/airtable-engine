@@ -1,0 +1,53 @@
+:root {
+  /* Breakpoints: phone < 640px, tablet < 1152px, desktop >= 1152px */
+
+  /* Layout */
+  --auth-form-width-signin: 500px;
+  --auth-form-width-signup: 512px;
+  --auth-form-width-mobile: 360px;
+  --auth-promo-width: 395px;
+  --auth-layout-padding: 20px;
+  --auth-promo-top-offset: 48px;
+
+  /* Colors */
+  --auth-color-text: #1d1f25;
+  --auth-color-text-subtle: #616670;
+  --auth-color-primary: #166ee1;
+  --auth-color-primary-dark: #1b61c9;
+  --auth-color-border-muted: #9299a4;
+  --auth-color-bg: white;
+
+  /* Shadows */
+  --auth-shadow-base: 0px 0px 1px rgba(0, 0, 0, 0.32),
+    0px 0px 2px rgba(0, 0, 0, 0.08), 0px 1px 3px rgba(0, 0, 0, 0.08);
+  --auth-shadow-hover: 0px 0px 1px rgba(0, 0, 0, 0.32),
+    0px 0px 3px rgba(0, 0, 0, 0.11), 0px 1px 4px rgba(0, 0, 0, 0.12);
+  --auth-shadow-focus: inset 0 0 0 1px #166ee1, 0 0 0 1px #166ee1;
+
+  /* Radii */
+  --auth-radius-input: 6px;
+  --auth-radius-button: 6px;
+  --auth-radius-checkbox: 3px;
+
+  /* Typography */
+  --auth-font-size-heading-lg: 31px;
+  --auth-font-size-heading: 32px;
+  --auth-font-size-heading-mobile: 24px;
+  --auth-font-size-body: 15px;
+  --auth-font-size-small: 13px;
+  --auth-font-size-divider: 16px;
+
+  --auth-line-height-heading: 40px;
+  --auth-line-height-heading-mobile: 32px;
+  --auth-line-height-label: 18.75px;
+  --auth-line-height-button: 22px;
+  --auth-line-height-small: 19px;
+  --auth-line-height-footer: 20px;
+  --auth-line-height-divider: 16.25px;
+
+  /* Component sizing */
+  --auth-input-height: 40px;
+  --auth-button-height: 40px;
+  --auth-form-width: 512px;
+  --auth-form-width-narrow: 500px;
+}

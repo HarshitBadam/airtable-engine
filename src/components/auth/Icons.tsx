@@ -1,19 +1,11 @@
-/**
- * Auth Icons - SVGs for authentication UI
- * All icons should be 16x16 as per spec
- */
+import styles from "./auth.module.css";
 
 interface IconProps {
   className?: string;
   size?: number;
 }
 
-/**
- * Airtable Logo SVG
- * Exact SVG from airtable.com: width=42, height=35.7, viewBox="0 0 200 170"
- */
 export function AirtableLogoIcon({ width = 42 }: { width?: number }) {
-  // Height calculated from aspect ratio: 170/200 * width
   const height = (170 / 200) * width;
 
   return (
@@ -23,7 +15,7 @@ export function AirtableLogoIcon({ width = 42 }: { width?: number }) {
       viewBox="0 0 200 170"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
-      style={{ display: "block", shapeRendering: "geometricPrecision" }}
+      className={styles.svgIcon}
     >
       <g>
         <path
@@ -47,10 +39,6 @@ export function AirtableLogoIcon({ width = 42 }: { width?: number }) {
   );
 }
 
-/**
- * Google "G" Logo SVG
- * Standard Google OAuth icon
- */
 export function GoogleIcon({ className, size = 16 }: IconProps) {
   return (
     <svg
@@ -82,10 +70,6 @@ export function GoogleIcon({ className, size = 16 }: IconProps) {
   );
 }
 
-/**
- * Apple Logo SVG
- * Standard Apple OAuth icon
- */
 export function AppleIcon({ className, size = 16 }: IconProps) {
   return (
     <svg
