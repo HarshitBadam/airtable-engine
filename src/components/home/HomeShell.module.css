@@ -1,0 +1,1414 @@
+/**
+ * HomeShell.module.css
+ * Airtable Home page shell styles
+ */
+
+/* ========================================
+   Root Container
+   ======================================== */
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: var(--home-bg);
+  overflow: hidden;
+}
+
+/* ========================================
+   Top Bar
+   ======================================== */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--home-topbar-height);
+  min-height: var(--home-topbar-height);
+  background: var(--home-bg);
+  border-bottom: 1px solid var(--home-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+}
+
+.topbarNav {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.topbarLeft {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding-left: 6px;
+  flex: 0 0 auto;
+  min-width: 160px;
+}
+
+.topbarCenter {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-width: 0;
+}
+
+.topbarRight {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  padding-right: 12px;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-width: 160px;
+}
+
+.topbarRight > *:last-child {
+  margin-left: 8px;
+}
+
+/* Bell button with light grey circle border */
+.bellButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  border: 1px solid var(--home-border);
+  border-radius: var(--home-radius-avatar);
+  background: transparent;
+  color: var(--home-text-primary);
+  cursor: pointer;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.04);
+  transition: background var(--home-transition-fast), border-color var(--home-transition-fast), box-shadow var(--home-transition-fast);
+  transform: translate(-3px, 0);
+}
+
+.bellButton svg {
+  width: var(--home-icon-size-sm);
+  height: var(--home-icon-size-sm);
+}
+
+.bellButton:hover {
+  background: var(--home-hover-bg);
+  border-color: var(--home-border-emphasis);
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+/* Icon Button */
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-button-size-md);
+  height: var(--home-button-size-md);
+  border: none;
+  border-radius: var(--home-radius-md);
+  background: transparent;
+  color: var(--home-icon-default);
+  cursor: pointer;
+  transition: background var(--home-transition-fast), color var(--home-transition-fast);
+}
+
+.iconButton:hover {
+  background: var(--home-hover-bg);
+  color: var(--home-icon-active);
+}
+
+/* Hamburger icon - uses muted grey like rail icons */
+.hamburgerButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-button-size-md);
+  height: var(--home-button-size-md);
+  border: none;
+  border-radius: var(--home-radius-md);
+  background: transparent;
+  color: var(--home-text-secondary);
+  cursor: pointer;
+  transform: translateY(0);
+  transition: background var(--home-transition-fast), color var(--home-transition-fast);
+}
+
+.hamburgerButton:hover {
+  background: var(--home-hover-bg);
+  color: var(--home-icon-active);
+}
+
+/* Brand / Logo */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--home-button-size-md);
+  text-decoration: none;
+  color: var(--home-text-primary);
+  padding: 4px 8px;
+  margin-left: 4px;
+  border-radius: var(--home-radius-md);
+  transition: background var(--home-transition-fast);
+}
+
+.brand:hover {
+  background: var(--home-hover-bg);
+}
+
+.brandMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transform: translate(0px, 0);
+}
+
+.brandWordmark {
+  display: inline-flex;
+  transform: translate(-2px, 1px);
+}
+
+/* Search Pill */
+.searchPill {
+  display: flex;
+  align-items: center;
+  width: 354px;
+  height: var(--home-button-size-md);
+  padding: 0 16px;
+  background: var(--home-bg);
+  border: none;
+  border-radius: var(--home-radius-pill);
+  box-shadow: var(--home-elevation-low);
+  cursor: pointer;
+  font-family: var(--home-font-family-body);
+  font-size: var(--home-font-size-sm);
+  font-weight: 400;
+  line-height: 18px;
+  transition: box-shadow var(--home-transition-fast);
+  transform: translate(-4px, 0);
+}
+
+.searchPill:hover {
+  box-shadow: var(--home-elevation-low-hover);
+}
+
+.searchPill:focus {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--home-primary),
+    var(--home-elevation-low);
+}
+
+.searchIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--home-text-primary);
+}
+
+.searchIcon svg {
+  width: var(--home-icon-size-sm);
+  height: var(--home-icon-size-sm);
+}
+
+.searchPlaceholder {
+  flex: 1 1 auto;
+  margin-left: 8px;
+  font-size: var(--home-font-size-sm);
+  color: var(--home-text-secondary);
+  text-align: left;
+  transform: translateY(-1px);
+}
+
+.searchKbd {
+  margin-left: 8px;
+  font-size: var(--home-font-size-sm);
+  color: var(--home-text-tertiary);
+  transform: translate(1px, -1px);
+}
+
+/* Help Button - no border, black text */
+.helpButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  font-family: var(--home-font-family-body);
+  font-size: var(--home-font-size-sm);
+  font-weight: 400;
+  color: var(--home-text-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--home-radius-md);
+  cursor: pointer;
+  transition: background var(--home-transition-fast);
+  transform: translate(-7px, 0);
+}
+
+.helpButton:hover {
+  background: var(--home-hover-bg);
+}
+
+/* Avatar - pink/magenta, white border, soft shadow */
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-avatar-size);
+  height: var(--home-avatar-size);
+  margin-left: 0;
+  border-radius: var(--home-radius-avatar);
+  background: var(--home-avatar-bg);
+  color: var(--home-bg);
+  font-size: var(--home-font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--home-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: opacity var(--home-transition-fast);
+  transform: translate(-4px, 0);
+}
+
+.avatar:hover {
+  opacity: 0.9;
+}
+
+/* ========================================
+   Body Container (Rail + Sidebar + Main)
+   ======================================== */
+
+.body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ========================================
+   Sidebar Container (Rail + Panel)
+   ======================================== */
+
+.sidebarContainer {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+}
+
+/* ========================================
+   Rail (Collapsed Icon Sidebar)
+   ======================================== */
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  width: var(--home-rail-width);
+  min-width: var(--home-rail-width);
+  background: var(--home-bg);
+  border-right: 1px solid var(--home-border);
+  padding: 4px 0;
+  z-index: 50;
+  overflow: hidden;
+}
+
+.railHidden {
+  display: none;
+}
+
+.railNav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: 4px;
+  padding: 8px 6px;
+}
+
+.railItem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-button-size-lg);
+  height: var(--home-button-size-lg);
+  border: none;
+  border-radius: var(--home-radius-md);
+  background: transparent;
+  color: var(--home-icon-default);
+  cursor: pointer;
+  transition: background var(--home-transition-fast), color var(--home-transition-fast);
+}
+
+.railItem:hover {
+  background: var(--home-hover-bg);
+  color: var(--home-icon-active);
+}
+
+.railItem[aria-current="page"],
+.railItemActive {
+  background: transparent;
+  color: var(--home-icon-active);
+}
+
+.railDivider {
+  width: 24px;
+  height: 1px;
+  background: var(--home-border);
+  margin: 8px 0;
+}
+
+.railSpacer {
+  flex: 1;
+}
+
+.railFooter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.railFooterItem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-button-size-lg);
+  height: var(--home-button-size-lg);
+  border: none;
+  border-radius: var(--home-radius-md);
+  background: transparent;
+  color: var(--home-text-tertiary);
+  cursor: pointer;
+  transition: background var(--home-transition-fast), color var(--home-transition-fast);
+}
+
+.railFooterItem:hover {
+  background: var(--home-hover-bg);
+  color: var(--home-icon-active);
+}
+
+.railCreate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-button-size-lg);
+  height: var(--home-button-size-lg);
+  border: 1px solid var(--home-border);
+  border-radius: var(--home-radius-md);
+  background: var(--home-bg);
+  color: var(--home-text-primary);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: background var(--home-transition-fast), box-shadow var(--home-transition-fast);
+}
+
+.railCreate:hover {
+  background: var(--home-bg-subtle);
+  box-shadow: 0 1px 3px var(--home-border);
+}
+
+.railCreatePartial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-icon-size-lg);
+  height: var(--home-icon-size-lg);
+  border: 1px solid var(--home-border);
+  border-radius: var(--home-radius-sm);
+  background: var(--home-bg);
+  color: var(--home-text-tertiary);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: background var(--home-transition-fast), box-shadow var(--home-transition-fast), color var(--home-transition-fast);
+  margin-bottom: -12px;
+  margin-top: 5px;
+}
+
+.railCreatePartial:hover {
+  background: var(--home-bg-subtle);
+  box-shadow: 0 1px 3px var(--home-border);
+}
+
+/* ========================================
+   Sidebar Panel (Expanded)
+   ======================================== */
+
+.sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  width: var(--home-sidebar-width);
+  height: 100%;
+  background: var(--home-bg);
+  border-right: 1px solid var(--home-border);
+  overflow: hidden;
+  visibility: hidden;
+  transform: translateX(-100%);
+  transition: transform 100ms ease-out, visibility 0ms linear 100ms;
+  z-index: 60;
+}
+
+.sidebarContainer:hover .sidebar,
+.sidebar:hover,
+.sidebarExpanded {
+  visibility: visible;
+  transform: translateX(0);
+  transition: transform 100ms ease-out, visibility 0ms linear 0ms;
+}
+
+.sidebarHidden {
+  display: none;
+}
+
+.sidebarNav {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 10px 8px 0 8px;
+  overflow-y: auto;
+}
+
+/* Top menu section (Home, Starred, Shared, Workspaces) – shifted 4px down, 4px right */
+.sidebarNavTop {
+  padding: 6px 0 0 6px;
+}
+
+/* Push Starred row down (dropdown stays directly below it) */
+.sidebarNavTop > .navRow:first-of-type {
+  margin-top: 12px;
+}
+
+/* When Starred dropdown is closed: extra 4px between Starred and Shared */
+.sidebarNavTop.starredCollapsed .navRow:first-of-type + .navItem {
+  margin-top: 16px;
+}
+
+/* Extra space between Shared and Workspaces */
+.sidebarNavTop > .navRow:nth-of-type(2) {
+  margin-top: 11px;
+}
+
+.navItem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: var(--home-nav-item-height);
+  padding: 0 8px 0 10px;
+  margin: 0 0 5px 0;
+  font-size: var(--home-font-size-base);
+  line-height: var(--home-icon-size-md);
+  color: var(--home-text-primary);
+  text-decoration: none;
+  border-radius: var(--home-radius-sm);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  text-align: left;
+  box-sizing: border-box;
+  transition: background var(--home-transition-fast), color var(--home-transition-fast);
+}
+
+.navItem::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: 4px;
+  top: -3px;
+  bottom: -4px;
+  border-radius: var(--home-radius-sm);
+  background: transparent;
+  z-index: -1;
+  transition: background var(--home-transition-fast);
+}
+
+.navItem:hover {
+  color: var(--home-text-primary);
+}
+
+.navItem:hover::before {
+  background: var(--home-hover-bg);
+}
+
+.navItemActive {
+  color: var(--home-text-primary);
+}
+
+.navItemActive::before {
+  background: var(--home-bg-subtle);
+}
+
+.navItemActive:hover::before {
+  background: var(--home-bg-subtle);
+}
+
+.navIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-icon-size-md);
+  height: var(--home-icon-size-md);
+  flex-shrink: 0;
+  flex-grow: 0;
+  flex-basis: auto;
+  overflow: hidden;
+  color: var(--home-text-primary);
+  margin: 0;
+  line-height: 0;
+}
+
+.navIconWide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-icon-size-md);
+  height: var(--home-icon-size-md);
+  flex-shrink: 0;
+  flex-grow: 0;
+  flex-basis: auto;
+  overflow: visible;
+  color: var(--home-text-primary);
+  margin: 0;
+  line-height: 0;
+}
+
+.navItem:hover .navIcon,
+.navItem:hover .navIconWide,
+.navItemActive .navIcon,
+.navItemActive .navIconWide {
+  color: var(--home-text-primary);
+}
+
+/* Nav labels (Home, Starred, Shared, Workspaces) – match Airtable spec: 15px, line-height 22.5px */
+.navLabel {
+  flex: 1;
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 22.5px;
+}
+
+/* Nav Row (item + disclosure) */
+.navRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  height: var(--home-nav-item-height);
+  padding: 0 8px 0 10px;
+  margin: 0 0 5px 0;
+  border-radius: var(--home-radius-sm);
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background var(--home-transition-fast);
+}
+
+.navRow::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: 4px;
+  top: -3px;
+  bottom: -4px;
+  border-radius: var(--home-radius-sm);
+  background: transparent;
+  z-index: -1;
+  transition: background var(--home-transition-fast);
+}
+
+.navRow:hover::before {
+  background: var(--home-bg-subtle);
+}
+
+.navRow .navItem {
+  flex: 1;
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+}
+
+.navRow .navItem:hover {
+  background: transparent;
+}
+
+/* In Starred/Workspaces rows: no separate highlight on the text – only row highlight + button hovers */
+.navRow .navItem::before {
+  background: transparent !important;
+}
+
+.disclosureButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-icon-size-md);
+  height: var(--home-icon-size-md);
+  border: none;
+  border-radius: var(--home-radius-sm);
+  background: transparent;
+  color: var(--home-text-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--home-transition-fast), transform var(--home-transition-fast), color var(--home-transition-fast);
+}
+
+.disclosureButton svg {
+  width: var(--home-icon-size-sm);
+  height: var(--home-icon-size-sm);
+  flex-shrink: 0;
+}
+
+.disclosureButton:hover {
+  background: var(--home-hover-bg-strong);
+  color: var(--home-text-primary);
+}
+
+.disclosureExpanded {
+  transform: rotate(0deg);
+}
+
+.disclosureCollapsed {
+  transform: rotate(-90deg);
+}
+
+/* Starred row: shift > to grey alignment (left of dark position) */
+.sidebarNavTop > .navRow:first-of-type .disclosureButton {
+  transform: translate(-6px, -1px);
+}
+.sidebarNavTop > .navRow:first-of-type .disclosureExpanded {
+  transform: translate(-6px, -1px) rotate(0deg);
+}
+.sidebarNavTop > .navRow:first-of-type .disclosureCollapsed {
+  transform: translate(-6px, -1px) rotate(-90deg);
+}
+
+/* Workspaces row: shift + and > to grey alignment */
+.sidebarNavTop > .navRow:nth-of-type(2) .addButton {
+  transform: translateX(-14px);
+}
+.sidebarNavTop > .navRow:nth-of-type(2) .disclosureButton {
+  transform: translateX(-6px);
+}
+.sidebarNavTop > .navRow:nth-of-type(2) .disclosureExpanded {
+  transform: translateX(-6px) rotate(0deg);
+}
+.sidebarNavTop > .navRow:nth-of-type(2) .disclosureCollapsed {
+  transform: translateX(-6px) rotate(-90deg);
+}
+
+.addButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-icon-size-md);
+  height: var(--home-icon-size-md);
+  border: none;
+  border-radius: var(--home-radius-sm);
+  background: transparent;
+  color: var(--home-text-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--home-transition-fast), color var(--home-transition-fast);
+}
+
+.addButton:hover {
+  background: var(--home-hover-bg-strong);
+  color: var(--home-text-primary);
+}
+
+/* Nav Section (Starred dropdown content) – moved up 9px from Starred row */
+.navSection {
+  padding: 2px 8px 0 9px;
+  margin: 0;
+}
+
+/* Starred Empty State – icon and text aligned */
+.starredEmpty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+}
+
+.starredEmptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--home-border);
+  border-radius: 2px;
+  color: var(--home-text-tertiary);
+  line-height: 0;
+  margin-left: 1px;
+  transform: translateY(-4px);
+}
+
+.starredEmptyIcon svg {
+  width: var(--home-icon-size-sm);
+  height: var(--home-icon-size-sm);
+}
+
+/* Dropdown text – match spec: 11px, line-height 13.75px */
+.starredEmptyText {
+  display: block;
+  box-sizing: border-box;
+  font-family: var(--home-font-family-body);
+  font-size: var(--home-font-size-xs);
+  font-weight: 400;
+  line-height: 13.75px;
+  letter-spacing: 0;
+  color: var(--home-text-secondary);
+  margin: 0 0 0 10px;
+  padding: 8px 0;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  transform: translate(-8px, -3px);
+}
+
+/* Sidebar Bottom - decoupled: links block and Create button positioned independently */
+.sidebarBottom {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 8px 52px 2px;
+  margin-top: auto;
+  position: relative;
+}
+
+/* Divider line – 64px above this section, 95% width centred, shifted 4px right, 26px down */
+.sidebarBottom::before {
+  content: "";
+  position: absolute;
+  top: -64px;
+  left: 2px;
+  right: 8px;
+  height: 1px;
+  background: var(--home-border);
+  transform-origin: center center;
+  transform: translate(3px, 34px) scaleX(0.92);
+}
+
+/* Wrapper for the three bottom links – moved up by 24px via transform */
+.bottomLinksWrap {
+  display: flex;
+  flex-direction: column;
+  transform: translateY(-16px);
+}
+
+/* Three menu items - only this block is affected by .sidebarBottom padding */
+.bottomLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--home-nav-item-height);
+  padding: 0 8px;
+  margin: 0;
+  font-size: var(--home-font-size-sm);
+  line-height: var(--home-icon-size-md);
+  color: var(--home-text-primary);
+  text-decoration: none;
+  border-radius: var(--home-radius-sm);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  box-sizing: border-box;
+  transition: background var(--home-transition-fast);
+}
+
+.bottomLink:hover {
+  background: var(--home-bg-subtle);
+}
+
+.bottomLinkIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--home-icon-size-md);
+  height: var(--home-icon-size-md);
+  min-width: var(--home-icon-size-md);
+  flex-shrink: 0;
+  color: var(--home-text-primary);
+  line-height: 0;
+}
+
+.bottomLinkIcon svg {
+  transform: translateY(1px);
+}
+
+/* Text only – shifted 4px left, 2px down (icons stay in place) */
+.bottomLinkText {
+  display: inline-block;
+  transform: translate(-5px, 2px);
+}
+
+/* Create button - absolutely positioned, independent of the three links above */
+.sidebarBottom .createButton {
+  position: absolute;
+  bottom: 19px;
+  left: 4px;
+  right: 5px;
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 33px;
+  padding: 0 12px;
+  margin: 0;
+  font-family: var(--home-font-family-body);
+  font-size: var(--home-font-size-sm);
+  font-weight: 500;
+  line-height: 22px;
+  color: var(--home-bg);
+  fill: var(--home-bg);
+  background-color: var(--home-primary);
+  border: none;
+  border-radius: var(--home-radius-md);
+  box-shadow: rgba(0, 0, 0, 0.32) 0 0 1px 0, rgba(0, 0, 0, 0.11) 0 0 3px 0, rgba(0, 0, 0, 0.12) 0 1px 4px 0;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  transition: background-color var(--home-transition-fast);
+}
+
+.sidebarBottom .createButton:hover {
+  background-color: var(--home-primary-dark);
+}
+
+.sidebarBottom .createButtonIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+.sidebarBottom .createButtonText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ========================================
+   Main Content
+   ======================================== */
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  background: var(--home-bg-main);
+  transition: padding-left 100ms ease-out;
+}
+
+/* When sidebar is expanded, shift main content */
+.mainShifted {
+  padding-left: calc(var(--home-sidebar-width) - var(--home-rail-width));
+}
+
+/* When sidebar is expanded, shift central content left */
+.mainShifted .emptyState {
+  transform: translate(58px, 20px);
+}
+
+.mainInner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  width: 100%;
+  padding: 27px 56px 20px 48px;
+}
+
+.mainInner > * {
+  width: 100%;
+  max-width: 960px;
+}
+
+.title {
+  font-family: var(--home-font-family-heading);
+  font-size: var(--home-font-size-title);
+  font-weight: 675;
+  color: var(--home-text-primary);
+  line-height: 33.75px;
+  letter-spacing: -0.16px;
+  margin: 4px 0 8px 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subheader (Filter + View Toggle) */
+.subheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 0;
+  margin-top: 18px;
+}
+
+.filterButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  font-family: var(--home-font-family-body);
+  font-size: var(--home-font-size-lg);
+  font-weight: 400;
+  line-height: 22.5px;
+  color: var(--home-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: opacity var(--home-transition-fast);
+  transform: translateY(-1px);
+}
+
+.filterButton:hover {
+  opacity: 0.7;
+}
+
+.filterChevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--home-text-secondary);
+}
+
+/* View Toggle */
+.viewToggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: -6px;
+  margin-top: 0;
+  align-self: flex-start;
+}
+
+.viewToggleButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--home-radius-sm);
+  background: transparent;
+  color: var(--home-text-tertiary);
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--home-transition-fast);
+}
+
+.viewToggleButton:first-child {
+  color: rgba(29, 31, 37, 0.8);
+  transform: translate(2px, -1px);
+}
+
+.viewToggleButton:last-child {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--home-hover-bg);
+  color: var(--home-text-primary);
+  transform: translate(2px, -2px);
+}
+
+.viewToggleButton:hover {
+  color: var(--home-text-secondary);
+  background: transparent;
+}
+
+.viewToggleButton[aria-checked="true"] {
+  color: var(--home-text-primary);
+  background: transparent;
+}
+
+/* ========================================
+   Content Area (holds the list/grid or empty state)
+   ======================================== */
+
+.contentArea {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  min-height: 0;
+}
+
+/* ========================================
+   Empty State
+   ======================================== */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  flex: 1;
+  min-height: 200px;
+  padding: 0 24px;
+  margin-left: 0;
+  margin-top: 0;
+  transform: translate(182px, 20px);
+}
+
+.emptyTitle {
+  font-family: var(--home-font-family-body);
+  font-size: var(--home-font-size-xl);
+  font-weight: 400;
+  line-height: 26px;
+  color: var(--home-text-primary);
+  margin: 0 0 8px 0;
+  text-align: center;
+}
+
+.emptySubtitle {
+  font-family: var(--home-font-family-body);
+  font-size: var(--home-font-size-sm);
+  color: var(--home-text-secondary);
+  margin: 0 0 18px 0;
+}
+
+.emptyCta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 11px;
+  font-family: var(--home-font-family-body);
+  font-size: var(--home-font-size-sm);
+  font-weight: 400;
+  color: var(--home-text-primary);
+  background: var(--home-bg);
+  border: 1px solid var(--home-border);
+  border-radius: var(--home-radius-md);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  margin-left: 0;
+  margin-top: 5px;
+  transition: box-shadow var(--home-transition-fast), border-color var(--home-transition-fast);
+}
+
+.emptyCta:hover {
+  box-shadow: 0 1px 3px var(--home-border);
+  border-color: var(--home-border-hover);
+}
+
+/* ========================================
+   Filter Dropdown
+   ======================================== */
+
+.filterDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 7px;
+  width: 240px;
+  padding: 12px;
+  background: var(--home-bg);
+  border-radius: var(--home-radius-md);
+  box-shadow: var(--home-elevation-high);
+  z-index: 200;
+  box-sizing: border-box;
+}
+
+.filterOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 216px;
+  height: 35.5px;
+  padding: 8px;
+  font-family: var(--home-font-family-body);
+  font-size: var(--home-font-size-sm);
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--home-text-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--home-radius-sm);
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+  margin: 0;
+  list-style: none;
+  transition: background var(--home-transition-fast);
+}
+
+.filterOption:hover {
+  background: var(--home-hover-bg);
+}
+
+.filterCheck {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--home-text-primary);
+  line-height: 0;
+}
+
+.filterWrapper {
+  position: relative;
+}
+
+/* ========================================
+   Responsive: Reduce sidebar whitespace (600px - 660px)
+   ======================================== */
+@media (max-width: 660px) {
+  .mainInner {
+    padding: 27px 32px 20px 32px;
+  }
+
+  .contentArea {
+    padding: 32px 16px;
+  }
+
+  .sidebarNavTop {
+    padding: 2px 0 0 6px;
+  }
+
+  .sidebarNavTop > .navRow:first-of-type {
+    margin-top: 6px;
+  }
+
+  .sidebarNavTop > .navRow:nth-of-type(2) {
+    margin-top: 6px;
+  }
+
+  .sidebarBottom {
+    padding-bottom: 48px;
+  }
+
+  .sidebarBottom::before {
+    top: -40px;
+  }
+
+  .bottomLinksWrap {
+    transform: translateY(-8px);
+  }
+
+  .sidebarBottom .createButton {
+    bottom: 12px;
+  }
+
+  .navSection {
+    padding: 0 8px 0 9px;
+  }
+}
+
+/* ========================================
+   Responsive: Hide menu button, auto-close sidebar (<= 600px)
+   ======================================== */
+@media (max-width: 600px) {
+  /* Hide hamburger menu button */
+  .hamburgerButton {
+    display: none !important;
+  }
+
+  /* Disable JS-toggled expanded state - sidebar only opens on hover */
+  .sidebar.sidebarExpanded {
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition: transform 100ms ease-out, visibility 0ms linear 100ms;
+  }
+
+  /* Hover on sidebarContainer (rail) or sidebar itself still opens it */
+  .sidebarContainer:hover .sidebar,
+  .sidebarContainer:hover .sidebarExpanded,
+  .sidebar:hover {
+    visibility: visible !important;
+    transform: translateX(0) !important;
+    transition: transform 100ms ease-out, visibility 0ms linear 0ms !important;
+  }
+
+  /* Reduce main content padding */
+  .mainInner {
+    padding: 20px 16px 16px 16px;
+  }
+
+  .contentArea {
+    padding: 24px 12px;
+  }
+
+  /* Further reduce whitespace */
+  .sidebarNavTop {
+    padding: 0 0 0 6px;
+  }
+
+  .sidebarNavTop > .navRow:first-of-type {
+    margin-top: 4px;
+  }
+
+  .sidebarNavTop > .navRow:nth-of-type(2) {
+    margin-top: 4px;
+  }
+
+  .sidebarBottom {
+    padding-bottom: 44px;
+  }
+
+  .sidebarBottom::before {
+    top: -32px;
+  }
+
+  .bottomLinksWrap {
+    transform: translateY(-4px);
+  }
+
+  .sidebarBottom .createButton {
+    bottom: 8px;
+  }
+}
+
+/* ========================================
+   Responsive: Short viewport height
+   ======================================== */
+@media (max-height: 700px) {
+  /* Sidebar: reduce whitespace */
+  .sidebarNavTop {
+    padding: 2px 0 0 6px;
+  }
+
+  .sidebarNavTop > .navRow:first-of-type {
+    margin-top: 6px;
+  }
+
+  .sidebarNavTop > .navRow:nth-of-type(2) {
+    margin-top: 6px;
+  }
+
+  .sidebarBottom {
+    padding-bottom: 44px;
+  }
+
+  .sidebarBottom::before {
+    top: -40px;
+  }
+
+  .bottomLinksWrap {
+    transform: translateY(-8px);
+  }
+
+  .sidebarBottom .createButton {
+    bottom: 10px;
+  }
+
+  .navSection {
+    padding: 0 8px 0 9px;
+  }
+
+  /* Main content */
+  .contentArea {
+    padding: 16px 24px;
+    justify-content: flex-start;
+  }
+
+  .emptyState {
+    min-height: 150px;
+  }
+
+  .mainInner {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+}
+
+@media (max-height: 550px) {
+  /* Sidebar: further reduce whitespace */
+  .sidebarNavTop {
+    padding: 0 0 0 6px;
+  }
+
+  .sidebarNavTop > .navRow:first-of-type {
+    margin-top: 4px;
+  }
+
+  .sidebarNavTop > .navRow:nth-of-type(2) {
+    margin-top: 4px;
+  }
+
+  .sidebarBottom {
+    padding-bottom: 40px;
+  }
+
+  .sidebarBottom::before {
+    top: -24px;
+    transform: translate(3px, 20px) scaleX(0.92);
+  }
+
+  .bottomLinksWrap {
+    transform: translateY(-4px);
+  }
+
+  .bottomLink {
+    height: 28px;
+  }
+
+  .sidebarBottom .createButton {
+    bottom: 6px;
+    height: 30px;
+  }
+
+  /* Main content */
+  .contentArea {
+    padding: 8px 16px;
+  }
+
+  .emptyState {
+    min-height: 100px;
+  }
+
+  .mainInner {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .title {
+    font-size: 22px;
+    line-height: 28px;
+    margin: 2px 0 4px 0;
+  }
+}
+
+@media (max-height: 450px) {
+  /* Sidebar: minimal spacing */
+  .sidebarNav {
+    padding-top: 4px;
+  }
+
+  .sidebarBottom::before {
+    display: none;
+  }
+
+  .bottomLinksWrap {
+    transform: translateY(0);
+  }
+
+  .bottomLink {
+    height: 26px;
+    font-size: 12px;
+  }
+
+  .sidebarBottom .createButton {
+    bottom: 4px;
+    height: 28px;
+    font-size: 12px;
+  }
+}

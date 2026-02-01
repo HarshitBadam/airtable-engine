@@ -50,4 +50,95 @@
   --auth-button-height: 40px;
   --auth-form-width: 512px;
   --auth-form-width-narrow: 500px;
+
+  /* ========================================
+     Home Shell Tokens (from Airtable's actual design system)
+     ======================================== */
+
+  /* Layout */
+  --home-topbar-height: 57px;
+  --home-rail-width: 48px;
+  --home-sidebar-width: 300px;
+  --home-content-max-width: 960px;
+  --home-content-padding: 32px;
+
+  /* Colors - matched to Airtable's palette */
+  --home-bg: rgb(255, 255, 255);
+  --home-bg-subtle: rgb(242, 244, 248);
+  --home-bg-subtler: rgb(246, 248, 252);
+  --home-bg-main: #f9fafb;
+  --home-border: rgba(0, 0, 0, 0.1);
+  --home-border-emphasis: rgba(0, 0, 0, 0.25);
+  --home-border-subtle: rgba(0, 0, 0, 0.05);
+  --home-border-hover: rgba(0, 0, 0, 0.15);
+  --home-text-primary: rgb(29, 31, 37);
+  --home-text-secondary: rgb(97, 102, 112);
+  --home-text-tertiary: rgb(151, 154, 160);
+  --home-text-quaternary: rgb(196, 199, 205);
+  --home-icon-default: rgb(29, 31, 37);
+  --home-icon-active: rgb(29, 31, 37);
+  --home-primary: rgb(22, 110, 225);
+  --home-primary-dark: rgb(13, 82, 172);
+  --home-hover-bg: rgba(0, 0, 0, 0.05);
+  --home-hover-bg-strong: rgba(0, 0, 0, 0.08);
+  --home-active-bg: rgba(0, 0, 0, 0.05);
+  --home-selected-blue: rgba(22, 110, 225, 0.05);
+  --home-selected-blue-hover: rgba(22, 110, 225, 0.1);
+  --home-avatar-bg: rgb(207, 56, 151);
+
+  /* Shadows - matched to Airtable's elevation system */
+  --home-elevation-low: 0px 0px 1px rgba(0, 0, 0, 0.32),
+    0px 0px 2px rgba(0, 0, 0, 0.08),
+    0px 1px 3px rgba(0, 0, 0, 0.08);
+  --home-elevation-low-hover: 0px 0px 1px rgba(0, 0, 0, 0.32),
+    0px 0px 3px rgba(0, 0, 0, 0.11),
+    0px 1px 4px rgba(0, 0, 0, 0.12);
+  --home-elevation-medium: 0px 0px 1px rgba(0, 0, 0, 0.24),
+    0px 0px 2px rgba(0, 0, 0, 0.08),
+    0px 2px 4px rgba(0, 0, 0, 0.08);
+  --home-elevation-medium-hover: 0px 0px 1px rgba(0, 0, 0, 0.48),
+    0px 0px 2px rgba(0, 0, 0, 0.08),
+    0px 2px 4px rgba(0, 0, 0, 0.12),
+    0px 2px 8px rgba(0, 0, 0, 0.08);
+  --home-elevation-high: 0px 0px 1px rgba(0, 0, 0, 0.24),
+    0px 0px 2px rgba(0, 0, 0, 0.16),
+    0px 3px 4px rgba(0, 0, 0, 0.06),
+    0px 6px 8px rgba(0, 0, 0, 0.06),
+    0px 12px 16px rgba(0, 0, 0, 0.08),
+    0px 18px 32px rgba(0, 0, 0, 0.06);
+  --home-shadow-button: 0 0 0 1px rgba(0, 0, 0, 0.1);
+
+  /* Radii - matched to Airtable's radius system */
+  --home-radius-sm: 3px;
+  --home-radius-md: 6px;
+  --home-radius-lg: 12px;
+  --home-radius-pill: 9999px;
+  --home-radius-avatar: 50%;
+
+  /* Typography */
+  --home-font-family-body: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --home-font-family-heading: "Inter Display", -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --home-font-size-xs: 11px;
+  --home-font-size-sm: 13px;
+  --home-font-size-base: 14px;
+  --home-font-size-lg: 15px;
+  --home-font-size-xl: 21px;
+  --home-font-size-title: 27px;
+
+  --home-line-height-tight: 1.2;
+  --home-line-height-normal: 1.5;
+
+  /* Spacing & Sizing */
+  --home-icon-size-sm: 16px;
+  --home-icon-size-md: 20px;
+  --home-icon-size-lg: 24px;
+  --home-button-size-sm: 28px;
+  --home-button-size-md: 32px;
+  --home-button-size-lg: 36px;
+  --home-nav-item-height: 32px;
+  --home-avatar-size: 28px;
+
+  /* Transitions - matched to Airtable's motion system */
+  --home-transition-fast: cubic-bezier(0.2, 0.1, 0.2, 1) 150ms;
+  --home-transition-base: cubic-bezier(0.2, 0.1, 0.2, 1) 300ms;
 }
