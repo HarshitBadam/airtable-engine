@@ -81,6 +81,7 @@
   --home-primary-dark: rgb(13, 82, 172);
   --home-hover-bg: rgba(0, 0, 0, 0.05);
   --home-hover-bg-strong: rgba(0, 0, 0, 0.08);
+  --home-hover-bg-emphasis: #979AA0;
   --home-active-bg: rgba(0, 0, 0, 0.05);
   --home-selected-blue: rgba(22, 110, 225, 0.05);
   --home-selected-blue-hover: rgba(22, 110, 225, 0.1);

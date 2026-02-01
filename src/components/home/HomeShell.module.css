@@ -84,8 +84,7 @@
   background: transparent;
   color: var(--home-text-primary);
   cursor: pointer;
-  box-shadow: 0 0 1px rgba(0, 0, 0, 0.04);
-  transition: background var(--home-transition-fast), border-color var(--home-transition-fast), box-shadow var(--home-transition-fast);
+  transition: background var(--home-transition-fast), box-shadow var(--home-transition-fast);
   transform: translate(-3px, 0);
 }
 
@@ -95,9 +94,8 @@
 }
 
 .bellButton:hover {
-  background: var(--home-hover-bg);
-  border-color: var(--home-border-emphasis);
-  box-shadow: 0 0 1px rgba(0, 0, 0, 0.06);
+  background: var(--home-hover-bg-emphasis);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 /* Icon Button */
@@ -120,7 +118,7 @@
   color: var(--home-icon-active);
 }
 
-/* Hamburger icon - uses muted grey like rail icons */
+/* Hamburger icon - no hover effect */
 .hamburgerButton {
   display: flex;
   align-items: center;
@@ -133,15 +131,9 @@
   color: var(--home-text-secondary);
   cursor: pointer;
   transform: translateY(0);
-  transition: background var(--home-transition-fast), color var(--home-transition-fast);
 }
 
-.hamburgerButton:hover {
-  background: var(--home-hover-bg);
-  color: var(--home-icon-active);
-}
-
-/* Brand / Logo */
+/* Brand / Logo - no hover effect */
 .brand {
   display: flex;
   align-items: center;
@@ -152,11 +144,6 @@
   padding: 4px 8px;
   margin-left: 4px;
   border-radius: var(--home-radius-md);
-  transition: background var(--home-transition-fast);
-}
-
-.brand:hover {
-  background: var(--home-hover-bg);
 }
 
 .brandMark {
@@ -193,7 +180,7 @@
 }
 
 .searchPill:hover {
-  box-shadow: var(--home-elevation-low-hover);
+  box-shadow: var(--home-elevation-medium-hover);
 }
 
 .searchPill:focus {
@@ -232,26 +219,26 @@
   transform: translate(1px, -1px);
 }
 
-/* Help Button - no border, black text */
+/* Help Button - pill shape with highlight on hover */
 .helpButton {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 8px;
+  padding: 6px 12px;
   font-family: var(--home-font-family-body);
   font-size: var(--home-font-size-sm);
   font-weight: 400;
   color: var(--home-text-primary);
   background: transparent;
   border: none;
-  border-radius: var(--home-radius-md);
+  border-radius: var(--home-radius-pill);
   cursor: pointer;
   transition: background var(--home-transition-fast);
   transform: translate(-7px, 0);
 }
 
 .helpButton:hover {
-  background: var(--home-hover-bg);
+  background: var(--home-hover-bg-emphasis);
 }
 
 /* Avatar - pink/magenta, white border, soft shadow */
