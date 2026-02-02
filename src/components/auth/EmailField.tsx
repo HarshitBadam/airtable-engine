@@ -21,6 +21,7 @@ export function EmailField({
 }: EmailFieldProps) {
   const wrapperClass = `${styles.emailFieldWrapper} ${wide ? styles.emailFieldWrapperWide : ""}`;
   const labelClass = `${styles.emailLabel} ${!labelBold ? styles.emailLabelNormal : ""}`;
+  const inputClass = `${styles.emailInput} ${wide ? styles.emailInputWide : ""}`;
 
   return (
     <div className={wrapperClass}>
@@ -36,7 +37,7 @@ export function EmailField({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           autoComplete="email"
-          className={styles.emailInput}
+          className={inputClass}
         />
       </div>
     </div>

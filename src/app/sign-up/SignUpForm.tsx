@@ -19,6 +19,7 @@ import styles from "./SignUpForm.module.css";
 const linkStyle = (hovered: boolean) => ({
   color: "#166ee1",
   textDecoration: hovered ? "none" : "underline",
+  textUnderlineOffset: "2px",
   fontWeight: 500,
 });
 
@@ -27,6 +28,7 @@ export function SignUpForm() {
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [tosHovered, setTosHovered] = useState(false);
   const [privacyHovered, setPrivacyHovered] = useState(false);
+  const [cookiesHovered, setCookiesHovered] = useState(false);
   const [signInHovered, setSignInHovered] = useState(false);
   const emailValid = useMemo(() => isValidEmail(email), [email]);
 
@@ -66,31 +68,46 @@ export function SignUpForm() {
         <AuthProviderButton provider="apple" variant="sign-up" fullWidth />
       </div>
 
-      <p className={styles.termsText}>
-        By creating an account, you agree to the{" "}
-        <Link 
-          href="https://www.airtable.com/company/tos" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          style={linkStyle(tosHovered)}
-          onMouseEnter={() => setTosHovered(true)}
-          onMouseLeave={() => setTosHovered(false)}
-        >
-          Terms of Service
-        </Link>{" "}
-        and{" "}
-        <Link 
-          href="https://www.airtable.com/company/privacy" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          style={linkStyle(privacyHovered)}
-          onMouseEnter={() => setPrivacyHovered(true)}
-          onMouseLeave={() => setPrivacyHovered(false)}
-        >
-          Privacy Policy
-        </Link>
-        .
-      </p>
+      <div className={styles.termsText}>
+        <p style={{ margin: 0 }}>
+          By creating an account, you agree to the{" "}
+          <Link 
+            href="https://www.airtable.com/company/tos" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={linkStyle(tosHovered)}
+            onMouseEnter={() => setTosHovered(true)}
+            onMouseLeave={() => setTosHovered(false)}
+          >
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link 
+            href="https://www.airtable.com/company/privacy" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={linkStyle(privacyHovered)}
+            onMouseEnter={() => setPrivacyHovered(true)}
+            onMouseLeave={() => setPrivacyHovered(false)}
+          >
+            Privacy Policy
+          </Link>
+          .
+        </p>
+        <p className={styles.cookiesText}>
+          Manage your cookie preferences{" "}
+          <a
+            href="#"
+            style={{...linkStyle(cookiesHovered), marginLeft: "2px"}}
+            onMouseEnter={() => setCookiesHovered(true)}
+            onMouseLeave={() => setCookiesHovered(false)}
+            onClick={(e) => e.preventDefault()}
+          >
+            here
+          </a>
+          .
+        </p>
+      </div>
 
       <label className={styles.checkboxLabel}>
         <input
@@ -115,7 +132,7 @@ export function SignUpForm() {
         Already have an account?{"\u00A0\u00A0"}
         <Link 
           href="/sign-in" 
-          style={linkStyle(signInHovered)}
+          style={{...linkStyle(signInHovered), marginLeft: "1px", textUnderlineOffset: "1px"}}
           onMouseEnter={() => setSignInHovered(true)}
           onMouseLeave={() => setSignInHovered(false)}
         >

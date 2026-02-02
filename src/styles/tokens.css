@@ -14,7 +14,7 @@
   --auth-color-text-subtle: #616670;
   --auth-color-primary: #166ee1;
   --auth-color-primary-dark: #1b61c9;
-  --auth-color-border-muted: #9299a4;
+  --auth-color-border-muted: #979AA0;
   --auth-color-bg: white;
 
   /* Shadows */
@@ -65,7 +65,7 @@
   /* Colors - matched to Airtable's palette */
   --home-bg: rgb(255, 255, 255);
   --home-bg-subtle: rgb(242, 244, 248);
-  --home-bg-subtler: rgb(246, 248, 252);
+  --home-bg-subtler: #F4F4F4;
   --home-bg-main: #f9fafb;
   --home-border: rgba(0, 0, 0, 0.1);
   --home-border-emphasis: rgba(0, 0, 0, 0.25);
@@ -74,7 +74,7 @@
   --home-text-primary: rgb(29, 31, 37);
   --home-text-secondary: rgb(97, 102, 112);
   --home-text-tertiary: rgb(151, 154, 160);
-  --home-text-quaternary: rgb(196, 199, 205);
+  --home-text-quaternary: #CCCCCC;
   --home-icon-default: rgb(29, 31, 37);
   --home-icon-active: rgb(29, 31, 37);
   --home-primary: rgb(22, 110, 225);
@@ -85,7 +85,7 @@
   --home-active-bg: rgba(0, 0, 0, 0.05);
   --home-selected-blue: rgba(22, 110, 225, 0.05);
   --home-selected-blue-hover: rgba(22, 110, 225, 0.1);
-  --home-avatar-bg: rgb(207, 56, 151);
+  --home-avatar-bg: #DD04A8;
 
   /* Shadows - matched to Airtable's elevation system */
   --home-elevation-low: 0px 0px 1px rgba(0, 0, 0, 0.32),

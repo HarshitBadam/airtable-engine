@@ -1,7 +1,11 @@
 .page {
-  min-height: 100vh;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 12.8px;
+  font-weight: 400;
+  line-height: 16px;
   background-color: var(--auth-color-bg);
-  font-family: var(--at-font-body);
 }
 
 .layout {
@@ -12,23 +16,27 @@
 
 .formColumn {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  min-height: 100vh;
-  padding: var(--auth-layout-padding);
   box-sizing: border-box;
+  min-height: 100vh;
+  overflow-y: auto;
 }
 
 .formContent {
   display: flex;
   flex-direction: column;
+  max-width: 500px;
+  width: 500px;
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .promoColumn {
   display: none;
   align-items: center;
   justify-content: center;
-  padding-top: var(--auth-promo-top-offset);
+  margin-top: 48px;
 }
 
 .logoWrapper {}
@@ -68,24 +76,59 @@
   font-weight: 500;
 }
 
+.signUpPage {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 12.8px;
+  font-weight: 400;
+  line-height: 16px;
+  background-color: rgb(255, 255, 255);
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+.signUpLayout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1470px;
+  box-sizing: border-box;
+  margin-top: auto;
+  margin-bottom: auto;
+  padding: 20px;
+}
+
 .signUpFormContent {
-  width: var(--auth-form-width-signup);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 512px;
+  box-sizing: border-box;
+  transform: translateY(0px);
 }
 
 .signUpLogo {
+  display: block;
+  width: 100%;
+  max-width: 512px;
   margin-bottom: 48px;
 }
 
 .signUpTitle {
-  font-family: var(--at-font-heading);
-  font-size: var(--auth-font-size-heading-lg);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 31px;
   font-weight: 500;
-  line-height: var(--auth-line-height-heading);
-  color: var(--auth-color-text);
-  width: var(--auth-form-width-signup);
+  line-height: 40px;
+  color: rgb(29, 31, 37);
   height: 88px;
   margin: 0;
-  padding-top: 3px;
+  padding-bottom: 48px;
   box-sizing: border-box;
 }
 
@@ -96,36 +139,58 @@
   margin-bottom: 16px;
 }
 
-@media (max-width: 639px) {
+@media (max-width: 831px) {
   .formColumn {
-    padding: var(--auth-layout-padding);
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  .formContent {
+    width: 360px;
+    max-width: 360px;
   }
 
   .title {
-    font-size: var(--auth-font-size-heading-mobile);
-    line-height: var(--auth-line-height-heading-mobile);
-    height: 32px;
-    width: var(--auth-form-width-mobile);
-    margin-top: 47px;
-    margin-bottom: 47px;
+    font-size: 24px;
+    line-height: 30px;
+    height: 30px;
+    width: 360px;
+    margin-top: 48px;
+    margin-bottom: 48px;
   }
 
   .providerButtonsWrapper {
-    width: var(--auth-form-width-mobile);
+    width: 360px;
   }
 
   .footerText {
-    width: var(--auth-form-width-mobile);
+    width: 360px;
     margin-top: 90px;
+  }
+
+  .signUpPage {
+    min-height: 100vh;
+  }
+
+  .signUpLayout {
+    width: 100%;
+    min-height: 100vh;
+    align-items: center;
+    padding: 20px;
   }
 
   .signUpFormContent {
     width: calc(100vw - 40px);
-    max-width: var(--auth-form-width-signup);
+    max-width: 512px;
+  }
+
+  .signUpLogo {
+    width: 100%;
+    max-width: 512px;
   }
 
   .signUpTitle {
-    font-size: var(--auth-font-size-heading-mobile);
+    font-size: 24px;
     line-height: 31.2px;
     height: 63px;
     width: auto;
@@ -133,17 +198,27 @@
   }
 }
 
-@media (min-width: 640px) and (max-width: 1151px) {
+@media (min-width: 832px) and (max-width: 1151px) {
+  .formColumn {
+    width: 100%;
+    height: 737px;
+    min-height: unset;
+  }
+
   .title {
-    font-size: var(--auth-font-size-heading-mobile);
-    line-height: var(--auth-line-height-heading-mobile);
-    height: 32px;
-    margin-top: 47px;
-    margin-bottom: 47px;
+    font-size: 24px;
+    line-height: 30px;
+    height: 30px;
+    margin-top: 48px;
+    margin-bottom: 48px;
+  }
+
+  .signUpLayout {
+    width: 100%;
   }
 
   .signUpTitle {
-    font-size: var(--auth-font-size-heading-mobile);
+    font-size: 24px;
     height: 68px;
   }
 
@@ -153,12 +228,22 @@
 }
 
 @media (min-width: 1152px) {
-  .layoutWithPromo {
+  .layout {
+    display: grid;
     grid-template-columns: 1fr 1fr;
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  .formColumn {
+    width: 100%;
+    min-height: 100vh;
   }
 
   .promoColumn {
     display: flex;
+    width: 100%;
+    height: calc(100vh - 48px);
   }
 
   .logoWrapper {

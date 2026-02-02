@@ -1,32 +1,85 @@
-.logo {}
+.logo {
+  display: flex;
+  justify-content: start;
+  width: 500px;
+  margin-top: 20px;
+  box-sizing: border-box;
+}
 
 .title {
-  font-family: var(--at-font-heading);
-  font-size: var(--auth-font-size-heading);
+  display: block;
+  font-family: HaasText, -apple-system, "system-ui", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-size: 32px;
+  font-style: normal;
   font-weight: 500;
-  line-height: var(--auth-line-height-heading);
-  color: var(--auth-color-text);
-  width: var(--auth-form-width-signin);
+  line-height: 40px;
+  color: rgb(29, 31, 37);
+  width: 500px;
   height: 40px;
   margin-top: 48px;
   margin-bottom: 48px;
+  margin-left: 0px;
+  margin-right: 0px;
+  text-align: start;
+  box-sizing: border-box;
 }
 
 .providerButtonsWrapper {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  width: var(--auth-form-width-signin);
+  width: 500px;
+  box-sizing: border-box;
+}
+
+.providerButtonSpacingWrapper {
+  display: block;
+  padding-top: 16px;
+  width: 500px;
+  height: 56px;
+  box-sizing: border-box;
+}
+
+.providerButtonSpacingWrapperLast {
+  display: block;
+  padding-top: 16px;
+  padding-bottom: 8px;
+  width: 500px;
+  height: 64px;
+  box-sizing: border-box;
 }
 
 .footer {
-  font-family: var(--at-font-body);
-  font-size: var(--auth-font-size-small);
-  line-height: var(--auth-line-height-footer);
-  color: var(--auth-color-text-subtle);
-  width: var(--auth-form-width-signin);
+  display: block;
+  font-family: HaasText, -apple-system, "system-ui", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 20px;
+  color: rgb(97, 102, 112);
+  width: 500px;
   margin: 0;
-  margin-top: 80px;
+  margin-top: 72px;
+  text-align: start;
+  box-sizing: border-box;
+}
+
+.cookieFooter {
+  display: block;
+  font-family: HaasText, -apple-system, "system-ui", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 20px;
+  color: rgb(97, 102, 112);
+  width: 500px;
+  height: 24px;
+  margin: 0;
+  margin-top: 16px;
+  text-align: start;
+  box-sizing: border-box;
+  transform: translateY(2px);
 }
 
 .footerLink {
@@ -37,25 +90,42 @@
 
 @media (max-width: 1151px) {
   .title {
-    font-size: var(--auth-font-size-heading-mobile);
-    line-height: var(--auth-line-height-heading-mobile);
-    height: 32px;
-    margin-top: 47px;
-    margin-bottom: 47px;
+    font-size: 24px;
+    line-height: 30px;
+    height: 30px;
+    margin-top: 48px;
+    margin-bottom: 48px;
   }
 }
 
-@media (max-width: 639px) {
+@media (max-width: 831px) {
+  .logo {
+    width: 360px;
+    margin-top: 0px;
+  }
+
   .title {
-    width: var(--auth-form-width-mobile);
+    width: 360px;
   }
 
   .providerButtonsWrapper {
-    width: var(--auth-form-width-mobile);
+    width: 360px;
+  }
+
+  .providerButtonSpacingWrapper {
+    width: 360px;
+  }
+
+  .providerButtonSpacingWrapperLast {
+    width: 360px;
   }
 
   .footer {
-    width: var(--auth-form-width-mobile);
-    margin-top: 90px;
+    width: 360px;
+    margin-top: 72px;
+  }
+
+  .cookieFooter {
+    width: 360px;
   }
 }

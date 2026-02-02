@@ -1,6 +1,11 @@
 /**
  * HomeShell.module.css
  * Airtable Home page shell styles
+ *
+ * LAYOUT REFERENCE:
+ * - Base styles (no .mainShifted) = SIDEBAR CLOSED (rail only). This is the primary
+ *   config: .title, .subheader, .viewToggle, .emptyState positions are tuned for closed.
+ * - .mainShifted = SIDEBAR OPEN (expanded panel). Overrides above for open state only.
  */
 
 /* ========================================
@@ -23,79 +28,121 @@
 .topbar {
   display: flex;
   align-items: center;
+  justify-content: center;
   width: 100%;
-  height: var(--home-topbar-height);
-  min-height: var(--home-topbar-height);
-  background: var(--home-bg);
-  border-bottom: 1px solid var(--home-border);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  z-index: 100;
+  height: 56px;
+  box-sizing: border-box;
+  background-color: rgb(255, 255, 255);
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: center;
+  z-index: 70;
+  flex-shrink: 0;
+  overflow: visible;
 }
 
 .topbarNav {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 46.1953px;
+  line-height: 18px;
+  padding-left: 8px;
+  padding-right: 16px;
+  text-align: center;
   width: 100%;
-  height: 100%;
+  max-width: 1470px;
+  overflow: visible;
 }
 
 .topbarLeft {
   display: flex;
   align-items: center;
-  height: 100%;
-  padding-left: 6px;
-  flex: 0 0 auto;
-  min-width: 160px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 46.1953px;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  min-width: 0;
+  text-align: center;
+  flex: 1;
 }
 
 .topbarCenter {
-  flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  min-width: 0;
+  flex: 1 1 0;
+  min-width: 120px;
+  max-width: 354px;
 }
 
 .topbarRight {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  height: 100%;
-  padding-right: 12px;
-  gap: 12px;
-  flex: 0 0 auto;
-  min-width: 160px;
+  gap: 8px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 28px;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  min-width: 0;
+  text-align: center;
+  flex: 1;
 }
 
-.topbarRight > *:last-child {
-  margin-left: 8px;
-}
-
-/* Bell button with light grey circle border */
+/* Bell button – shadow like search bar, no border */
 .bellButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 29px;
-  height: 29px;
-  border: 1px solid var(--home-border);
-  border-radius: var(--home-radius-avatar);
-  background: transparent;
-  color: var(--home-text-primary);
+  background-color: rgb(255, 255, 255);
+  border: none;
+  border-radius: 9999px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
   cursor: pointer;
-  transition: background var(--home-transition-fast), box-shadow var(--home-transition-fast);
-  transform: translate(-3px, 0);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 28px;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  width: 28px;
+  flex-shrink: 0;
+  transform: translate(-14px, 1px);
 }
 
 .bellButton svg {
-  width: var(--home-icon-size-sm);
-  height: var(--home-icon-size-sm);
+  width: 17px;
+  height: 17px;
 }
 
 .bellButton:hover {
-  background: var(--home-hover-bg-emphasis);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  background: rgb(229, 233, 240);
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 1px 4px 0px, rgba(0, 0, 0, 0.08) 0px 2px 6px 0px;
 }
 
 /* Icon Button */
@@ -119,31 +166,159 @@
 }
 
 /* Hamburger icon - no hover effect */
+.hamburgerWrapper {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 20px;
+  line-height: 18px;
+  opacity: 0.5;
+  overflow: visible;
+  text-align: center;
+  width: 20px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
 .hamburgerButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--home-button-size-md);
-  height: var(--home-button-size-md);
+  width: 20px;
+  height: 20px;
   border: none;
-  border-radius: var(--home-radius-md);
   background: transparent;
-  color: var(--home-text-secondary);
+  color: inherit;
   cursor: pointer;
-  transform: translateY(0);
+  padding: 0;
+}
+
+.hamburgerWrapper:hover {
+  opacity: 1;
+}
+
+/* Hover tooltip: Collapse/Expand sidebar – 0.5s delay before show */
+.hamburgerTooltip {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  transform: translate(-4px, 8px);
+  padding: 5px 8px 4px 8px;
+  font-family: var(--home-font-family-body);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #ffffff;
+  background: #31353e;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  z-index: 200;
+}
+
+.hamburgerWrapper:hover .hamburgerTooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+
+/* All hover tooltips: 0.5s delay before show (menu, Notifications, Account, View list/grid) */
+.tooltipWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hoverTooltip {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 10px);
+  padding: 5px 8px 4px 8px;
+  font-family: var(--home-font-family-body);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #ffffff;
+  background: #31353e;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  z-index: 200;
+}
+
+/* Notifications tooltip position */
+.bellButton + .hoverTooltip {
+  transform: translate(calc(-50% - 14px), 8px);
+  padding: 5px 9px 5px 8px;
+}
+
+/* Account tooltip position */
+.avatar + .hoverTooltip {
+  transform: translate(calc(-50% - 8px), 9px);
+  padding-bottom: 5px;
+}
+
+.tooltipWrapper:hover .hoverTooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+
+/* View toggle: keep tooltip centered under each button (wrapper must not stretch) */
+.viewToggle .tooltipWrapper {
+  flex-shrink: 0;
+  width: auto;
+}
+
+/* List view tooltip position */
+.viewToggle > .tooltipWrapper:first-child .hoverTooltip {
+  transform: translate(calc(-50% - 40px), 7px);
+}
+
+/* Grid view tooltip position */
+.viewToggle > .tooltipWrapper:last-child .hoverTooltip {
+  transform: translate(calc(-50% - 43px), 7px);
 }
 
 /* Brand / Logo - no hover effect */
 .brand {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: var(--home-button-size-md);
+  gap: 2px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 46.1953px;
+  line-height: 18px;
+  margin-right: 4px;
+  margin-left: 6px;
+  margin-top: 1px;
+  outline: none;
+  padding: 12px;
+  text-align: center;
   text-decoration: none;
-  color: var(--home-text-primary);
-  padding: 4px 8px;
-  margin-left: 4px;
-  border-radius: var(--home-radius-md);
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .brandMark {
@@ -151,43 +326,64 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transform: translate(0px, 0);
+}
+
+.brandMark svg {
+  width: 30px;
+  height: 30px;
 }
 
 .brandWordmark {
-  display: inline-flex;
-  transform: translate(-2px, 1px);
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 15px;
+  line-height: 18px;
+  overflow: hidden;
+  text-align: center;
 }
 
-/* Search Pill */
+.brandWordmark svg {
+  height: 15px;
+  width: auto;
+}
+
+/* Search Pill / Menu Bar */
 .searchPill {
   display: flex;
   align-items: center;
-  width: 354px;
-  height: var(--home-button-size-md);
-  padding: 0 16px;
-  background: var(--home-bg);
+  background-color: rgb(255, 255, 255);
   border: none;
-  border-radius: var(--home-radius-pill);
-  box-shadow: var(--home-elevation-low);
+  border-radius: 9999px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
   cursor: pointer;
-  font-family: var(--home-font-family-body);
-  font-size: var(--home-font-size-sm);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
   font-weight: 400;
+  height: 32px;
   line-height: 18px;
-  transition: box-shadow var(--home-transition-fast);
-  transform: translate(-4px, 0);
+  margin: 0;
+  padding: 0 16px;
+  padding-left: 18px;
+  text-align: center;
+  width: 100%;
+  min-width: 120px;
+  max-width: 354px;
+  overflow: hidden;
 }
 
 .searchPill:hover {
-  box-shadow: var(--home-elevation-medium-hover);
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.12) 0px 2px 8px 0px, rgba(0, 0, 0, 0.1) 0px 4px 14px 0px;
 }
 
 .searchPill:focus {
   outline: none;
-  box-shadow:
-    0 0 0 2px var(--home-primary),
-    var(--home-elevation-low);
 }
 
 .searchIcon {
@@ -195,50 +391,91 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--home-text-primary);
+  color: rgb(29, 31, 37);
+  width: 16px;
+  height: 16px;
+  transform: translateX(-2px);
 }
 
 .searchIcon svg {
-  width: var(--home-icon-size-sm);
-  height: var(--home-icon-size-sm);
+  width: 16px;
+  height: 16px;
 }
 
 .searchPlaceholder {
-  flex: 1 1 auto;
-  margin-left: 8px;
-  font-size: var(--home-font-size-sm);
-  color: var(--home-text-secondary);
+  display: block;
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 19.5px;
+  line-height: 19.5px;
   text-align: left;
-  transform: translateY(-1px);
+  flex: 1;
+  min-width: 0;
+  margin-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translate(-2px, -1px);
 }
 
 .searchKbd {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+  color: rgb(151, 154, 160);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 19.5px;
+  line-height: 19.5px;
+  margin: 0;
   margin-left: 8px;
-  font-size: var(--home-font-size-sm);
-  color: var(--home-text-tertiary);
-  transform: translate(1px, -1px);
+  padding: 0;
+  text-align: center;
+  flex-shrink: 0;
+  width: 23.9375px;
+}
+
+.searchKbd span:first-of-type {
+  transform: translate(0, -1px);
+}
+
+.searchKbd span:last-of-type {
+  transform: translate(2px, -1px);
 }
 
 /* Help Button - pill shape with highlight on hover */
 .helpButton {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 6px 12px;
-  font-family: var(--home-font-family-body);
-  font-size: var(--home-font-size-sm);
-  font-weight: 400;
-  color: var(--home-text-primary);
   background: transparent;
   border: none;
-  border-radius: var(--home-radius-pill);
+  border-radius: 9999px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
   cursor: pointer;
-  transition: background var(--home-transition-fast);
-  transform: translate(-7px, 0);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 28px;
+  line-height: 18px;
+  margin: 0;
+  padding: 0 12px;
+  text-align: center;
+  flex-shrink: 0;
+  transform: translateX(-18px);
 }
 
 .helpButton:hover {
-  background: var(--home-hover-bg-emphasis);
+  background: rgb(229, 233, 240);
 }
 
 /* Avatar - pink/magenta, white border, soft shadow */
@@ -246,19 +483,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--home-avatar-size);
-  height: var(--home-avatar-size);
-  margin-left: 0;
-  border-radius: var(--home-radius-avatar);
-  background: var(--home-avatar-bg);
-  color: var(--home-bg);
-  font-size: var(--home-font-size-xs);
-  font-weight: 600;
+  box-sizing: border-box;
+  color: rgb(255, 255, 255);
+  fill: rgb(255, 255, 255);
   cursor: pointer;
-  border: 1px solid var(--home-bg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  transition: opacity var(--home-transition-fast);
-  transform: translate(-4px, 0);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 600;
+  height: 26px;
+  line-height: 26px;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  width: 26px;
+  border-radius: 9999px;
+  background: var(--home-avatar-bg);
+  border: none;
+  flex-shrink: 0;
 }
 
 .avatar:hover {
@@ -272,6 +513,7 @@
 .body {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -283,6 +525,9 @@
   position: relative;
   display: flex;
   flex-shrink: 0;
+  width: 46px; /* Width of collapsed rail */
+  height: 100%;
+  min-height: 0;
 }
 
 /* ========================================
@@ -292,13 +537,23 @@
 .rail {
   display: flex;
   flex-direction: column;
-  width: var(--home-rail-width);
-  min-width: var(--home-rail-width);
-  background: var(--home-bg);
-  border-right: 1px solid var(--home-border);
-  padding: 4px 0;
-  z-index: 50;
-  overflow: hidden;
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 100%;
+  min-height: 0;
+  left: 0px;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  padding-top: 20px;
+  position: absolute;
+  text-align: center;
+  top: 0px;
+  width: 46px;
 }
 
 .railHidden {
@@ -310,40 +565,79 @@
   flex-direction: column;
   align-items: center;
   flex: 1;
-  gap: 4px;
-  padding: 8px 6px;
+  width: 100%;
+  gap: 8px;
+}
+
+/* Extra spacing between top 4 symbols only; Home stays aligned */
+.railNav .railItem:nth-child(2),
+.railNav .railItem:nth-child(3),
+.railNav .railItem:nth-child(4) {
+  margin-top: 12px;
+}
+
+.railNav .railItem:nth-child(4) {
+}
+
+.railNav .railItem:nth-child(4) svg {
+  width: 20px;
+  height: 20px;
 }
 
 .railItem {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--home-button-size-lg);
-  height: var(--home-button-size-lg);
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 20px;
+  line-height: 18px;
+  overflow: hidden;
+  text-align: center;
+  width: 20px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
   border: none;
-  border-radius: var(--home-radius-md);
   background: transparent;
-  color: var(--home-icon-default);
   cursor: pointer;
-  transition: background var(--home-transition-fast), color var(--home-transition-fast);
 }
 
 .railItem:hover {
-  background: var(--home-hover-bg);
-  color: var(--home-icon-active);
+  opacity: 0.7;
 }
 
 .railItem[aria-current="page"],
 .railItemActive {
-  background: transparent;
-  color: var(--home-icon-active);
+  color: rgb(29, 31, 37);
 }
 
 .railDivider {
-  width: 24px;
+  display: block;
+  background-color: rgba(0, 0, 0, 0.1);
+  color: rgb(29, 31, 37);
+  content: "";
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
   height: 1px;
-  background: var(--home-border);
-  margin: 8px 0;
+  line-height: 18px;
+  margin-left: 12px;
+  margin-right: 12px;
+  position: relative;
+  text-align: center;
+  width: 22px;
+}
+
+/* Push the divider below the top 4 icons down */
+.railNav .railItem:nth-child(4) + .railDivider {
+  margin-top: 12px;
+}
+
+/* Move only the line above Templates (icons stay in place) */
+.railFooter > .railDivider:first-child {
+  transform: translateY(1px);
 }
 
 .railSpacer {
@@ -354,26 +648,49 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 124px;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  width: 22px;
+}
+
+/* Space below rail line: first item after divider */
+.railFooter > .railDivider + .railFooterItem {
+  margin-top: 40px;
 }
 
 .railFooterItem {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--home-button-size-lg);
-  height: var(--home-button-size-lg);
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  margin-bottom: 18px;
+  opacity: 0.5;
+  overflow: hidden;
+  text-align: center;
+  width: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
   border: none;
-  border-radius: var(--home-radius-md);
   background: transparent;
-  color: var(--home-text-tertiary);
   cursor: pointer;
-  transition: background var(--home-transition-fast), color var(--home-transition-fast);
+  transform: translateY(-1px);
 }
 
 .railFooterItem:hover {
-  background: var(--home-hover-bg);
-  color: var(--home-icon-active);
+  opacity: 1;
 }
 
 .railCreate {
@@ -400,22 +717,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--home-icon-size-lg);
-  height: var(--home-icon-size-lg);
-  border: 1px solid var(--home-border);
-  border-radius: var(--home-radius-sm);
-  background: var(--home-bg);
-  color: var(--home-text-tertiary);
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 22px;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  width: 22px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: background var(--home-transition-fast), box-shadow var(--home-transition-fast), color var(--home-transition-fast);
-  margin-bottom: -12px;
-  margin-top: 5px;
+  transform: translateY(-1px);
 }
 
 .railCreatePartial:hover {
-  background: var(--home-bg-subtle);
-  box-shadow: 0 1px 3px var(--home-border);
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 1px 4px 0px, rgba(0, 0, 0, 0.08) 0px 2px 6px 0px;
+}
+
+.railCreatePartial svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* ========================================
@@ -423,19 +750,28 @@
    ======================================== */
 
 .sidebar {
+  display: block;
   position: absolute;
-  top: 0;
-  left: 0;
-  display: flex;
-  flex-direction: column;
-  width: var(--home-sidebar-width);
+  top: 0px;
+  left: 0px;
+  background-color: rgb(255, 255, 255);
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
   height: 100%;
-  background: var(--home-bg);
-  border-right: 1px solid var(--home-border);
-  overflow: hidden;
+  min-height: 0;
+  line-height: 18px;
+  margin: 0;
+  overflow-y: auto;
+  padding: 12px;
+  text-align: center;
+  width: 300px;
   visibility: hidden;
   transform: translateX(-100%);
-  transition: transform 100ms ease-out, visibility 0ms linear 100ms;
+  transition: all 0.085s ease-in-out;
   z-index: 60;
 }
 
@@ -454,169 +790,173 @@
 .sidebarNav {
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 100%;
+  line-height: 18px;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  text-align: center;
+  width: 275px;
   flex: 1;
-  padding: 10px 8px 0 8px;
-  overflow-y: auto;
 }
 
-/* Top menu section (Home, Starred, Shared, Workspaces) – shifted 4px down, 4px right */
+/* Top menu section (Home, Starred, Shared, Workspaces) */
 .sidebarNavTop {
-  padding: 6px 0 0 6px;
-}
-
-/* Push Starred row down (dropdown stays directly below it) */
-.sidebarNavTop > .navRow:first-of-type {
-  margin-top: 12px;
-}
-
-/* When Starred dropdown is closed: extra 4px between Starred and Shared */
-.sidebarNavTop.starredCollapsed .navRow:first-of-type + .navItem {
-  margin-top: 16px;
-}
-
-/* Extra space between Shared and Workspaces */
-.sidebarNavTop > .navRow:nth-of-type(2) {
-  margin-top: 11px;
+  display: flex;
+  flex-direction: column;
 }
 
 .navItem {
-  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  height: var(--home-nav-item-height);
-  padding: 0 8px 0 10px;
-  margin: 0 0 5px 0;
-  font-size: var(--home-font-size-base);
-  line-height: var(--home-icon-size-md);
-  color: var(--home-text-primary);
-  text-decoration: none;
-  border-radius: var(--home-radius-sm);
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  text-align: left;
   box-sizing: border-box;
-  transition: background var(--home-transition-fast), color var(--home-transition-fast);
-}
-
-.navItem::before {
-  content: "";
-  position: absolute;
-  left: -2px;
-  right: 4px;
-  top: -3px;
-  bottom: -4px;
-  border-radius: var(--home-radius-sm);
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 38.5px;
+  line-height: 18px;
+  margin-bottom: 4px;
+  outline: none;
+  padding-left: 12px;
+  padding-right: 12px;
+  text-align: center;
+  text-decoration: none;
+  width: 275px;
+  border: none;
+  border-radius: 3px;
   background: transparent;
-  z-index: -1;
-  transition: background var(--home-transition-fast);
 }
 
 .navItem:hover {
-  color: var(--home-text-primary);
-}
-
-.navItem:hover::before {
-  background: var(--home-hover-bg);
+  background-color: rgb(242, 244, 248);
 }
 
 .navItemActive {
-  color: var(--home-text-primary);
+  background-color: rgb(242, 244, 248);
 }
 
-.navItemActive::before {
-  background: var(--home-bg-subtle);
-}
-
-.navItemActive:hover::before {
-  background: var(--home-bg-subtle);
+.navItemActive:hover {
+  background-color: rgb(242, 244, 248);
 }
 
 .navIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--home-icon-size-md);
-  height: var(--home-icon-size-md);
-  flex-shrink: 0;
-  flex-grow: 0;
-  flex-basis: auto;
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 20px;
+  line-height: 18px;
   overflow: hidden;
-  color: var(--home-text-primary);
-  margin: 0;
-  line-height: 0;
+  text-align: center;
+  width: 20px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
 }
 
 .navIconWide {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--home-icon-size-md);
-  height: var(--home-icon-size-md);
-  flex-shrink: 0;
-  flex-grow: 0;
-  flex-basis: auto;
-  overflow: visible;
-  color: var(--home-text-primary);
-  margin: 0;
-  line-height: 0;
-}
-
-.navItem:hover .navIcon,
-.navItem:hover .navIconWide,
-.navItemActive .navIcon,
-.navItemActive .navIconWide {
-  color: var(--home-text-primary);
-}
-
-/* Nav labels (Home, Starred, Shared, Workspaces) – match Airtable spec: 15px, line-height 22.5px */
-.navLabel {
-  flex: 1;
-  font-weight: 500;
-  font-size: 15px;
-  line-height: 22.5px;
-}
-
-/* Nav Row (item + disclosure) */
-.navRow {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0;
-  width: 100%;
-  height: var(--home-nav-item-height);
-  padding: 0 8px 0 10px;
-  margin: 0 0 5px 0;
-  border-radius: var(--home-radius-sm);
-  cursor: pointer;
+  display: block;
   box-sizing: border-box;
-  transition: background var(--home-transition-fast);
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 400;
+  height: 20px;
+  line-height: 18px;
+  overflow: visible;
+  text-align: center;
+  width: 20px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
 }
 
-.navRow::before {
-  content: "";
-  position: absolute;
-  left: -2px;
-  right: 4px;
-  top: -3px;
-  bottom: -4px;
-  border-radius: var(--home-radius-sm);
-  background: transparent;
-  z-index: -1;
-  transition: background var(--home-transition-fast);
+/* Workspaces icon: force 20x20 so it matches other nav icons (component draws 20x15 by default) */
+.navIconWorkspaces {
+  width: 20px;
+  height: 20px;
 }
 
-.navRow:hover::before {
-  background: var(--home-bg-subtle);
+.navIconWorkspaces svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Nav labels (Home, Starred, Shared, Workspaces) */
+.navLabel {
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 15px;
+  font-weight: 500;
+  height: 38.5px;
+  line-height: 22.5px;
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 8px;
+  padding-left: 8px;
+  padding-right: 0;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 231px;
+  flex-grow: 1;
+}
+
+/* Nav Row (item + disclosure) - Starred, Workspaces */
+.navRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 40px;
+  line-height: 18px;
+  margin: 0;
+  margin-bottom: 8px;
+  padding: 0 8px 0 0;
+  text-align: center;
+  width: 275px;
+  border-radius: 3px;
+}
+
+.navRow:hover {
+  background-color: rgb(242, 244, 248);
+}
+
+/* Shared and Workspaces: 8px up */
+.sidebarNavTop > button.navItem {
+  transform: translateY(-10px);
+}
+
+.sidebarNavTop > .navRow:nth-of-type(2) {
+  transform: translateY(-10px);
 }
 
 .navRow .navItem {
-  flex: 1;
-  width: auto;
-  height: auto;
-  padding: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 38.5px;
+  padding-left: 12px;
+  padding-right: 8px;
   margin: 0;
   background: transparent;
 }
@@ -625,35 +965,36 @@
   background: transparent;
 }
 
-/* In Starred/Workspaces rows: no separate highlight on the text – only row highlight + button hovers */
-.navRow .navItem::before {
-  background: transparent !important;
-}
-
 .disclosureButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--home-icon-size-md);
-  height: var(--home-icon-size-md);
-  border: none;
-  border-radius: var(--home-radius-sm);
-  background: transparent;
-  color: var(--home-text-primary);
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
   cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 24px;
+  line-height: 18px;
+  margin: 0;
+  padding: 4px;
+  text-align: center;
+  width: 24px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
   flex-shrink: 0;
-  transition: background var(--home-transition-fast), transform var(--home-transition-fast), color var(--home-transition-fast);
 }
 
 .disclosureButton svg {
-  width: var(--home-icon-size-sm);
-  height: var(--home-icon-size-sm);
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 }
 
 .disclosureButton:hover {
-  background: var(--home-hover-bg-strong);
-  color: var(--home-text-primary);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .disclosureExpanded {
@@ -664,55 +1005,37 @@
   transform: rotate(-90deg);
 }
 
-/* Starred row: shift > to grey alignment (left of dark position) */
-.sidebarNavTop > .navRow:first-of-type .disclosureButton {
-  transform: translate(-6px, -1px);
-}
-.sidebarNavTop > .navRow:first-of-type .disclosureExpanded {
-  transform: translate(-6px, -1px) rotate(0deg);
-}
-.sidebarNavTop > .navRow:first-of-type .disclosureCollapsed {
-  transform: translate(-6px, -1px) rotate(-90deg);
-}
-
-/* Workspaces row: shift + and > to grey alignment */
-.sidebarNavTop > .navRow:nth-of-type(2) .addButton {
-  transform: translateX(-14px);
-}
-.sidebarNavTop > .navRow:nth-of-type(2) .disclosureButton {
-  transform: translateX(-6px);
-}
-.sidebarNavTop > .navRow:nth-of-type(2) .disclosureExpanded {
-  transform: translateX(-6px) rotate(0deg);
-}
-.sidebarNavTop > .navRow:nth-of-type(2) .disclosureCollapsed {
-  transform: translateX(-6px) rotate(-90deg);
-}
-
 .addButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--home-icon-size-md);
-  height: var(--home-icon-size-md);
-  border: none;
-  border-radius: var(--home-radius-sm);
-  background: transparent;
-  color: var(--home-text-primary);
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
   cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 15px;
+  font-weight: 500;
+  height: 24px;
+  line-height: 22.5px;
+  margin: 0;
+  padding: 4px;
+  text-align: center;
+  width: 24px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
   flex-shrink: 0;
-  transition: background var(--home-transition-fast), color var(--home-transition-fast);
 }
 
 .addButton:hover {
-  background: var(--home-hover-bg-strong);
-  color: var(--home-text-primary);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* Nav Section (Starred dropdown content) – moved up 9px from Starred row */
+/* Nav Section (Starred dropdown content) – moved up 9px from Starred row; when open: 2 right 8 up */
 .navSection {
   padding: 2px 8px 0 9px;
   margin: 0;
+  transform: translate(2px, -7px);
 }
 
 /* Starred Empty State – icon and text aligned */
@@ -767,111 +1090,150 @@
 .sidebarBottom {
   display: flex;
   flex-direction: column;
-  padding: 2px 8px 52px 2px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  min-height: 169px;
+  line-height: 18px;
+  margin: 0;
   margin-top: auto;
+  padding: 0;
+  text-align: center;
+  width: 275px;
   position: relative;
 }
 
-/* Divider line – 64px above this section, 95% width centred, shifted 4px right, 26px down */
+/* Divider line at top of bottom container */
 .sidebarBottom::before {
   content: "";
-  position: absolute;
-  top: -64px;
-  left: 2px;
-  right: 8px;
+  display: block;
+  background-color: rgba(0, 0, 0, 0.1);
+  color: rgb(29, 31, 37);
+  font-size: 13px;
+  font-weight: 400;
   height: 1px;
-  background: var(--home-border);
-  transform-origin: center center;
-  transform: translate(3px, 34px) scaleX(0.92);
+  line-height: 18px;
+  margin-left: 12px;
+  margin-right: 12px;
+  position: relative;
+  text-align: center;
+  width: 251px;
+  transform: translateY(20px);
 }
 
-/* Wrapper for the three bottom links – moved up by 24px via transform */
+/* Wrapper for the three bottom links (expanded sidebar) */
 .bottomLinksWrap {
   display: flex;
   flex-direction: column;
-  transform: translateY(-16px);
+  padding-top: 20px;
+  transform: translateY(16px);
 }
 
-/* Three menu items - only this block is affected by .sidebarBottom padding */
+/* Template gap between line and first link (first child of wrap so it can’t be skipped) */
+/* Template, Marketplace, Import links */
 .bottomLink {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: var(--home-nav-item-height);
-  padding: 0 8px;
-  margin: 0;
-  font-size: var(--home-font-size-sm);
-  line-height: var(--home-icon-size-md);
-  color: var(--home-text-primary);
-  text-decoration: none;
-  border-radius: var(--home-radius-sm);
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
   cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  line-height: 19.5px;
+  margin: 0;
+  padding: 0 8px;
+  text-align: center;
+  text-decoration: none;
+  width: 275px;
   border: none;
   background: transparent;
-  width: 100%;
-  text-align: left;
-  box-sizing: border-box;
-  transition: background var(--home-transition-fast);
 }
 
 .bottomLink:hover {
-  background: var(--home-bg-subtle);
+  background-color: rgb(242, 244, 248);
 }
 
 .bottomLinkIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--home-icon-size-md);
-  height: var(--home-icon-size-md);
-  min-width: var(--home-icon-size-md);
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 19.5px;
+  overflow: hidden;
+  text-align: center;
+  width: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
   flex-shrink: 0;
-  color: var(--home-text-primary);
-  line-height: 0;
 }
 
-.bottomLinkIcon svg {
-  transform: translateY(1px);
-}
-
-/* Text only – shifted 4px left, 2px down (icons stay in place) */
+/* Text within bottom links */
 .bottomLinkText {
-  display: inline-block;
-  transform: translate(-5px, 2px);
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 19.5px;
+  line-height: 19.5px;
+  margin-left: 4px;
+  text-align: center;
 }
 
-/* Create button - absolutely positioned, independent of the three links above */
+/* Create button */
 .sidebarBottom .createButton {
-  position: absolute;
-  bottom: 19px;
-  left: 4px;
-  right: 5px;
-  width: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  height: 33px;
-  padding: 0 12px;
-  margin: 0;
-  font-family: var(--home-font-family-body);
-  font-size: var(--home-font-size-sm);
-  font-weight: 500;
-  line-height: 22px;
-  color: var(--home-bg);
-  fill: var(--home-bg);
-  background-color: var(--home-primary);
+  appearance: auto;
+  background-color: rgb(22, 110, 225);
   border: none;
-  border-radius: var(--home-radius-md);
-  box-shadow: rgba(0, 0, 0, 0.32) 0 0 1px 0, rgba(0, 0, 0, 0.11) 0 0 3px 0, rgba(0, 0, 0, 0.12) 0 1px 4px 0;
+  border-radius: 6px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(255, 255, 255);
   cursor: pointer;
-  text-decoration: none;
+  fill: rgb(255, 255, 255);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  height: 32px;
+  line-height: 22px;
+  margin: 0;
+  margin-top: 32px;
+  margin-bottom: 8px;
+  max-width: 100%;
+  padding: 0 12px;
   text-align: center;
-  transition: background-color var(--home-transition-fast);
+  text-decoration: none;
+  width: 275px;
+}
+
+.sidebarBottom .createButton .createButtonIcon {
+  transform: translate(-2px, 0);
+}
+
+.sidebarBottom .createButton .createButtonIcon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.sidebarBottom .createButton .createButtonText {
+  transform: translate(3px, 0);
 }
 
 .sidebarBottom .createButton:hover {
-  background-color: var(--home-primary-dark);
+  background-color: rgb(20, 100, 200);
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 1px 4px 0px, rgba(0, 0, 0, 0.08) 0px 2px 6px 0px;
 }
 
 .sidebarBottom .createButtonIcon {
@@ -890,50 +1252,105 @@
 
 /* ========================================
    Main Content
+   Base layout below = SIDEBAR CLOSED. .mainShifted overrides = SIDEBAR OPEN.
    ======================================== */
 
 .main {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  min-height: 0;
+  line-height: 18px;
+  margin: 0;
+  max-width: 1920px;
+  min-width: 0;
+  padding: 0;
+  padding-left: 48px;
+  padding-right: 48px;
+  padding-top: 32px;
+  text-align: center;
+  flex: 1 1 0;
+  margin-left: auto;
+  margin-right: auto;
   background: var(--home-bg-main);
   transition: padding-left 100ms ease-out;
 }
+
+/* ========================================
+   SIDEBAR OPEN (side menu expanded)
+   All .mainShifted rules below = when side menu is open.
+   ======================================== */
 
 /* When sidebar is expanded, shift main content */
 .mainShifted {
   padding-left: calc(var(--home-sidebar-width) - var(--home-rail-width));
 }
 
-/* When sidebar is expanded, shift central content left */
-.mainShifted .emptyState {
-  transform: translate(58px, 20px);
+/* When sidebar is expanded: Home and Opened 50px right */
+.mainShifted .title {
+  transform: translate(50px, -1px);
 }
+
+.mainShifted .subheader {
+  transform: translateX(50px);
+}
+
+.mainShifted .mainInner {
+  transform: translate(0, 0);
+}
+
+/* When sidebar is expanded: grid icons 50px left */
+.mainShifted .viewToggle {
+  transform: translate(-50px, 0);
+}
+
+.mainShifted .viewToggle > .tooltipWrapper:first-child .viewToggleButton {
+  transform: translate(0, 0);
+}
+
+.mainShifted .viewToggle > .tooltipWrapper:last-child .viewToggleButton {
+  transform: translate(0, 0);
+}
+
+/* When sidebar is expanded: central text */
+.mainShifted .emptyState {
+  transform: translate(26px, 299.5px);
+}
+
+/* When sidebar is expanded, shift central content left */
 
 .mainInner {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  flex: 1;
   width: 100%;
-  padding: 27px 56px 20px 48px;
-}
-
-.mainInner > * {
-  width: 100%;
-  max-width: 960px;
+  max-width: 1327px;
+  min-width: 0;
 }
 
 .title {
-  font-family: var(--home-font-family-heading);
-  font-size: var(--home-font-size-title);
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: "Inter Display", -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 27px;
   font-weight: 675;
-  color: var(--home-text-primary);
-  line-height: 33.75px;
+  height: 57.75px;
   letter-spacing: -0.16px;
-  margin: 4px 0 8px 0;
+  line-height: 33.75px;
+  margin: 0;
+  padding: 0;
+  padding-bottom: 24px;
+  text-align: left;
+  width: 100%;
+  max-width: 1327px;
   -webkit-font-smoothing: antialiased;
+  transform: translate(1px, -1px);
 }
 
 /* Subheader (Filter + View Toggle) */
@@ -941,10 +1358,24 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 48px;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  padding-bottom: 20px;
+  position: relative;
+  text-align: center;
+  white-space: nowrap;
   width: 100%;
-  max-width: 100%;
-  margin-bottom: 0;
-  margin-top: 18px;
+  max-width: 1327px;
+  z-index: 1;
+  transform: translateX(1px);
+  overflow: visible;
 }
 
 .filterButton {
@@ -961,11 +1392,10 @@
   border: none;
   cursor: pointer;
   transition: opacity var(--home-transition-fast);
-  transform: translateY(-1px);
 }
 
 .filterButton:hover {
-  opacity: 0.7;
+  color: #1d1f25;
 }
 
 .filterChevron {
@@ -973,55 +1403,62 @@
   align-items: center;
   justify-content: center;
   color: var(--home-text-secondary);
+  transform: translate(0, 0);
+}
+
+.filterChevron svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* View Toggle */
 .viewToggle {
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin-right: -6px;
-  margin-top: 0;
-  align-self: flex-start;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 28px;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  white-space: nowrap;
+  width: 56px;
+  transform: translate(0, 0);
 }
 
 .viewToggleButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: var(--home-radius-sm);
-  background: transparent;
-  color: var(--home-text-tertiary);
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
   cursor: pointer;
-  padding: 0;
-  transition: color var(--home-transition-fast);
-}
-
-.viewToggleButton:first-child {
-  color: rgba(29, 31, 37, 0.8);
-  transform: translate(2px, -1px);
-}
-
-.viewToggleButton:last-child {
-  width: 28px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
   height: 28px;
-  border-radius: 999px;
-  background: var(--home-hover-bg);
-  color: var(--home-text-primary);
-  transform: translate(2px, -2px);
+  line-height: 18px;
+  margin: 0;
+  padding: 4px;
+  text-align: center;
+  white-space: nowrap;
+  width: 28px;
+  border: none;
+  border-radius: 50%;
+  background-color: transparent;
 }
 
 .viewToggleButton:hover {
-  color: var(--home-text-secondary);
-  background: transparent;
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .viewToggleButton[aria-checked="true"] {
-  color: var(--home-text-primary);
-  background: transparent;
+  background-color: rgba(0, 0, 0, 0.05);
+  color: rgb(29, 31, 37);
 }
 
 /* ========================================
@@ -1031,71 +1468,105 @@
 .contentArea {
   display: flex;
   flex-direction: column;
-  flex: 1;
   align-items: center;
   justify-content: center;
-  padding: 40px 24px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  flex: 1 1 0;
   min-height: 0;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  width: 100%;
+  max-width: 1327px;
 }
 
 /* ========================================
    Empty State
    ======================================== */
 
+/* Base: sidebar closed – central area */
 .emptyState {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  width: 100%;
-  flex: 1;
-  min-height: 200px;
-  padding: 0 24px;
-  margin-left: 0;
-  margin-top: 0;
-  transform: translate(182px, 20px);
+  transform: translate(2px, 300px);
 }
 
 .emptyTitle {
-  font-family: var(--home-font-family-body);
-  font-size: var(--home-font-size-xl);
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 21px;
   font-weight: 400;
-  line-height: 26px;
-  color: var(--home-text-primary);
-  margin: 0 0 8px 0;
+  height: 26.25px;
+  line-height: 26.25px;
+  margin: 0;
+  padding: 0;
   text-align: center;
+  width: 342.594px;
+  transform: translateX(-1px);
 }
 
 .emptySubtitle {
-  font-family: var(--home-font-family-body);
-  font-size: var(--home-font-size-sm);
-  color: var(--home-text-secondary);
-  margin: 0 0 18px 0;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 19.5px;
+  line-height: 19.5px;
+  margin: 0;
+  margin-bottom: 24px;
+  margin-left: 4px;
+  max-width: 100%;
+  opacity: 0.75;
+  overflow: hidden;
+  padding: 0;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 321.008px;
+  transform: translate(-1px, 8px);
 }
 
 .emptyCta {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 11px;
-  font-family: var(--home-font-family-body);
-  font-size: var(--home-font-size-sm);
-  font-weight: 400;
-  color: var(--home-text-primary);
-  background: var(--home-bg);
-  border: 1px solid var(--home-border);
-  border-radius: var(--home-radius-md);
+  appearance: auto;
+  background-color: rgb(255, 255, 255);
+  border: none;
+  border-radius: 6px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  margin-left: 0;
-  margin-top: 5px;
-  transition: box-shadow var(--home-transition-fast), border-color var(--home-transition-fast);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  line-height: 22px;
+  margin: 0;
+  max-width: 100%;
+  padding: 0 12px;
+  text-align: center;
+  text-decoration: none;
+  width: 149.562px;
+  transform: translate(-1px, 8px);
 }
 
 .emptyCta:hover {
-  box-shadow: 0 1px 3px var(--home-border);
-  border-color: var(--home-border-hover);
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 1px 4px 0px, rgba(0, 0, 0, 0.08) 0px 2px 6px 0px;
 }
 
 /* ========================================
@@ -1103,55 +1574,82 @@
    ======================================== */
 
 .filterDropdown {
+  display: block;
   position: absolute;
-  top: 100%;
+  top: calc(100% + 8px);
   left: 0;
-  margin-top: 7px;
-  width: 240px;
-  padding: 12px;
-  background: var(--home-bg);
-  border-radius: var(--home-radius-md);
-  box-shadow: var(--home-elevation-high);
-  z-index: 200;
   box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 166px;
+  line-height: 18px;
+  list-style-type: disc;
+  margin: 0;
+  padding: 12px;
+  width: 240px;
+  background: rgb(255, 255, 255);
+  border-radius: 6px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 2px 8px 0px, rgba(0, 0, 0, 0.08) 0px 4px 16px 0px;
+  z-index: 200;
 }
 
 .filterOption {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 216px;
-  height: 35.5px;
-  padding: 8px;
-  font-family: var(--home-font-family-body);
-  font-size: var(--home-font-size-sm);
+  justify-content: flex-start;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
   font-weight: 400;
+  height: 35.5px;
   line-height: 18px;
-  color: var(--home-text-primary);
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  width: 216px;
   background: transparent;
   border: none;
-  border-radius: var(--home-radius-sm);
-  cursor: pointer;
+  border-radius: 3px;
   text-align: left;
-  box-sizing: border-box;
-  margin: 0;
-  list-style: none;
-  transition: background var(--home-transition-fast);
 }
 
 .filterOption:hover {
-  background: var(--home-hover-bg);
+  background-color: rgb(242, 244, 248);
 }
 
+/* Tick at right end of row (grey area) */
 .filterCheck {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--home-text-primary);
-  line-height: 0;
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  overflow: hidden;
 }
 
 .filterWrapper {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 22.5px;
+  line-height: 18px;
+  margin: 0;
+  margin-right: 8px;
+  padding: 0;
+  text-align: center;
+  white-space: nowrap;
   position: relative;
 }
 
@@ -1188,7 +1686,7 @@
   }
 
   .bottomLinksWrap {
-    transform: translateY(-8px);
+    transform: translateY(12px);
   }
 
   .sidebarBottom .createButton {
@@ -1256,7 +1754,7 @@
   }
 
   .bottomLinksWrap {
-    transform: translateY(-4px);
+    transform: translateY(16px);
   }
 
   .sidebarBottom .createButton {
@@ -1265,8 +1763,15 @@
 }
 
 /* ========================================
-   Responsive: Short viewport height
+   Responsive: Short viewport height – sidebar nav scrolls, lower menu overflows
    ======================================== */
+@media (max-height: 600px) {
+  .sidebarBottom {
+    flex-shrink: 0;
+    padding-bottom: 16px;
+  }
+}
+
 @media (max-height: 700px) {
   /* Sidebar: reduce whitespace */
   .sidebarNavTop {
@@ -1290,7 +1795,7 @@
   }
 
   .bottomLinksWrap {
-    transform: translateY(-8px);
+    transform: translateY(12px);
   }
 
   .sidebarBottom .createButton {
@@ -1337,11 +1842,11 @@
 
   .sidebarBottom::before {
     top: -24px;
-    transform: translate(3px, 20px) scaleX(0.92);
+    transform: translate(3px, 40px) scaleX(0.92);
   }
 
   .bottomLinksWrap {
-    transform: translateY(-4px);
+    transform: translateY(16px);
   }
 
   .bottomLink {
@@ -1385,7 +1890,7 @@
   }
 
   .bottomLinksWrap {
-    transform: translateY(0);
+    transform: translateY(20px);
   }
 
   .bottomLink {
@@ -1398,4 +1903,309 @@
     height: 28px;
     font-size: 12px;
   }
+}
+
+/* ========================================
+   Create Modal Overlay & Container
+   ======================================== */
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContainer {
+  width: 752px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  background-color: rgb(255, 255, 255);
+  border-radius: 12px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  overflow: hidden;
+  position: relative;
+  pointer-events: all;
+  animation: bounceIn 240ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modalContainer {
+    animation: none !important;
+  }
+}
+
+/* Modal Header */
+.modalHeader {
+  width: 100%;
+  height: 69.75px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 20px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  position: relative;
+}
+
+.modalTitle {
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 28.75px;
+  margin: 0;
+  margin-left: 24px;
+  color: rgb(29, 31, 37);
+}
+
+.modalCloseButton {
+  position: absolute;
+  top: 22px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+  border-top-left-radius: 50%;
+  border-top-right-radius: 50%;
+  border-bottom-left-radius: 50%;
+  border-bottom-right-radius: 50%;
+  cursor: pointer;
+  color: rgb(29, 31, 37);
+  transition: background 0.15s ease;
+}
+
+.modalCloseButton:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.modalCloseButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Workspace Section */
+.modalWorkspace {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 24px 24px 0 24px;
+  box-sizing: border-box;
+}
+
+.modalWorkspaceLabel {
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 15px;
+  font-weight: 500;
+  height: 22.5px;
+  line-height: 22.5px;
+  margin: 0;
+  margin-right: 4px;
+  padding: 0;
+  pointer-events: all;
+  unicode-bidi: isolate;
+}
+
+.modalWorkspaceSelect {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 400;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.modalWorkspaceSelect:hover {
+  color: rgb(29, 31, 37);
+}
+
+.modalWorkspaceSelect svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Modal Content / Options – container below workspace */
+.modalContent {
+  width: 100%;
+  min-width: 0;
+  min-height: 359.25px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  padding: 24px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  pointer-events: all;
+  unicode-bidi: isolate;
+  overflow-y: auto;
+}
+
+/* Container with both panels – centered, shrinks with viewport */
+.modalOptions {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 704px;
+  min-height: 311.25px;
+  margin: 0;
+  padding: 0;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  pointer-events: all;
+  unicode-bidi: isolate;
+  transform: translateY(-2px);
+}
+
+/* Option Card – equal flex so both tighten equally when squished */
+.modalOptionCard {
+  flex: 1 1 0;
+  min-width: 220px;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: box-shadow 0.15s ease;
+  padding: 0;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+}
+
+.modalOptionCard:hover {
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.06) 0px 1px 3px 0px, rgba(0, 0, 0, 0.05) 0px 2px 6px 0px;
+}
+
+.modalOptionImage {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1.7 / 1;
+  object-fit: cover;
+  box-sizing: border-box;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  display: block;
+}
+
+.modalOptionText {
+  width: 100%;
+  min-width: 0;
+  min-height: 111.25px;
+  box-sizing: border-box;
+  padding: 16px;
+  margin: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex: 1 1 auto;
+  pointer-events: all;
+  unicode-bidi: isolate;
+  transform: translateX(-2px);
+}
+
+.modalOptionTitleRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  min-width: 0;
+}
+
+.modalOptionTitle {
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 26.25px;
+  color: rgb(29, 31, 37);
+  margin: 0 0 8px 0;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.modalOptionTitleRow .modalOptionTitle {
+  margin: 0;
+}
+
+.modalOptionBadge {
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  height: 18px;
+  line-height: 18px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  color: rgb(0, 100, 0);
+  background-color: rgb(207, 245, 209);
+  border-radius: 9999px;
+  padding: 0 8px;
+  margin: 0 0 0 8px;
+  cursor: pointer;
+  pointer-events: all;
+  unicode-bidi: isolate;
+}
+
+.modalOptionDesc {
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 22px;
+  color: rgb(97, 102, 112);
+  margin: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }

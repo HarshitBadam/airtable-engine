@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
+/* Lock scroll at top: prevent overscroll / bounce when at top */
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
 @theme {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
@@ -16,7 +22,7 @@
   --at-subtle: #616670;
   --at-focus-blue: #166ee1;
   --at-primary-blue: #1b61c9;
-  --at-divider: #e6e6e6;
+  --at-divider: #CCCCCC;
 
   /* Radii */
   --at-radius-big: 6px;
@@ -32,7 +38,7 @@
   --at-font-body: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto,
     Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  --at-font-heading: HaasText, -apple-system, system-ui, "system-ui", "Segoe UI",
-    Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --at-font-heading: HaasText, -apple-system, "system-ui", "Segoe UI", Roboto,
+    Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
 }

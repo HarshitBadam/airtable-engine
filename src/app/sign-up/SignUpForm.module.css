@@ -1,17 +1,31 @@
 .logo {
-  margin-bottom: 48px;
+  display: block;
+  width: 100%;
+  max-width: 512px;
+  margin-bottom: 51px;
+  box-sizing: border-box;
 }
 
 .title {
-  font-family: var(--at-font-heading);
-  font-size: var(--auth-font-size-heading-lg);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 31px;
   font-weight: 500;
-  line-height: var(--auth-line-height-heading);
-  color: var(--auth-color-text);
-  width: var(--auth-form-width-signup);
+  line-height: 40px;
+  color: rgb(29, 31, 37);
   height: 88px;
+  width: 100%;
+  max-width: 512px;
   margin: 0;
-  padding-top: 3px;
+  padding-bottom: 48px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.formSection {
+  display: block;
+  width: 100%;
+  max-width: 512px;
   box-sizing: border-box;
 }
 
@@ -19,17 +33,52 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
+  max-width: 512px;
   margin-bottom: 16px;
+  box-sizing: border-box;
+}
+
+.footerSection {
+  display: block;
+  width: 100%;
+  max-width: 512px;
+  color: rgb(97, 102, 112);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19.5px;
+  box-sizing: border-box;
 }
 
 .termsText {
-  font-size: var(--auth-font-size-small);
-  line-height: var(--auth-line-height-small);
-  color: var(--auth-color-text-subtle);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19.5px;
+  color: rgb(97, 102, 112);
+  width: 100%;
+  max-width: 512px;
   margin: 0;
-  margin-top: 32px;
-  margin-bottom: 16px;
+  margin-top: 16px;
+  margin-bottom: 12px;
   padding-left: 24px;
+  box-sizing: border-box;
+}
+
+.cookiesText {
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19.5px;
+  color: rgb(97, 102, 112);
+  width: 100%;
+  max-width: 488px;
+  margin: 0;
+  margin-top: 18px;
+  box-sizing: border-box;
 }
 
 .termsLink {
@@ -41,8 +90,18 @@
 .checkboxLabel {
   display: flex;
   align-items: flex-start;
-  cursor: pointer;
-  margin-bottom: 8px;
+  cursor: default;
+  width: 100%;
+  max-width: 512px;
+  box-sizing: border-box;
+  margin-top: 6px;
+}
+
+.checkboxWrapper {
+  display: block;
+  width: 16px;
+  height: 78px;
+  box-sizing: border-box;
 }
 
 .checkboxInput {
@@ -53,19 +112,19 @@
 }
 
 .checkboxBox {
-  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 16px;
   height: 16px;
   margin-top: 4px;
-  margin-right: 8px;
   flex-shrink: 0;
-  border-radius: var(--auth-radius-checkbox);
-  border: 2px solid var(--auth-color-border-muted);
-  background-color: var(--auth-color-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.15s, border-color 0.15s;
+  flex-grow: 0;
+  border-radius: 3px;
+  border: 2px solid rgb(148, 148, 148);
+  background-color: rgb(255, 255, 255);
+  box-sizing: border-box;
+  cursor: default;
 }
 
 .checkboxInput:checked + .checkboxBox {
@@ -87,16 +146,33 @@
 }
 
 .checkboxText {
-  font-size: var(--auth-font-size-small);
-  line-height: var(--auth-line-height-small);
-  color: var(--auth-color-text-subtle);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19.5px;
+  color: rgb(97, 102, 112);
+  flex: 1;
+  height: 78px;
+  padding-left: 8px;
+  box-sizing: border-box;
 }
 
 .footer {
-  font-size: var(--auth-font-size-small);
-  line-height: var(--auth-line-height-small);
-  color: var(--auth-color-text-subtle);
+  display: flex;
+  justify-content: flex-start;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19.5px;
+  color: rgb(97, 102, 112);
+  width: 100%;
+  max-width: 512px;
+  height: 19.5px;
   margin: 0;
+  margin-top: 16px;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .footerLink {
@@ -111,7 +187,7 @@
   }
 
   .title {
-    font-size: var(--auth-font-size-heading-mobile);
+    font-size: 24px;
     height: 68px;
   }
 
@@ -124,12 +200,41 @@
   }
 }
 
-@media (max-width: 639px) {
+@media (max-width: 831px) {
+  .logo {
+    width: 100%;
+    max-width: 512px;
+  }
+
   .title {
-    font-size: var(--auth-font-size-heading-mobile);
+    font-size: 24px;
     line-height: 31.2px;
     height: 63px;
     width: auto;
     padding-bottom: 32px;
+  }
+
+  .providerButtonsWrapper {
+    width: 100%;
+    max-width: 512px;
+  }
+
+  .termsText {
+    width: 100%;
+    max-width: 512px;
+  }
+
+  .checkboxLabel {
+    width: 100%;
+    max-width: 512px;
+  }
+
+  .checkboxText {
+    width: calc(100% - 24px);
+  }
+
+  .footer {
+    width: 100%;
+    max-width: 512px;
   }
 }

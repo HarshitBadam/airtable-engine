@@ -1,20 +1,26 @@
 .emailFieldWrapper {
+  display: block;
   position: relative;
   margin-bottom: 24px;
-  width: 500px;
   padding: 2px;
+  width: 500px;
+  box-sizing: border-box;
 }
 
 .emailFieldWrapperWide {
-  width: 512px;
+  width: 100%;
+  max-width: 512px;
+  padding: 0;
 }
 
 .emailLabel {
-  display: block;
-  font-size: var(--auth-font-size-body);
+  display: inline;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 15px;
   font-weight: 500;
-  line-height: var(--auth-line-height-label);
-  color: var(--auth-color-text);
+  line-height: 18.75px;
+  color: rgb(29, 31, 37);
+  cursor: default;
 }
 
 .emailLabelNormal {
@@ -26,29 +32,42 @@
 }
 
 .emailInput {
-  width: 100%;
-  height: var(--auth-input-height);
-  border-radius: var(--auth-radius-input);
+  width: 496px;
+  height: 40px;
+  border-radius: 6px;
   border: none;
-  background-color: var(--auth-color-bg);
+  background-color: rgb(255, 255, 255);
   padding: 4px 8px;
-  font-size: var(--auth-font-size-body);
-  font-family: var(--at-font-body);
-  color: var(--auth-color-text);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 15px;
+  font-weight: 400;
+  color: rgb(29, 31, 37);
   outline: none;
-  box-shadow: var(--auth-shadow-base);
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
   box-sizing: border-box;
   appearance: none;
   -webkit-appearance: none;
+  cursor: text;
+  display: inline-block;
+  line-height: normal;
+  letter-spacing: normal;
+  text-align: start;
+  text-indent: 0px;
+  word-spacing: 0px;
+}
+
+.emailInputWide {
+  width: 100%;
+  max-width: 512px;
 }
 
 .emailInput::placeholder {
-  color: var(--auth-color-border-muted);
+  color: rgb(97, 102, 112);
 }
 
 .emailInput:focus,
 .emailInput:focus-visible {
-  box-shadow: var(--auth-shadow-focus);
+  box-shadow: inset 0 0 0 1px #166ee1, 0 0 0 1px #166ee1;
 }
 
 .emailInputWrapper {
@@ -57,23 +76,31 @@
 
 .primaryButton {
   width: 500px;
-  height: var(--auth-button-height);
+  height: 40px;
   min-width: 200px;
-  border-radius: var(--auth-radius-button);
-  background-color: var(--auth-color-primary-dark);
+  max-width: 100%;
+  border-radius: 6px;
+  background-color: rgb(27, 97, 201);
   border: 1px solid rgba(1, 20, 53, 0.12);
-  box-shadow: var(--auth-shadow-base);
-  padding: 0 14px;
-  font-size: var(--auth-font-size-body);
+  box-shadow: rgba(0, 0, 0, 0.08) 0px 1px 3px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.32) 0px 0px 1px 0px;
+  padding: 7px 14px;
+  font-family: Arial;
+  font-size: 15px;
   font-weight: 500;
-  font-family: var(--at-font-body);
-  color: white;
+  line-height: 28px;
+  color: rgb(255, 255, 255);
+  fill: rgb(255, 255, 255);
   display: flex;
   align-items: center;
+  align-self: stretch;
   justify-content: center;
+  column-gap: 10px;
+  row-gap: 10px;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .primaryButtonWide {
@@ -86,6 +113,7 @@
 
 .primaryButton:disabled {
   opacity: 0.5;
+  pointer-events: none;
   cursor: not-allowed;
 }
 
@@ -94,12 +122,17 @@
 }
 
 .primaryButtonSignUp {
-  background-color: var(--auth-color-primary);
+  width: 100%;
+  max-width: 512px;
+  background-color: rgb(22, 110, 225);
   border: none;
+  margin-top: 0px;
+  padding: 1px 16px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
 }
 
 .primaryButtonTextSignUp {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .divider {
@@ -107,55 +140,73 @@
   align-items: center;
   justify-content: center;
   width: 500px;
-  font-family: var(--at-font-body);
+  height: 20px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   margin-top: 24px;
   margin-bottom: 24px;
+  box-sizing: border-box;
 }
 
 .dividerWide {
-  width: 512px;
+  width: 100%;
+  max-width: 512px;
+  height: 64.25px;
+  justify-content: center;
+  padding-top: 24px;
+  padding-bottom: 24px;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .dividerText {
   font-size: var(--auth-font-size-divider);
   font-weight: 400;
-  line-height: var(--auth-line-height-footer);
-  color: var(--auth-color-text-subtle);
+  line-height: 16px;
+  color: rgb(29, 31, 37);
 }
 
 .dividerTextSmall {
   font-size: var(--auth-font-size-small);
   line-height: var(--auth-line-height-divider);
+  padding: 0 16px;
 }
 
 .providerButton {
   width: 500px;
-  height: var(--auth-button-height);
-  border-radius: var(--auth-radius-button);
-  background-color: var(--auth-color-bg);
+  height: 40px;
+  max-width: 100%;
+  border-radius: 6px;
+  background-color: rgb(255, 255, 255);
   border: none;
-  box-shadow: var(--auth-shadow-base);
-  display: flex;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 12px;
-  font-family: var(--at-font-body);
-  color: var(--auth-color-text);
+  padding: 1px 12px;
+  font-family: Arial;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 22px;
+  color: rgb(29, 31, 37);
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .providerButtonWide {
-  width: 512px;
+  width: 100%;
+  max-width: 512px;
 }
 
 .providerButtonFullWidth {
   width: 100%;
+  max-width: 512px;
 }
 
 .providerButton:hover:not(:disabled) {
-  box-shadow: var(--auth-shadow-hover);
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.11) 0px 0px 3px 0px, rgba(0, 0, 0, 0.12) 0px 1px 4px 0px;
 }
 
 .providerButton:disabled {
@@ -167,24 +218,25 @@
   display: flex;
   align-items: center;
   gap: 9.75px;
-  font-size: var(--auth-font-size-body);
+  font-size: 15px;
   font-weight: 400;
   letter-spacing: 0.002em;
-  transform: translate(0px, -1px);
+  transform: translate(-1px, 0px);
 }
 
 .providerButtonContentSSO {
-  transform: translate(4px, -1px);
+  transform: translate(0px, 0px);
 }
 
 .providerButtonIcon {
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  transform: translate(2px, -1px);
 }
 
 .providerButtonIconApple {
-  transform: translateY(-2px);
+  transform: translate(2px, -3px);
 }
 
 .providerButtonLabel {
@@ -215,17 +267,21 @@
   shape-rendering: geometricPrecision;
 }
 
-@media (max-width: 639px) {
+@media (max-width: 831px) {
   .emailFieldWrapper {
-    width: var(--auth-form-width-mobile);
+    width: 360px;
   }
 
   .emailFieldWrapperWide {
     width: 100%;
   }
 
+  .emailInput {
+    width: 356px;
+  }
+
   .primaryButton {
-    width: var(--auth-form-width-mobile);
+    width: 360px;
   }
 
   .primaryButtonWide,
@@ -234,7 +290,7 @@
   }
 
   .divider {
-    width: var(--auth-form-width-mobile);
+    width: 360px;
   }
 
   .dividerWide {
@@ -242,7 +298,7 @@
   }
 
   .providerButton {
-    width: var(--auth-form-width-mobile);
+    width: 360px;
   }
 
   .providerButtonWide,

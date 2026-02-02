@@ -9,24 +9,25 @@ interface AuthShellProps {
 }
 
 export function AuthShell({ children, variant = "sign-in" }: AuthShellProps) {
-  const formContentClass =
-    variant === "sign-up" ? styles.signUpFormContent : styles.formContent;
-
-  const layoutStyle = variant === "sign-in" 
-    ? undefined 
-    : { display: 'flex', justifyContent: 'center', alignItems: 'center' } as const;
+  if (variant === "sign-up") {
+    return (
+      <div className={styles.signUpPage}>
+        <div className={styles.signUpLayout}>
+          <div className={styles.signUpFormContent}>{children}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
-      <div className={styles.layout} style={layoutStyle}>
-        <div className={variant === "sign-in" ? styles.formColumn : undefined}>
-          <div className={formContentClass}>{children}</div>
+      <div className={styles.layout}>
+        <div className={styles.formColumn}>
+          <div className={styles.formContent}>{children}</div>
         </div>
-        {variant === "sign-in" && (
-          <div className={styles.promoColumn}>
-            <PromoCard />
-          </div>
-        )}
+        <div className={styles.promoColumn}>
+          <PromoCard />
+        </div>
       </div>
     </div>
   );

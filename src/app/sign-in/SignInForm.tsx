@@ -18,7 +18,8 @@ import styles from "./SignInForm.module.css";
 
 export function SignInForm() {
   const [email, setEmail] = useState("");
-  const [linkHovered, setLinkHovered] = useState(false);
+  const [createLinkHovered, setCreateLinkHovered] = useState(false);
+  const [cookieLinkHovered, setCookieLinkHovered] = useState(false);
   const emailValid = useMemo(() => isValidEmail(email), [email]);
 
   const handleGoogleSignIn = () => void signIn("google", { callbackUrl: "/" });
@@ -41,8 +42,12 @@ export function SignInForm() {
 
       <div className={styles.providerButtonsWrapper}>
         <AuthProviderButton provider="sso" />
-        <AuthProviderButton provider="google" onClick={handleGoogleSignIn} />
-        <AuthProviderButton provider="apple" />
+        <div className={styles.providerButtonSpacingWrapper}>
+          <AuthProviderButton provider="google" onClick={handleGoogleSignIn} />
+        </div>
+        <div className={styles.providerButtonSpacingWrapperLast}>
+          <AuthProviderButton provider="apple" />
+        </div>
       </div>
 
       <p className={styles.footer}>
@@ -51,15 +56,35 @@ export function SignInForm() {
           href="/sign-up" 
           style={{
             color: "#166ee1",
-            textDecoration: linkHovered ? "none" : "underline",
+            textDecoration: createLinkHovered ? "none" : "underline",
+            textUnderlineOffset: "2px",
             fontWeight: 500,
           }}
-          onMouseEnter={() => setLinkHovered(true)}
-          onMouseLeave={() => setLinkHovered(false)}
+          onMouseEnter={() => setCreateLinkHovered(true)}
+          onMouseLeave={() => setCreateLinkHovered(false)}
         >
           Create an account
         </Link>{" "}
         instead
+      </p>
+
+      <p className={styles.cookieFooter}>
+        Manage your cookie preferences{"  "}{" "}
+        <a 
+          href="#"
+          style={{
+            color: "#166ee1",
+            textDecoration: cookieLinkHovered ? "none" : "underline",
+            textUnderlineOffset: "2px",
+            fontWeight: 500,
+            marginLeft: "2px",
+          }}
+          onMouseEnter={() => setCookieLinkHovered(true)}
+          onMouseLeave={() => setCookieLinkHovered(false)}
+          onClick={(e) => e.preventDefault()}
+        >
+          here
+        </a>
       </p>
     </AuthShell>
   );

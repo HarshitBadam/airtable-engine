@@ -8,6 +8,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import styles from "~/components/home/HomeShell.module.css";
+import Image from "next/image";
 import {
   HamburgerIcon,
   HomeIcon,
@@ -29,6 +30,7 @@ import {
   CheckIcon,
   AirtableLogoMark,
   AirtableWordmark,
+  CloseIcon,
 } from "~/components/home/Icons";
 import { useBases } from "~/components/home/useBases";
 
@@ -41,7 +43,8 @@ export default function DashboardPage() {
   const [workspacesExpanded, setWorkspacesExpanded] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState<FilterOption>("anytime");
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const { bases } = useBases();
 
   const filterLabels: Record<FilterOption, string> = {
@@ -68,14 +71,19 @@ export default function DashboardPage() {
         <nav className={styles.topbarNav} aria-label="Top bar">
           {/* Left: hamburger + logo */}
           <div className={styles.topbarLeft}>
-            <button
-              type="button"
-              className={styles.hamburgerButton}
-              aria-label="Toggle sidebar"
-              onClick={() => setSidebarExpanded(!sidebarExpanded)}
-            >
-              <HamburgerIcon size={20} />
-            </button>
+            <div className={styles.hamburgerWrapper}>
+              <button
+                type="button"
+                className={styles.hamburgerButton}
+                aria-label="Toggle sidebar"
+                onClick={() => setSidebarExpanded(!sidebarExpanded)}
+              >
+                <HamburgerIcon size={20} />
+              </button>
+              <span className={styles.hamburgerTooltip} role="tooltip">
+                {sidebarExpanded ? "Collapse sidebar" : "Expand sidebar"}
+              </span>
+            </div>
 
             <Link href="/dashboard" aria-label="Airtable home" className={styles.brand}>
               <span className={styles.brandMark}>
@@ -87,7 +95,7 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          {/* Center: search pill */}
+          {/* Center: search pill (no tooltip) */}
           <div className={styles.topbarCenter}>
             <button
               type="button"
@@ -95,7 +103,7 @@ export default function DashboardPage() {
               aria-label="Search"
             >
               <span className={styles.searchIcon}>
-                <SearchIcon size={14} />
+                <SearchIcon size={16} />
               </span>
               <span className={styles.searchPlaceholder}>Search...</span>
               <span className={styles.searchKbd} aria-hidden="true">
@@ -111,17 +119,23 @@ export default function DashboardPage() {
               <span>Help</span>
             </button>
 
-            <button
-              type="button"
-              className={styles.bellButton}
-              aria-label="Notifications"
-            >
-              <BellIcon size={17} />
-            </button>
+            <div className={styles.tooltipWrapper}>
+              <button
+                type="button"
+                className={styles.bellButton}
+                aria-label="Notifications"
+              >
+                <BellIcon size={17} />
+              </button>
+              <span className={styles.hoverTooltip} role="tooltip">Notifications</span>
+            </div>
 
-            <button type="button" className={styles.avatar} aria-label="Account">
-              H
-            </button>
+            <div className={styles.tooltipWrapper}>
+              <button type="button" className={styles.avatar} aria-label="Account">
+                H
+              </button>
+              <span className={styles.hoverTooltip} role="tooltip">Account</span>
+            </div>
           </div>
         </nav>
       </header>
@@ -162,7 +176,7 @@ export default function DashboardPage() {
                 className={styles.railItem}
                 aria-label="Workspaces"
               >
-                <WorkspacesIcon size={28} />
+                <WorkspacesIcon size={20} />
               </button>
 
               <div className={styles.railDivider} />
@@ -195,6 +209,7 @@ export default function DashboardPage() {
                   type="button"
                   className={styles.railCreatePartial}
                   aria-label="Create"
+                  onClick={() => setCreateModalOpen(true)}
                 >
                   <PlusIcon size={18} />
                 </button>
@@ -264,8 +279,8 @@ export default function DashboardPage() {
             {/* Workspaces row */}
             <div className={styles.navRow}>
               <button type="button" className={styles.navItem}>
-                <span className={styles.navIconWide}>
-                  <WorkspacesIcon size={32} />
+                <span className={`${styles.navIcon} ${styles.navIconWorkspaces}`}>
+                  <WorkspacesIcon size={20} />
                 </span>
                 <span className={styles.navLabel}>Workspaces</span>
               </button>
@@ -318,7 +333,7 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              <button type="button" className={styles.createButton}>
+              <button type="button" className={styles.createButton} onClick={() => setCreateModalOpen(true)}>
                 <span className={styles.createButtonIcon}>
                   <PlusIcon size={14} />
                 </span>
@@ -383,26 +398,32 @@ export default function DashboardPage() {
                 role="radiogroup"
                 aria-label="View mode"
               >
-                <button
-                  type="button"
-                  className={styles.viewToggleButton}
-                  role="radio"
-                  aria-checked={viewMode === "list"}
-                  aria-label="List view"
-                  onClick={() => setViewMode("list")}
-                >
-                  <ListViewIcon size={20} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.viewToggleButton}
-                  role="radio"
-                  aria-checked={viewMode === "grid"}
-                  aria-label="Grid view"
-                  onClick={() => setViewMode("grid")}
-                >
-                  <GridViewIcon size={20} />
-                </button>
+                <div className={styles.tooltipWrapper}>
+                  <button
+                    type="button"
+                    className={styles.viewToggleButton}
+                    role="radio"
+                    aria-checked={viewMode === "list"}
+                    aria-label="List view"
+                    onClick={() => setViewMode("list")}
+                  >
+                    <ListViewIcon size={20} />
+                  </button>
+                  <span className={styles.hoverTooltip} role="tooltip">View items in a list</span>
+                </div>
+                <div className={styles.tooltipWrapper}>
+                  <button
+                    type="button"
+                    className={styles.viewToggleButton}
+                    role="radio"
+                    aria-checked={viewMode === "grid"}
+                    aria-label="Grid view"
+                    onClick={() => setViewMode("grid")}
+                  >
+                    <GridViewIcon size={20} />
+                  </button>
+                  <span className={styles.hoverTooltip} role="tooltip">View items in a grid</span>
+                </div>
               </div>
             </div>
 
@@ -429,6 +450,83 @@ export default function DashboardPage() {
           </div>
         </main>
       </div>
+
+      {/* Create Modal */}
+      {createModalOpen && (
+        <div 
+          className={styles.modalOverlay}
+          onClick={() => setCreateModalOpen(false)}
+        >
+          <div 
+            className={styles.modalContainer}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className={styles.modalHeader}>
+              <h2 className={styles.modalTitle}>How do you want to start?</h2>
+              <button 
+                type="button" 
+                className={styles.modalCloseButton}
+                onClick={() => setCreateModalOpen(false)}
+                aria-label="Close"
+              >
+                <CloseIcon size={16} />
+              </button>
+            </div>
+
+            {/* Workspace Section */}
+            <div className={styles.modalWorkspace}>
+              <span className={styles.modalWorkspaceLabel}>Workspace:</span>
+              <span className={styles.modalWorkspaceSelect}>
+                Select a workspace
+                <ChevronDownIcon size={14} />
+              </span>
+            </div>
+
+            {/* Options */}
+            <div className={styles.modalContent}>
+              <div className={styles.modalOptions}>
+                {/* Build an app with Omni */}
+                <div className={styles.modalOptionCard}>
+                  <Image
+                    src="/image.png"
+                    alt="Build an app with Omni"
+                    width={340}
+                    height={200}
+                    className={styles.modalOptionImage}
+                  />
+                  <div className={styles.modalOptionText}>
+                    <div className={styles.modalOptionTitleRow}>
+                      <h3 className={styles.modalOptionTitle}>Build an app with Omni</h3>
+                      <span className={styles.modalOptionBadge}>New</span>
+                    </div>
+                    <p className={styles.modalOptionDesc}>
+                      Use AI to build a custom app tailored to your workflow.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Build an app on your own */}
+                <div className={styles.modalOptionCard}>
+                  <Image
+                    src="/images/build-app.png"
+                    alt="Build an app on your own"
+                    width={340}
+                    height={200}
+                    className={styles.modalOptionImage}
+                  />
+                  <div className={styles.modalOptionText}>
+                    <h3 className={styles.modalOptionTitle}>Build an app on your own</h3>
+                    <p className={styles.modalOptionDesc}>
+                      Start with a blank app and build your ideal workflow.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
