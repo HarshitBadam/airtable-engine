@@ -3,6 +3,7 @@
  * Connects to tRPC for bases data fetching and mutations
  */
 
+import { useSession } from "next-auth/react";
 import { api } from "~/trpc/react";
 
 export interface BaseItem {
@@ -11,6 +12,7 @@ export interface BaseItem {
   isStarred: boolean;
   createdAt: Date;
   updatedAt: Date;
+  ownerId: string;
 }
 
 export interface UseBasesResult {
@@ -91,6 +93,7 @@ export function formatRelativeTime(date: Date): string {
 }
 
 export function useBases(): UseBasesResult {
+  const { data: session } = useSession();
   const utils = api.useUtils();
   
   const { data, isLoading, isError } = api.base.listMine.useQuery(undefined, {
@@ -115,6 +118,7 @@ export function useBases(): UseBasesResult {
         isStarred: false,
         createdAt: new Date(),
         updatedAt: new Date(),
+        ownerId: session?.user?.id ?? "",
       };
       
       // Optimistically add to list (at the beginning since it's newest)
