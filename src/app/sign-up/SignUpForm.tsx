@@ -13,23 +13,13 @@ import {
   AuthProviderButton,
 } from "~/components/auth";
 import { isValidEmail } from "~/shared/validation";
+import authStyles from "~/components/auth/auth.module.css";
 
 import styles from "./SignUpForm.module.css";
-
-const linkStyle = (hovered: boolean) => ({
-  color: "#166ee1",
-  textDecoration: hovered ? "none" : "underline",
-  textUnderlineOffset: "2px",
-  fontWeight: 500,
-});
 
 export function SignUpForm() {
   const [email, setEmail] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
-  const [tosHovered, setTosHovered] = useState(false);
-  const [privacyHovered, setPrivacyHovered] = useState(false);
-  const [cookiesHovered, setCookiesHovered] = useState(false);
-  const [signInHovered, setSignInHovered] = useState(false);
   const emailValid = useMemo(() => isValidEmail(email), [email]);
 
   const handleGoogleSignIn = () => void signIn("google", { callbackUrl: "/" });
@@ -69,26 +59,22 @@ export function SignUpForm() {
       </div>
 
       <div className={styles.termsText}>
-        <p style={{ margin: 0 }}>
+        <p className={styles.termsTextParagraph}>
           By creating an account, you agree to the{" "}
-          <Link 
-            href="https://www.airtable.com/company/tos" 
-            target="_blank" 
+          <Link
+            href="https://www.airtable.com/company/tos"
+            target="_blank"
             rel="noopener noreferrer"
-            style={linkStyle(tosHovered)}
-            onMouseEnter={() => setTosHovered(true)}
-            onMouseLeave={() => setTosHovered(false)}
+            className={authStyles.authLink}
           >
             Terms of Service
           </Link>{" "}
           and{" "}
-          <Link 
-            href="https://www.airtable.com/company/privacy" 
-            target="_blank" 
+          <Link
+            href="https://www.airtable.com/company/privacy"
+            target="_blank"
             rel="noopener noreferrer"
-            style={linkStyle(privacyHovered)}
-            onMouseEnter={() => setPrivacyHovered(true)}
-            onMouseLeave={() => setPrivacyHovered(false)}
+            className={authStyles.authLink}
           >
             Privacy Policy
           </Link>
@@ -98,9 +84,7 @@ export function SignUpForm() {
           Manage your cookie preferences{" "}
           <a
             href="#"
-            style={{...linkStyle(cookiesHovered), marginLeft: "2px"}}
-            onMouseEnter={() => setCookiesHovered(true)}
-            onMouseLeave={() => setCookiesHovered(false)}
+            className={authStyles.authLink}
             onClick={(e) => e.preventDefault()}
           >
             here
@@ -130,12 +114,7 @@ export function SignUpForm() {
 
       <p className={styles.footer}>
         Already have an account?{"\u00A0\u00A0"}
-        <Link 
-          href="/sign-in" 
-          style={{...linkStyle(signInHovered), marginLeft: "1px", textUnderlineOffset: "1px"}}
-          onMouseEnter={() => setSignInHovered(true)}
-          onMouseLeave={() => setSignInHovered(false)}
-        >
+        <Link href="/sign-in" className={authStyles.authLink}>
           Sign in
         </Link>
       </p>

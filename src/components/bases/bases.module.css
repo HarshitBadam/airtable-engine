@@ -4,11 +4,7 @@
  */
 
 /* ========================================
-   Bases Grid Wrapper (overrides centered contentArea)
-   Margins from content area edges:
-   - Left: uses inherited 52px (main 16 + mainInner 36) + 4px padding for shadow
-   - Right: 48px (main 16px + 32px padding-right)
-   Small padding-left added to prevent box-shadow clipping
+   Bases Grid Wrapper
    ======================================== */
 
 .basesGridWrapper {
@@ -25,10 +21,6 @@
 
 /* ========================================
    Bases Grid Container
-   Uses minmax(286px, 1fr) so columns auto-adjust:
-   - Cards have minimum width of 286px
-   - Columns automatically reduce when space is limited
-   - Works consistently with sidebar open or closed
    ======================================== */
 
 .basesGrid {
@@ -765,11 +757,6 @@
 
 /* ========================================
    Responsive Adjustments
-   Note: Grid column breakpoints are defined at the top of this file:
-   - 4 columns: >= 1343px
-   - 3 columns: 1040-1342px
-   - 2 columns: 738-1039px
-   - 1 column: < 738px
    ======================================== */
 
 @media (max-width: 480px) {
@@ -824,13 +811,7 @@
   width: 100%;
 }
 
-/* Header row with column titles
-   Scaling behavior:
-   1. Name stays at 500px while Last opened & Workspaces shrink
-   2. Last opened & Workspaces scale down equally until min 130px each
-   3. Then Name shrinks until min 231px
-   4. Beyond that, content overflows to the right
-*/
+/* Header row with column titles */
 .listViewHeader {
   box-sizing: border-box;
   color: rgb(29, 31, 37);

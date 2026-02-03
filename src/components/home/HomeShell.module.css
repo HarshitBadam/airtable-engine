@@ -1,11 +1,6 @@
 /**
  * HomeShell.module.css
- * Airtable Home page shell styles
- *
- * LAYOUT REFERENCE:
- * - Base styles (no .mainShifted) = SIDEBAR CLOSED (rail only). This is the primary
- *   config: .title, .subheader, .viewToggle, .emptyState positions are tuned for closed.
- * - .mainShifted = SIDEBAR OPEN (expanded panel). Overrides above for open state only.
+ * Base styles = sidebar closed, .mainShifted = sidebar open
  */
 
 /* ========================================
@@ -1288,7 +1283,6 @@
 
 /* ========================================
    Main Content
-   Base layout below = SIDEBAR CLOSED. .mainShifted overrides = SIDEBAR OPEN.
    ======================================== */
 
 .main {
@@ -1321,8 +1315,7 @@
 }
 
 /* ========================================
-   SIDEBAR OPEN (side menu expanded)
-   All .mainShifted rules below = when side menu is open.
+   Sidebar Open State
    ======================================== */
 
 /* When sidebar is expanded, shift main content */
@@ -1339,10 +1332,6 @@
   margin-left: 14px;
 }
 
-/* Removed transform - it was breaking position: fixed on viewToggle */
-/* .mainShifted .mainInner {
-  transform: translate(0, 0);
-} */
 
 /* When sidebar is expanded: reduce padding */
 .mainShifted .mainInner {
@@ -1575,9 +1564,7 @@
 }
 
 /* ========================================
-   Grid View: Sidebar OPEN overrides
-   Base styles in bases.module.css = sidebar CLOSED
-   These .mainShifted rules = sidebar OPEN
+   Grid View: Sidebar Open Overrides
    ======================================== */
 
 /* Grid wrapper adjustments - sidebar OPEN */
@@ -1601,9 +1588,7 @@
 }
 
 /* ========================================
-   List View: Sidebar OPEN overrides
-   Base styles in bases.module.css = sidebar CLOSED
-   These .mainShifted rules = sidebar OPEN (locked in, do not change)
+   List View: Sidebar Open Overrides
    ======================================== */
 
 /* Move entire list view table 16px right - sidebar OPEN */
@@ -1871,22 +1856,6 @@
   }
 }
 
-/* ========================================
-   Responsive: Short viewport height
-   
-   Main content area:
-   - Header (title, subheader) has flex-shrink: 0 - stays in place
-   - .main has overflow: hidden - content clips at bottom
-   - No padding/layout changes on height reduction
-   
-   Sidebar:
-   - sidebarNav has min-height: 580px - triggers overflow at ~660px viewport
-   - sidebar has overflow: hidden - clips content at bottom
-   
-   Rail:
-   - railNav has min-height: 324px - triggers overflow at ~400px viewport
-   - rail has overflow: hidden - clips content at bottom
-   ======================================== */
 
 /* ========================================
    Create Modal Overlay & Container

@@ -267,6 +267,18 @@
   shape-rendering: geometricPrecision;
 }
 
+/* Auth link styles */
+.authLink {
+  color: var(--auth-color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 500;
+}
+
+.authLink:hover {
+  text-decoration: none;
+}
+
 @media (max-width: 831px) {
   .emailFieldWrapper {
     width: 360px;

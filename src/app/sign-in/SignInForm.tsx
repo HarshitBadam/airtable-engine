@@ -13,13 +13,12 @@ import {
   AuthProviderButton,
 } from "~/components/auth";
 import { isValidEmail } from "~/shared/validation";
+import authStyles from "~/components/auth/auth.module.css";
 
 import styles from "./SignInForm.module.css";
 
 export function SignInForm() {
   const [email, setEmail] = useState("");
-  const [createLinkHovered, setCreateLinkHovered] = useState(false);
-  const [cookieLinkHovered, setCookieLinkHovered] = useState(false);
   const emailValid = useMemo(() => isValidEmail(email), [email]);
 
   const handleGoogleSignIn = () => void signIn("google", { callbackUrl: "/" });
@@ -52,35 +51,17 @@ export function SignInForm() {
 
       <p className={styles.footer}>
         New to Airtable?{" "}
-        <Link 
-          href="/sign-up" 
-          style={{
-            color: "#166ee1",
-            textDecoration: createLinkHovered ? "none" : "underline",
-            textUnderlineOffset: "2px",
-            fontWeight: 500,
-          }}
-          onMouseEnter={() => setCreateLinkHovered(true)}
-          onMouseLeave={() => setCreateLinkHovered(false)}
-        >
+        <Link href="/sign-up" className={authStyles.authLink}>
           Create an account
         </Link>{" "}
         instead
       </p>
 
       <p className={styles.cookieFooter}>
-        Manage your cookie preferences{"  "}{" "}
-        <a 
+        Manage your cookie preferences{" "}
+        <a
           href="#"
-          style={{
-            color: "#166ee1",
-            textDecoration: cookieLinkHovered ? "none" : "underline",
-            textUnderlineOffset: "2px",
-            fontWeight: 500,
-            marginLeft: "2px",
-          }}
-          onMouseEnter={() => setCookieLinkHovered(true)}
-          onMouseLeave={() => setCookieLinkHovered(false)}
+          className={authStyles.authLink}
           onClick={(e) => e.preventDefault()}
         >
           here

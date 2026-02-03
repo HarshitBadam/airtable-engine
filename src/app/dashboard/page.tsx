@@ -28,7 +28,6 @@ import {
   GridViewIcon,
   StarOutlineIcon,
   StarFilledIcon,
-  DotsSixVerticalIcon,
   CheckIcon,
   AirtableLogoMark,
   AirtableWordmark,
@@ -168,22 +167,14 @@ export default function DashboardPage() {
   });
 
   const handleCreateBase = () => {
-    console.log("handleCreateBase called");
-    if (isCreating) {
-      console.log("Already creating, skipping");
-      return;
-    }
-    // Close modal immediately for snappy UX (optimistic update shows the new base)
+    if (isCreating) return;
+    
     setCreateModalOpen(false);
     setIsCreating(true);
     
-    // Fire and forget - optimistic update handles the UI
     createBase("Untitled")
-      .then(() => {
-        console.log("Base created successfully");
-      })
-      .catch((error) => {
-        console.error("Failed to create base:", error);
+      .catch(() => {
+        // Error handled by optimistic update rollback
       })
       .finally(() => {
         setIsCreating(false);
