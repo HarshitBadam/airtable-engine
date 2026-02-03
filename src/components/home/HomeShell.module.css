@@ -27,9 +27,9 @@
   width: 100%;
   height: 56px;
   box-sizing: border-box;
-  background-color: rgb(255, 255, 255);
+  background-color: var(--home-bg);
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -44,7 +44,7 @@
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -62,7 +62,7 @@
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -91,7 +91,7 @@
   justify-content: flex-end;
   gap: 8px;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -110,12 +110,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgb(255, 255, 255);
+  background-color: var(--home-bg);
   border: none;
   border-radius: 9999px;
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -165,7 +165,7 @@
   position: relative;
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -298,7 +298,7 @@
   align-items: center;
   gap: 2px;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -331,7 +331,7 @@
 .brandWordmark {
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -351,12 +351,12 @@
 .searchPill {
   display: flex;
   align-items: center;
-  background-color: rgb(255, 255, 255);
+  background-color: var(--home-bg);
   border: none;
   border-radius: 9999px;
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -374,7 +374,7 @@
 }
 
 .searchPill:hover {
-  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.12) 0px 2px 8px 0px, rgba(0, 0, 0, 0.1) 0px 4px 14px 0px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.12) 0px 2px 8px 0px, var(--home-border) 0px 4px 14px 0px;
 }
 
 .searchPill:focus {
@@ -386,7 +386,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   width: 16px;
   height: 16px;
   transform: translateX(-2px);
@@ -400,7 +400,7 @@
 .searchPlaceholder {
   display: block;
   box-sizing: border-box;
-  color: rgb(97, 102, 112);
+  color: var(--home-text-secondary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -422,7 +422,7 @@
   align-items: center;
   gap: 2px;
   box-sizing: border-box;
-  color: rgb(151, 154, 160);
+  color: var(--home-text-tertiary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -455,7 +455,7 @@
   border: none;
   border-radius: 9999px;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -484,8 +484,8 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  color: rgb(255, 255, 255);
-  fill: rgb(255, 255, 255);
+  color: var(--home-bg);
+  fill: var(--home-bg);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -539,7 +539,7 @@
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -555,7 +555,7 @@
   text-align: center;
   top: 0px;
   width: 46px;
-  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  border-right: 1px solid var(--home-border);
   /* Clip overflow for short viewport heights */
   overflow: hidden;
 }
@@ -592,7 +592,7 @@
 .railItem {
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -615,13 +615,13 @@
 
 .railItem[aria-current="page"],
 .railItemActive {
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
 }
 
 .railDivider {
   display: block;
-  background-color: rgba(0, 0, 0, 0.1);
-  color: rgb(29, 31, 37);
+  background-color: var(--home-border);
+  color: var(--home-text-primary);
   content: "";
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -654,7 +654,7 @@
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -674,7 +674,7 @@
 .railFooterItem {
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -709,7 +709,7 @@
   background: var(--home-bg);
   color: var(--home-text-primary);
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px var(--home-hover-bg);
   transition: background var(--home-transition-fast), box-shadow var(--home-transition-fast);
 }
 
@@ -723,7 +723,7 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -764,10 +764,10 @@
   position: absolute;
   top: 0px;
   left: 0px;
-  background-color: rgb(255, 255, 255);
-  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: var(--home-bg);
+  border-right: 1px solid var(--home-border);
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -797,7 +797,7 @@
 /* Shadow only for hover-opened sidebar (not toggle-opened) */
 .sidebarContainer:hover .sidebar:not(.sidebarExpanded),
 .sidebar:hover:not(.sidebarExpanded) {
-  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.12) 0px 2px 8px 0px, rgba(0, 0, 0, 0.1) 0px 4px 14px 0px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.12) 0px 2px 8px 0px, var(--home-border) 0px 4px 14px 0px;
 }
 
 .sidebarHidden {
@@ -808,7 +808,7 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -835,7 +835,7 @@
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -855,21 +855,21 @@
 }
 
 .navItem:hover {
-  background-color: rgb(242, 244, 248);
+  background-color: var(--home-bg-subtle);
 }
 
 .navItemActive {
-  background-color: rgb(242, 244, 248);
+  background-color: var(--home-bg-subtle);
 }
 
 .navItemActive:hover {
-  background-color: rgb(242, 244, 248);
+  background-color: var(--home-bg-subtle);
 }
 
 .navIcon {
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -887,7 +887,7 @@
 .navIconWide {
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-size: 13px;
   font-weight: 400;
@@ -916,7 +916,7 @@
 .navLabel {
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 15px;
@@ -943,7 +943,7 @@
   justify-content: flex-start;
   gap: 4px;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -958,7 +958,7 @@
 }
 
 .navRow:hover {
-  background-color: rgb(242, 244, 248);
+  background-color: var(--home-bg-subtle);
 }
 
 /* Nav items spacing - clean layout without transforms */
@@ -989,7 +989,7 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -1013,7 +1013,7 @@
 }
 
 .disclosureButton:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--home-hover-bg);
 }
 
 .disclosureExpanded {
@@ -1029,7 +1029,7 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 15px;
@@ -1047,7 +1047,7 @@
 }
 
 .addButton:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--home-hover-bg);
 }
 
 /* Nav Section (Starred dropdown content) */
@@ -1128,7 +1128,7 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -1149,7 +1149,7 @@
 .sidebarBottom::before {
   content: "";
   display: block;
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: var(--home-border);
   height: 1px;
   margin: 0 12px 12px 12px;
   transform: translateY(-4px);
@@ -1168,7 +1168,7 @@
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -1185,13 +1185,13 @@
 }
 
 .bottomLink:hover {
-  background-color: rgb(242, 244, 248);
+  background-color: var(--home-bg-subtle);
 }
 
 .bottomLinkIcon {
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-size: 13px;
   font-weight: 400;
@@ -1209,7 +1209,7 @@
 .bottomLinkText {
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -1226,15 +1226,15 @@
   align-items: center;
   justify-content: center;
   appearance: auto;
-  background-color: rgb(22, 110, 225);
+  background-color: var(--home-primary);
   transform: translateY(4px);
   border: none;
   border-radius: 6px;
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
   box-sizing: border-box;
-  color: rgb(255, 255, 255);
+  color: var(--home-bg);
   cursor: pointer;
-  fill: rgb(255, 255, 255);
+  fill: var(--home-bg);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 500;
@@ -1291,7 +1291,7 @@
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -1357,7 +1357,7 @@
 .title {
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: "Inter Display", -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 27px;
   font-weight: 675;
@@ -1383,7 +1383,7 @@
   align-items: center;
   justify-content: space-between;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -1414,7 +1414,7 @@
   right: -4px;
   bottom: -12px;
   height: 12px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.03) 50%, rgba(0, 0, 0, 0) 100%);
+  background: linear-gradient(to bottom, var(--home-border) 0%, rgba(0, 0, 0, 0.03) 50%, rgba(0, 0, 0, 0) 100%);
   pointer-events: none;
   -webkit-mask-image: linear-gradient(to right, transparent 0%, black 1%, black 99%, transparent 100%);
   mask-image: linear-gradient(to right, transparent 0%, black 1%, black 99%, transparent 100%);
@@ -1474,7 +1474,7 @@
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -1493,7 +1493,7 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -1511,12 +1511,12 @@
 }
 
 .viewToggleButton:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--home-hover-bg);
 }
 
 .viewToggleButton[aria-checked="true"] {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: rgb(29, 31, 37);
+  background-color: var(--home-hover-bg);
+  color: var(--home-text-primary);
 }
 
 /* ========================================
@@ -1529,7 +1529,7 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -1657,7 +1657,7 @@
 .emptyTitle {
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 21px;
   font-weight: 400;
@@ -1674,7 +1674,7 @@
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -1699,12 +1699,12 @@
   align-items: center;
   justify-content: center;
   appearance: auto;
-  background-color: rgb(255, 255, 255);
+  background-color: var(--home-bg);
   border: none;
   border-radius: 6px;
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -1734,7 +1734,7 @@
   top: calc(100% + 8px);
   left: 0;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -1744,7 +1744,7 @@
   margin: 0;
   padding: 12px;
   width: 240px;
-  background: rgb(255, 255, 255);
+  background: var(--home-bg);
   border-radius: 6px;
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 2px 8px 0px, rgba(0, 0, 0, 0.08) 0px 4px 16px 0px;
   z-index: 200;
@@ -1755,7 +1755,7 @@
   align-items: center;
   justify-content: flex-start;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -1773,7 +1773,7 @@
 }
 
 .filterOption:hover {
-  background-color: rgb(242, 244, 248);
+  background-color: var(--home-bg-subtle);
 }
 
 /* Tick at right end of row (grey area) */
@@ -1786,7 +1786,7 @@
   width: 16px;
   height: 16px;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   overflow: hidden;
 }
 
@@ -1794,7 +1794,7 @@
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -1878,7 +1878,7 @@
   width: 752px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 32px);
-  background-color: rgb(255, 255, 255);
+  background-color: var(--home-bg);
   border-radius: 12px;
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
   display: flex;
@@ -1887,7 +1887,7 @@
   font-size: 13px;
   font-weight: 400;
   line-height: 18px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   overflow: hidden;
   position: relative;
   pointer-events: all;
@@ -1923,7 +1923,7 @@
   flex-direction: column;
   justify-content: flex-end;
   padding: 20px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid var(--home-border);
   box-sizing: border-box;
   position: relative;
 }
@@ -1934,7 +1934,7 @@
   line-height: 28.75px;
   margin: 0;
   margin-left: 24px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
 }
 
 .modalCloseButton {
@@ -1954,12 +1954,12 @@
   border-bottom-left-radius: 50%;
   border-bottom-right-radius: 50%;
   cursor: pointer;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   transition: background 0.15s ease;
 }
 
 .modalCloseButton:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--home-hover-bg);
 }
 
 .modalCloseButton svg {
@@ -1980,7 +1980,7 @@
 .modalWorkspaceLabel {
   display: block;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 15px;
   font-weight: 500;
@@ -1999,13 +1999,13 @@
   gap: 4px;
   font-size: 15px;
   font-weight: 400;
-  color: rgb(97, 102, 112);
+  color: var(--home-text-secondary);
   cursor: pointer;
   transition: color 0.15s ease;
 }
 
 .modalWorkspaceSelect:hover {
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
 }
 
 .modalWorkspaceSelect svg {
@@ -2028,7 +2028,7 @@
   font-size: 13px;
   font-weight: 400;
   line-height: 18px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   pointer-events: all;
   unicode-bidi: isolate;
   overflow-y: auto;
@@ -2051,7 +2051,7 @@
   font-size: 13px;
   font-weight: 400;
   line-height: 18px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   pointer-events: all;
   unicode-bidi: isolate;
   transform: translateY(-2px);
@@ -2074,7 +2074,7 @@
 }
 
 .modalOptionCard:hover {
-  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.06) 0px 1px 3px 0px, rgba(0, 0, 0, 0.05) 0px 2px 6px 0px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.06) 0px 1px 3px 0px, var(--home-hover-bg) 0px 2px 6px 0px;
 }
 
 .modalOptionImage {
@@ -2099,7 +2099,7 @@
   font-size: 13px;
   font-weight: 400;
   line-height: 18px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   display: block;
   flex: 1 1 auto;
@@ -2119,7 +2119,7 @@
   font-size: 21px;
   font-weight: 600;
   line-height: 26.25px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   margin: 0 0 8px 0;
   min-width: 0;
   overflow-wrap: break-word;
@@ -2156,7 +2156,7 @@
   font-size: 15px;
   font-weight: 400;
   line-height: 22px;
-  color: rgb(97, 102, 112);
+  color: var(--home-text-secondary);
   margin: 0;
   overflow-wrap: break-word;
   word-break: break-word;
@@ -2183,10 +2183,10 @@
   background: white;
   border-radius: 6px;
   box-shadow: 
-    rgba(0, 0, 0, 0.1) 0px 0px 0px 1px,
-    rgba(0, 0, 0, 0.1) 0px 4px 11px;
+    var(--home-border) 0px 0px 0px 1px,
+    var(--home-border) 0px 4px 11px;
   z-index: 1100;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -2200,7 +2200,7 @@
   height: 64px;
   margin: 0 8px 8px 8px;
   padding: 8px 0 16px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid var(--home-hover-bg);
 }
 
 .accountDropdownName {
@@ -2234,7 +2234,7 @@
   padding: 8px;
   border-radius: 3px;
   cursor: pointer;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-size: 13px;
   font-weight: 400;
   line-height: 18px;
@@ -2246,7 +2246,7 @@
 }
 
 .accountDropdownItem:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--home-hover-bg);
 }
 
 .accountDropdownItemIcon {
@@ -2284,7 +2284,7 @@
 }
 
 .accountDropdownDivider {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--home-hover-bg);
   height: 1px;
   margin: 8px;
   padding: 0;

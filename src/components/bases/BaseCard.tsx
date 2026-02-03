@@ -9,6 +9,9 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import styles from "./bases.module.css";
 import { getBaseColor, getBaseBorderColor, getBaseTextColor, getBaseInitials, formatRelativeTime } from "./useBases";
+import { useBaseCardActions } from "./useBaseCardActions";
+import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
+import { MENU_WIDTH, MENU_HEIGHT, VIEWPORT_EDGE_BUFFER, HOVER_RESET_DELAY } from "~/shared/constants";
 import { 
   DatabaseIcon, 
   StarOutlineIcon, 
@@ -20,9 +23,7 @@ import {
   WorkspacesIcon,
   PaintBrushIcon,
   TrashIcon,
-  QuestionMarkCircleIcon
 } from "~/components/home/Icons";
-import { api } from "~/trpc/react";
 
 export interface BaseCardProps {
   base: {
@@ -42,130 +43,11 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
   const [editName, setEditName] = useState(base.name);
   const [isHoveringActions, setIsHoveringActions] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteDialogOffset, setDeleteDialogOffset] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const deleteDialogRef = useRef<HTMLDivElement>(null);
   
-  const utils = api.useUtils();
-  
-  // Optimistic rename mutation
-  const renameMutation = api.base.rename.useMutation({
-    onMutate: async ({ id, name }) => {
-      // Cancel outgoing refetches
-      await utils.base.listMine.cancel();
-      
-      // Snapshot previous state
-      const previousMine = utils.base.listMine.getData();
-      
-      // Optimistically update
-      utils.base.listMine.setData(undefined, (old) =>
-        old?.map((b) => (b.id === id ? { ...b, name } : b))
-      );
-      
-      return { previousMine };
-    },
-    onError: (_err, _variables, context) => {
-      // Rollback on error
-      if (context?.previousMine) {
-        utils.base.listMine.setData(undefined, context.previousMine);
-      }
-    },
-    onSettled: () => {
-      void utils.base.listMine.invalidate();
-    },
-  });
-  
-  // Optimistic delete mutation
-  const deleteMutation = api.base.delete.useMutation({
-    onMutate: async ({ id }) => {
-      // Cancel outgoing refetches
-      await utils.base.listMine.cancel();
-      await utils.base.listStarred.cancel();
-      
-      // Snapshot previous state
-      const previousMine = utils.base.listMine.getData();
-      const previousStarred = utils.base.listStarred.getData();
-      
-      // Optimistically remove from lists
-      utils.base.listMine.setData(undefined, (old) =>
-        old?.filter((b) => b.id !== id)
-      );
-      utils.base.listStarred.setData(undefined, (old) =>
-        old?.filter((b) => b.id !== id)
-      );
-      
-      return { previousMine, previousStarred };
-    },
-    onError: (_err, _variables, context) => {
-      // Rollback on error
-      if (context?.previousMine) {
-        utils.base.listMine.setData(undefined, context.previousMine);
-      }
-      if (context?.previousStarred) {
-        utils.base.listStarred.setData(undefined, context.previousStarred);
-      }
-    },
-    onSettled: () => {
-      void utils.base.listMine.invalidate();
-      void utils.base.listStarred.invalidate();
-    },
-  });
-
-  // Optimistic star toggle mutation
-  const toggleStarMutation = api.base.toggleStar.useMutation({
-    onMutate: async ({ id }) => {
-      // Cancel outgoing refetches
-      await utils.base.listMine.cancel();
-      await utils.base.listStarred.cancel();
-      
-      // Snapshot previous state
-      const previousMine = utils.base.listMine.getData();
-      const previousStarred = utils.base.listStarred.getData();
-      
-      // Get the base being toggled
-      const baseToToggle = previousMine?.find((b) => b.id === id);
-      const newIsStarred = baseToToggle ? !baseToToggle.isStarred : false;
-      
-      // Optimistically update listMine
-      utils.base.listMine.setData(undefined, (old) =>
-        old?.map((b) => (b.id === id ? { ...b, isStarred: newIsStarred } : b))
-      );
-      
-      // Optimistically update listStarred
-      if (newIsStarred && baseToToggle) {
-        // Add to starred list
-        utils.base.listStarred.setData(undefined, (old) => 
-          old ? [{ ...baseToToggle, isStarred: true }, ...old] : [{ ...baseToToggle, isStarred: true }]
-        );
-      } else {
-        // Remove from starred list
-        utils.base.listStarred.setData(undefined, (old) =>
-          old?.filter((b) => b.id !== id)
-        );
-      }
-      
-      return { previousMine, previousStarred };
-    },
-    onError: (_err, _variables, context) => {
-      // Rollback on error
-      if (context?.previousMine) {
-        utils.base.listMine.setData(undefined, context.previousMine);
-      }
-      if (context?.previousStarred) {
-        utils.base.listStarred.setData(undefined, context.previousStarred);
-      }
-    },
-    onSettled: () => {
-      void utils.base.listMine.invalidate();
-      void utils.base.listStarred.invalidate();
-    },
-  });
-
-  const handleStarClick = () => {
-    toggleStarMutation.mutate({ id: base.id });
-  };
+  const actions = useBaseCardActions();
   
   const color = getBaseColor(base.id);
   const borderColor = getBaseBorderColor(base.id);
@@ -190,24 +72,14 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
   const checkMenuPosition = () => {
     if (buttonRef.current) {
       const buttonRect = buttonRef.current.getBoundingClientRect();
-      const menuWidth = 240;
-      const menuHeight = 260; // approximate menu height including margin
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
       
       // Horizontal: If menu left-aligned would overflow right edge of viewport
-      if (buttonRect.left + menuWidth > viewportWidth - 16) {
-        setMenuRight(true);
-      } else {
-        setMenuRight(false);
-      }
+      setMenuRight(buttonRect.left + MENU_WIDTH > viewportWidth - VIEWPORT_EDGE_BUFFER);
       
       // Vertical: If menu below would overflow bottom of viewport
-      if (buttonRect.bottom + menuHeight > viewportHeight - 16) {
-        setMenuUp(true);
-      } else {
-        setMenuUp(false);
-      }
+      setMenuUp(buttonRect.bottom + MENU_HEIGHT > viewportHeight - VIEWPORT_EDGE_BUFFER);
     }
   };
 
@@ -222,12 +94,11 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
   const handleRenameSubmit = () => {
     const trimmedName = editName.trim();
     if (trimmedName && trimmedName !== base.name) {
-      renameMutation.mutate({ id: base.id, name: trimmedName });
+      actions.rename(base.id, trimmedName);
     }
     setIsRenaming(false);
-    setIsHoveringActions(false); // Reset hover state when exiting rename mode
-    // Reset again after a short delay to handle race condition with onMouseEnter
-    setTimeout(() => setIsHoveringActions(false), 50);
+    setIsHoveringActions(false);
+    setTimeout(() => setIsHoveringActions(false), HOVER_RESET_DELAY);
   };
 
   const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -248,33 +119,6 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
     }
   }, [isRenaming]);
 
-  // Adjust delete dialog position if it would overflow viewport
-  useEffect(() => {
-    if (showDeleteConfirm && deleteDialogRef.current) {
-      // Double RAF ensures layout is fully stable before measuring
-      // Single RAF can fire before browser completes layout calculations
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const dialog = deleteDialogRef.current;
-          if (!dialog) return;
-          
-          const rect = dialog.getBoundingClientRect();
-          const viewportHeight = window.innerHeight;
-          
-          // If dialog bottom extends past viewport, calculate offset needed (with 8px buffer)
-          if (rect.bottom > viewportHeight - 8) {
-            const overflow = rect.bottom - viewportHeight + 8;
-            setDeleteDialogOffset(-overflow);
-          } else {
-            setDeleteDialogOffset(0);
-          }
-        });
-      });
-    } else {
-      setDeleteDialogOffset(0);
-    }
-  }, [showDeleteConfirm]);
-
   // Handle delete
   const handleDeleteClick = () => {
     setMenuOpen(false);
@@ -283,7 +127,7 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
 
   const handleDeleteConfirm = () => {
     setShowDeleteConfirm(false);
-    deleteMutation.mutate({ id: base.id });
+    actions.delete(base.id);
   };
 
   const handleDeleteCancel = () => {
@@ -377,7 +221,7 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
                 onClick={(e) => {
                   e.stopPropagation();
                   if (showDeleteConfirm) return;
-                  handleStarClick();
+                  actions.toggleStar(base.id);
                 }}
               >
                 {base.isStarred ? (
@@ -437,44 +281,11 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
 
             {/* Delete confirmation dialog */}
             {showDeleteConfirm && (
-              <>
-                <div 
-                  className={styles.deleteConfirmOverlay} 
-                  onClick={handleDeleteCancel}
-                />
-                <div 
-                  ref={deleteDialogRef}
-                  className={styles.deleteConfirmDialog}
-                  style={deleteDialogOffset !== 0 ? { transform: `translateY(${deleteDialogOffset}px)` } : undefined}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <p className={styles.deleteConfirmTitle}>
-                    Are you sure you want to delete {base.name}?
-                  </p>
-                  <span className={styles.deleteConfirmMessage}>
-                    Recently deleted apps can be restored from trash.
-                    <span className={styles.deleteConfirmHelpIcon}>
-                      <QuestionMarkCircleIcon size={15} />
-                    </span>
-                  </span>
-                  <div className={styles.deleteConfirmButtons}>
-                    <button 
-                      type="button"
-                      className={styles.deleteConfirmCancelButton}
-                      onClick={handleDeleteCancel}
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="button"
-                      className={styles.deleteConfirmDeleteButton}
-                      onClick={handleDeleteConfirm}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </>
+              <DeleteConfirmDialog
+                baseName={base.name}
+                onConfirm={handleDeleteConfirm}
+                onCancel={handleDeleteCancel}
+              />
             )}
           </div>
         </div>

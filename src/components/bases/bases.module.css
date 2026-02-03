@@ -45,7 +45,7 @@
   /* Flexible width - no min/max constraints */
   width: 100%;
   border-radius: 6px;
-  background-color: rgb(255, 255, 255);
+  background-color: var(--home-bg);
   box-shadow: 
     rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
     rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
@@ -60,7 +60,7 @@
     rgba(0, 0, 0, 0.4) 0px 0px 1px 0px,
     rgba(0, 0, 0, 0.08) 0px -1px 3px 0px,
     rgba(0, 0, 0, 0.15) 0px 2px 4px 0px,
-    rgba(0, 0, 0, 0.1) 0px 3px 7px 0px;
+    var(--home-border) 0px 3px 7px 0px;
 }
 
 /* Tooltip - centered top with 0.5s delay */
@@ -171,7 +171,7 @@
   font-family: -apple-system, system-ui, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
   font-size: 13px;
   font-weight: 500;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   line-height: 1.4;
   letter-spacing: 0.01em;
   margin: 0;
@@ -185,12 +185,12 @@
 
 .baseCardNameInput {
   appearance: none;
-  background-color: rgb(255, 255, 255);
-  border: 2px solid rgb(22, 110, 225);
+  background-color: var(--home-bg);
+  border: 2px solid var(--home-primary);
   border-radius: 6px;
   box-shadow: none;
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   display: block;
   font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
@@ -226,7 +226,7 @@
   font-family: -apple-system, system-ui, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
   font-size: 11px;
   font-weight: 400;
-  color: rgb(97, 102, 112);
+  color: var(--home-text-secondary);
   line-height: 16.5px;
   height: 16.5px;
   white-space: nowrap;
@@ -273,7 +273,7 @@
   height: 28px;
   min-height: 28px;
   width: 62px;
-  background-color: rgb(255, 255, 255);
+  background-color: var(--home-bg);
   border-radius: 6px;
   z-index: 1;
 }
@@ -285,10 +285,10 @@
   width: 28px;
   height: 28px;
   padding: 0 6px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--home-border);
   border-radius: 6px;
-  background-color: rgb(255, 255, 255);
-  color: rgb(29, 31, 37);
+  background-color: var(--home-bg);
+  color: var(--home-text-primary);
   cursor: pointer;
   z-index: 2;
   position: relative;
@@ -312,7 +312,7 @@
   justify-content: space-between;
   width: 76px;
   height: 16px;
-  color: rgb(97, 102, 112);
+  color: var(--home-text-secondary);
   font-family: -apple-system, system-ui, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
   font-size: 11px;
   font-weight: 400;
@@ -352,7 +352,7 @@
   justify-content: space-between;
   width: 76px;
   height: 16px;
-  color: rgb(97, 102, 112);
+  color: var(--home-text-secondary);
   font-size: 11px;
   font-weight: 400;
   line-height: 16px;
@@ -379,7 +379,7 @@
   top: calc(100% + 8px); /* 8px below the button */
   left: 34px; /* Left edge aligned with overflow (...) button */
   width: 240px;
-  background-color: rgb(255, 255, 255);
+  background-color: var(--home-bg);
   border-radius: 6px;
   box-shadow: 
     rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
@@ -393,7 +393,7 @@
   font-size: 13px;
   font-weight: 400;
   line-height: 18px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
 }
 
 .baseCardMenuItem {
@@ -407,7 +407,7 @@
 }
 
 .baseCardMenuItem:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--home-hover-bg);
 }
 
 .baseCardMenuItem span {
@@ -429,7 +429,7 @@
 
 .baseCardMenuDivider {
   height: 1px;
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--home-hover-bg);
   margin: 8px;
   width: calc(100% - 16px);
 }
@@ -487,7 +487,7 @@
   min-width: 232px;
   max-width: 400px;
   box-sizing: border-box;
-  background-color: rgb(255, 255, 255);
+  background-color: var(--home-bg);
   border-radius: 6px;
   box-shadow: 
     rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
@@ -503,7 +503,7 @@
   font-size: 13px;
   font-weight: 500;
   line-height: 18px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
 }
 
 .deleteConfirmTitle {
@@ -515,7 +515,7 @@
   line-height: 21.6px;
   margin: 0 0 8px 0;
   padding: 0;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   text-align: left;
 }
 
@@ -526,7 +526,7 @@
   font-size: 13px;
   font-weight: 500;
   line-height: 18px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   margin-left: 0;
   text-align: left;
 }
@@ -537,12 +537,12 @@
   justify-content: center;
   vertical-align: middle;
   margin-left: 4px;
-  color: rgb(97, 102, 112);
+  color: var(--home-text-secondary);
   cursor: pointer;
 }
 
 .deleteConfirmHelpIcon:hover {
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
 }
 
 .deleteConfirmButtons {
@@ -571,7 +571,7 @@
   font-size: 13px;
   font-weight: 500;
   line-height: 22px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -604,8 +604,8 @@
   font-size: 13px;
   font-weight: 500;
   line-height: 22px;
-  color: rgb(255, 255, 255);
-  fill: rgb(255, 255, 255);
+  color: var(--home-bg);
+  fill: var(--home-bg);
   cursor: pointer;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -653,7 +653,7 @@
   font-size: 13px;
   font-weight: 400;
   line-height: 18px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   text-decoration: none;
   transition: transform 0s linear;
   user-select: none;
@@ -661,7 +661,7 @@
 }
 
 .starredEntry:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--home-hover-bg);
 }
 
 .starredEntryLogo {
@@ -674,7 +674,7 @@
   border-radius: 6px;
   font-size: 12px;
   font-weight: 300;
-  color: rgb(255, 255, 255);
+  color: var(--home-bg);
   position: relative;
 }
 
@@ -688,7 +688,7 @@
   font-size: 13px;
   font-weight: 400;
   line-height: 19.5px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -703,7 +703,7 @@
   font-size: 11px;
   font-weight: 400;
   line-height: 16.5px;
-  color: rgb(151, 154, 160);
+  color: var(--home-text-tertiary);
   white-space: nowrap;
 }
 
@@ -734,7 +734,7 @@
 }
 
 .starredEntryStar:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--home-hover-bg);
 }
 
 .starredEntryDragHandle {
@@ -793,7 +793,7 @@
 
 .listViewContainer {
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   display: flex;
   flex-direction: column;
   font-family: -apple-system, system-ui, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
@@ -814,7 +814,7 @@
 /* Header row with column titles */
 .listViewHeader {
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   column-gap: 24px;
   display: grid;
   /* Name: fixed 500px until forced to shrink (min 231px) | Last opened & Workspaces: flexible, shrink first (min 130px) */
@@ -861,7 +861,7 @@
   width: calc(100% + 4px);  /* Extended 20px more on right */
   margin-left: -8px;
   margin-right: 0;  /* Reduced from 16px */
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid var(--home-border);
 }
 
 .listViewList {
@@ -871,7 +871,7 @@
 /* Each list item row */
 .listItem {
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   display: flex;
   align-items: center;
   font-family: -apple-system, system-ui, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
@@ -922,7 +922,7 @@
 /* Grid container for item content */
 .listItemContent {
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   column-gap: 24px;
   display: grid;
   /* Match header: Name fixed 500px, Last opened & Workspaces flexible */
@@ -965,7 +965,7 @@
   border-radius: 6px;
   font-size: 11px;
   font-weight: 400;
-  color: rgb(255, 255, 255);
+  color: var(--home-bg);
   margin-left: 8px;
   transform: translateY(0);
 }
@@ -983,7 +983,7 @@
 /* Last opened and workspace columns */
 .listItemColumn {
   box-sizing: border-box;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   display: block;
   font-family: -apple-system, system-ui, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
   font-size: 13px;
@@ -1060,7 +1060,7 @@
 }
 
 .listItemStarredIndicator:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--home-hover-bg);
 }
 
 /* Hide starred indicator on hover (show action buttons instead) */
@@ -1090,7 +1090,7 @@
   font-size: 13px;
   font-weight: 400;
   line-height: 18px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
@@ -1128,7 +1128,7 @@
   background: transparent;
   border-radius: 3px;
   cursor: pointer;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
 }
 
 .listItemActionButton:first-child {
@@ -1137,7 +1137,7 @@
 }
 
 .listItemActionButton:hover {
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
 }
 
 .listItemActionButton svg {
@@ -1167,13 +1167,13 @@
   background: white;
   border-radius: 6px;
   box-shadow: 
-    rgba(0, 0, 0, 0.1) 0px 0px 0px 1px,
-    rgba(0, 0, 0, 0.1) 0px 4px 11px;
+    var(--home-border) 0px 0px 0px 1px,
+    var(--home-border) 0px 4px 11px;
   list-style: none;
   z-index: 1100;
   pointer-events: auto;
   overflow: hidden;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
@@ -1205,7 +1205,7 @@
   background-color: transparent;
   border-radius: 3px;
   cursor: pointer;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   font-family: inherit;
   font-size: 13px;
   font-weight: 400;
@@ -1228,7 +1228,7 @@
   right: 0;
   top: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--home-hover-bg);
   border-radius: 3px;
   z-index: 0;
 }
@@ -1259,7 +1259,7 @@
   min-width: 232px;
   max-width: 400px;
   box-sizing: border-box;
-  background-color: rgb(255, 255, 255);
+  background-color: var(--home-bg);
   border-radius: 6px;
   box-shadow: 
     rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
@@ -1275,7 +1275,7 @@
   font-size: 13px;
   font-weight: 500;
   line-height: 18px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   pointer-events: auto;
 }
 
@@ -1289,7 +1289,7 @@
   line-height: 21.6px;
   margin: 0 0 8px 0;
   padding: 0;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   text-align: left;
 }
 
@@ -1300,7 +1300,7 @@
   font-size: 13px;
   font-weight: 500;
   line-height: 18px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   margin-left: 0;
   text-align: left;
 }
@@ -1309,7 +1309,7 @@
   display: inline-flex;
   vertical-align: middle;
   margin-left: 4px;
-  color: rgb(97, 102, 112);
+  color: var(--home-text-secondary);
 }
 
 .listItemDeleteDialog .deleteConfirmButtons {
@@ -1338,7 +1338,7 @@
   font-size: 13px;
   font-weight: 500;
   line-height: 22px;
-  color: rgb(29, 31, 37);
+  color: var(--home-text-primary);
   cursor: pointer;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1371,8 +1371,8 @@
   font-size: 13px;
   font-weight: 500;
   line-height: 22px;
-  color: rgb(255, 255, 255);
-  fill: rgb(255, 255, 255);
+  color: var(--home-bg);
+  fill: var(--home-bg);
   cursor: pointer;
   white-space: nowrap;
   text-overflow: ellipsis;

@@ -8,7 +8,6 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import styles from "~/components/home/HomeShell.module.css";
-import Image from "next/image";
 import {
   HamburgerIcon,
   HomeIcon,
@@ -31,10 +30,11 @@ import {
   CheckIcon,
   AirtableLogoMark,
   AirtableWordmark,
-  CloseIcon,
 } from "~/components/home/Icons";
-import { AccountDropdown } from "~/components/home";
+import { AccountDropdown, CreateModal } from "~/components/home";
 import { useBases, BasesGrid, BasesList, getBaseColor, getBaseTextColor, getBaseInitials } from "~/components/bases";
+import { useBaseCardActions } from "~/components/bases/useBaseCardActions";
+import { SIDEBAR_AUTO_COLLAPSE_WIDTH } from "~/shared/constants";
 import { api } from "~/trpc/react";
 import basesStyles from "~/components/bases/bases.module.css";
 import { useSession } from "next-auth/react";
@@ -65,13 +65,12 @@ export default function DashboardPage() {
   
   // Auto-collapse sidebar when width is narrow, auto-restore when width increases
   useEffect(() => {
-    const AUTO_COLLAPSE_WIDTH = 600;
     let prevWidth = window.innerWidth;
     
     const handleResize = () => {
       const width = window.innerWidth;
-      const wasNarrow = prevWidth <= AUTO_COLLAPSE_WIDTH;
-      const isNarrow = width <= AUTO_COLLAPSE_WIDTH;
+      const wasNarrow = prevWidth <= SIDEBAR_AUTO_COLLAPSE_WIDTH;
+      const isNarrow = width <= SIDEBAR_AUTO_COLLAPSE_WIDTH;
       
       // Crossing from wide to narrow
       if (!wasNarrow && isNarrow) {
@@ -112,59 +111,9 @@ export default function DashboardPage() {
     retry: false,
     refetchOnWindowFocus: false,
   });
-  const utils = api.useUtils();
   
-  // Optimistic star toggle mutation for sidebar
-  const toggleStarMutation = api.base.toggleStar.useMutation({
-    onMutate: async ({ id }) => {
-      // Cancel outgoing refetches
-      await utils.base.listMine.cancel();
-      await utils.base.listStarred.cancel();
-      
-      // Snapshot previous state
-      const previousMine = utils.base.listMine.getData();
-      const previousStarred = utils.base.listStarred.getData();
-      
-      // Get the base being toggled (check both lists)
-      const baseFromMine = previousMine?.find((b) => b.id === id);
-      const baseFromStarred = previousStarred?.find((b) => b.id === id);
-      const baseToToggle = baseFromMine ?? baseFromStarred;
-      const newIsStarred = baseToToggle ? !baseToToggle.isStarred : false;
-      
-      // Optimistically update listMine
-      utils.base.listMine.setData(undefined, (old) =>
-        old?.map((b) => (b.id === id ? { ...b, isStarred: newIsStarred } : b))
-      );
-      
-      // Optimistically update listStarred
-      if (newIsStarred && baseToToggle) {
-        // Add to starred list
-        utils.base.listStarred.setData(undefined, (old) => 
-          old ? [{ ...baseToToggle, isStarred: true }, ...old] : [{ ...baseToToggle, isStarred: true }]
-        );
-      } else {
-        // Remove from starred list
-        utils.base.listStarred.setData(undefined, (old) =>
-          old?.filter((b) => b.id !== id)
-        );
-      }
-      
-      return { previousMine, previousStarred };
-    },
-    onError: (_err, _variables, context) => {
-      // Rollback on error
-      if (context?.previousMine) {
-        utils.base.listMine.setData(undefined, context.previousMine);
-      }
-      if (context?.previousStarred) {
-        utils.base.listStarred.setData(undefined, context.previousStarred);
-      }
-    },
-    onSettled: () => {
-      void utils.base.listMine.invalidate();
-      void utils.base.listStarred.invalidate();
-    },
-  });
+  // Use shared actions hook for star toggle
+  const actions = useBaseCardActions();
 
   const handleCreateBase = () => {
     if (isCreating) return;
@@ -423,7 +372,7 @@ export default function DashboardPage() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            toggleStarMutation.mutate({ id: base.id });
+                            actions.toggleStar(base.id);
                           }}
                         >
                           <StarFilledIcon size={16} color="#FFBA06" />
@@ -626,95 +575,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Create Modal */}
-      {createModalOpen && (
-        <div 
-          className={styles.modalOverlay}
-          onClick={() => setCreateModalOpen(false)}
-        >
-          <div 
-            className={styles.modalContainer}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>How do you want to start?</h2>
-              <button 
-                type="button" 
-                className={styles.modalCloseButton}
-                onClick={() => setCreateModalOpen(false)}
-                aria-label="Close"
-              >
-                <CloseIcon size={16} />
-              </button>
-            </div>
-
-            {/* Workspace Section */}
-            <div className={styles.modalWorkspace}>
-              <span className={styles.modalWorkspaceLabel}>Workspace:</span>
-              <span className={styles.modalWorkspaceSelect}>
-                Select a workspace
-                <ChevronDownIcon size={14} />
-              </span>
-            </div>
-
-            {/* Options */}
-            <div className={styles.modalContent}>
-              <div className={styles.modalOptions}>
-                {/* Build an app with Omni */}
-                <div className={styles.modalOptionCard}>
-                  <Image
-                    src="/image.png"
-                    alt="Build an app with Omni"
-                    width={340}
-                    height={200}
-                    className={styles.modalOptionImage}
-                  />
-                  <div className={styles.modalOptionText}>
-                    <div className={styles.modalOptionTitleRow}>
-                      <h3 className={styles.modalOptionTitle}>Build an app with Omni</h3>
-                      <span className={styles.modalOptionBadge}>New</span>
-                    </div>
-                    <p className={styles.modalOptionDesc}>
-                      Use AI to build a custom app tailored to your workflow.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Build an app on your own */}
-                <div
-                  className={styles.modalOptionCard}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void handleCreateBase();
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  style={{ 
-                    cursor: isCreating ? "wait" : "pointer",
-                    opacity: isCreating ? 0.6 : 1,
-                  }}
-                >
-                  <Image
-                    src="/images/build-app.png"
-                    alt="Build an app on your own"
-                    width={340}
-                    height={200}
-                    className={styles.modalOptionImage}
-                  />
-                  <div className={styles.modalOptionText}>
-                    <h3 className={styles.modalOptionTitle}>
-                      {isCreating ? "Creating..." : "Build an app on your own"}
-                    </h3>
-                    <p className={styles.modalOptionDesc}>
-                      Start with a blank app and build your ideal workflow.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreateModal
+        isOpen={createModalOpen}
+        isCreating={isCreating}
+        onClose={() => setCreateModalOpen(false)}
+        onCreateBase={handleCreateBase}
+      />
     </div>
   );
 }
