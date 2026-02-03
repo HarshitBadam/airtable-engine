@@ -251,21 +251,24 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
   // Adjust delete dialog position if it would overflow viewport
   useEffect(() => {
     if (showDeleteConfirm && deleteDialogRef.current) {
-      // Small delay to ensure dialog is rendered
+      // Double RAF ensures layout is fully stable before measuring
+      // Single RAF can fire before browser completes layout calculations
       requestAnimationFrame(() => {
-        const dialog = deleteDialogRef.current;
-        if (!dialog) return;
-        
-        const rect = dialog.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        
-        // If dialog bottom extends past viewport, calculate offset needed
-        if (rect.bottom > viewportHeight) {
-          const overflow = rect.bottom - viewportHeight;
-          setDeleteDialogOffset(-overflow);
-        } else {
-          setDeleteDialogOffset(0);
-        }
+        requestAnimationFrame(() => {
+          const dialog = deleteDialogRef.current;
+          if (!dialog) return;
+          
+          const rect = dialog.getBoundingClientRect();
+          const viewportHeight = window.innerHeight;
+          
+          // If dialog bottom extends past viewport, calculate offset needed (with 8px buffer)
+          if (rect.bottom > viewportHeight - 8) {
+            const overflow = rect.bottom - viewportHeight + 8;
+            setDeleteDialogOffset(-overflow);
+          } else {
+            setDeleteDialogOffset(0);
+          }
+        });
       });
     } else {
       setDeleteDialogOffset(0);
@@ -288,7 +291,7 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
   };
 
   return (
-    <div className={`${styles.baseCard} ${isRenaming ? styles.baseCardRenaming : ""} ${showDeleteConfirm ? styles.baseCardDeleteConfirm : ""}`} role="region" aria-label={base.name}>
+    <div className={`${styles.baseCard} ${isRenaming ? styles.baseCardRenaming : ""} ${showDeleteConfirm ? styles.baseCardDeleteConfirm : ""} ${menuOpen ? styles.baseCardMenuOpen : ""}`} role="region" aria-label={base.name}>
       {/* Hover tooltip - hidden when renaming, hovering over actions, menu open, or delete confirm shown */}
       {!isRenaming && !isHoveringActions && !menuOpen && !showDeleteConfirm && (
         <span className={styles.baseCardTooltip} role="tooltip">
@@ -416,8 +419,8 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
                   <ArrowRightIcon size={16} />
                   <span>Move</span>
                 </li>
-                <li className={styles.baseCardMenuItem}>
-                  <WorkspacesIcon size={16} />
+                <li className={`${styles.baseCardMenuItem} ${styles.baseCardMenuItemWorkspace}`}>
+                  <WorkspacesIcon size={22} />
                   <span>Go to workspace</span>
                 </li>
                 <li className={styles.baseCardMenuItem}>

@@ -219,6 +219,11 @@
   background-color: #B4D7FF;
 }
 
+/* List view rename input - 8px shorter on right */
+.listItem .baseCardNameInput {
+  width: 158px;
+}
+
 .baseCardMeta {
   display: flex;
   align-items: center;
@@ -255,7 +260,8 @@
 }
 
 .baseCard:hover .baseCardHoverActions,
-.baseCardDeleteConfirm .baseCardHoverActions {
+.baseCardDeleteConfirm .baseCardHoverActions,
+.baseCardMenuOpen .baseCardHoverActions {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -264,7 +270,7 @@
 /* Action buttons container (star + overflow) */
 .baseCardActionButtonsWrapper {
   position: absolute;
-  top: 16px;
+  top: 15px;
   right: 16px;
 }
 
@@ -337,6 +343,10 @@
 
 .baseCardOpenData:hover {
   text-decoration: none;
+}
+
+.baseCardOpenData span {
+  margin-left: 1px;
 }
 
 .baseCardOpenData svg {
@@ -416,11 +426,39 @@
   white-space: nowrap;
 }
 
+/* Go to workspace menu item - adjusted positioning */
+.baseCardMenuItemWorkspace svg {
+  margin-left: -2px;
+}
+
+.baseCardMenuItemWorkspace span {
+  margin-left: -4px;
+}
+
 .baseCardMenuDivider {
   height: 1px;
   background-color: rgba(0, 0, 0, 0.05);
   margin: 8px;
   width: calc(100% - 16px);
+}
+
+/* Grid view menu positioning override */
+.baseCard .listItemMenu {
+  left: 37px;
+  margin-top: 7px;
+}
+
+/* Grid view right-aligned menu - right edge aligned with ... icon */
+.baseCard .listItemMenuRight {
+  left: auto;
+  right: 0;
+}
+
+/* Grid view upward menu - same vertical gap as downward (7px) */
+.baseCard .listItemMenuUp {
+  top: auto;
+  bottom: calc(100% + 7px);
+  margin-top: 0;
 }
 
 /* Right-aligned menu variant when it would overflow screen */
@@ -615,7 +653,7 @@
   align-items: center;
   width: 275px;
   height: 35.5px;
-  padding: 0 12px;
+  padding: 0 12px 0 11px;
   margin-bottom: 4px;
   border-radius: 3px;
   cursor: pointer;
@@ -626,6 +664,8 @@
   color: rgb(29, 31, 37);
   text-decoration: none;
   transition: transform 0s linear;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .starredEntry:hover {
@@ -1052,7 +1092,7 @@
   display: none;
   align-items: center;
   margin-left: auto;
-  margin-right: 16px;
+  margin-right: 15px;
   flex-shrink: 0;
   pointer-events: auto;
 }
@@ -1134,7 +1174,7 @@
   position: absolute;
   top: 100%;
   left: 17px;
-  margin-top: 11px;
+  margin-top: 10px;
   width: 240px;
   height: 245px;
   max-height: 245px;
@@ -1232,8 +1272,7 @@
 .listItemDeleteDialog {
   position: absolute;
   top: calc(100% - 24px);
-  left: 50%;
-  transform: translateX(calc(-50% - 427px));
+  right: calc(50% + 303px);
   display: block;
   width: 232px;
   min-width: 232px;

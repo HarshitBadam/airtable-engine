@@ -209,21 +209,24 @@ function ListItem({ base }: ListItemProps) {
   // Adjust delete dialog position if it would overflow viewport
   useEffect(() => {
     if (showDeleteConfirm && deleteDialogRef.current) {
-      // Small delay to ensure dialog is rendered
+      // Double RAF ensures layout is fully stable before measuring
+      // Single RAF can fire before browser completes layout calculations
       requestAnimationFrame(() => {
-        const dialog = deleteDialogRef.current;
-        if (!dialog) return;
-        
-        const rect = dialog.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        
-        // If dialog bottom extends past viewport, calculate offset needed
-        if (rect.bottom > viewportHeight) {
-          const overflow = rect.bottom - viewportHeight;
-          setDeleteDialogOffset(-overflow);
-        } else {
-          setDeleteDialogOffset(0);
-        }
+        requestAnimationFrame(() => {
+          const dialog = deleteDialogRef.current;
+          if (!dialog) return;
+          
+          const rect = dialog.getBoundingClientRect();
+          const viewportHeight = window.innerHeight;
+          
+          // If dialog bottom extends past viewport, move up just enough to fit
+          if (rect.bottom > viewportHeight) {
+            const overflow = rect.bottom - viewportHeight;
+            setDeleteDialogOffset(-overflow);
+          } else {
+            setDeleteDialogOffset(0);
+          }
+        });
       });
     } else {
       setDeleteDialogOffset(0);
@@ -414,7 +417,7 @@ function ListItem({ base }: ListItemProps) {
           <div 
             ref={deleteDialogRef}
             className={styles.listItemDeleteDialog}
-            style={deleteDialogOffset !== 0 ? { transform: `translateX(calc(-50% - 426px)) translateY(${deleteDialogOffset}px)` } : undefined}
+            style={deleteDialogOffset !== 0 ? { transform: `translateY(${deleteDialogOffset}px)` } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
             <p className={styles.deleteConfirmTitle}>

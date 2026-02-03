@@ -34,9 +34,11 @@ import {
   AirtableWordmark,
   CloseIcon,
 } from "~/components/home/Icons";
+import { AccountDropdown } from "~/components/home";
 import { useBases, BasesGrid, BasesList, getBaseColor, getBaseTextColor, getBaseInitials } from "~/components/bases";
 import { api } from "~/trpc/react";
 import basesStyles from "~/components/bases/bases.module.css";
+import { useSession } from "next-auth/react";
 
 type FilterOption = "today" | "past7days" | "past30days" | "anytime";
 type ViewMode = "list" | "grid";
@@ -55,6 +57,12 @@ export default function DashboardPage() {
   // Using ref to avoid re-triggering useEffect when this changes
   const wasAutoCollapsedRef = useRef(false);
   const { bases, isLoading, createBase } = useBases();
+  const { data: session } = useSession();
+  
+  // Get user info for the account dropdown
+  const userName = session?.user?.name ?? "User";
+  const userEmail = session?.user?.email ?? "";
+  const userInitial = userName.charAt(0).toUpperCase();
   
   // Auto-collapse sidebar when width is narrow, auto-restore when width increases
   useEffect(() => {
@@ -265,12 +273,11 @@ export default function DashboardPage() {
               <span className={styles.hoverTooltip} role="tooltip">Notifications</span>
             </div>
 
-            <div className={styles.tooltipWrapper}>
-              <button type="button" className={styles.avatar} aria-label="Account">
-                H
-              </button>
-              <span className={styles.hoverTooltip} role="tooltip">Account</span>
-            </div>
+            <AccountDropdown
+              userName={userName}
+              userEmail={userEmail}
+              userInitial={userInitial}
+            />
           </div>
         </nav>
       </header>
@@ -408,6 +415,7 @@ export default function DashboardPage() {
                         key={base.id}
                         href={`/bases/${base.id}`}
                         className={basesStyles.starredEntry}
+                        draggable={false}
                       >
                         <div 
                           className={basesStyles.starredEntryLogo}
@@ -428,9 +436,6 @@ export default function DashboardPage() {
                           }}
                         >
                           <StarFilledIcon size={16} color="#FFBA06" />
-                        </span>
-                        <span className={basesStyles.starredEntryDragHandle}>
-                          <DotsSixVerticalIcon size={16} />
                         </span>
                       </Link>
                     ))}

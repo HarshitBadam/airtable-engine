@@ -1072,7 +1072,11 @@
   display: flex;
   flex-direction: column;
   padding: 0;
+  padding-left: 11px;
   margin: 0;
+  max-height: 377px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* Starred Empty State – icon and text aligned */
@@ -1080,7 +1084,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0;
+  padding-top: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+  padding-left: 11px;
 }
 
 .starredEmptyIcon {
@@ -1150,7 +1157,7 @@
   background-color: rgba(0, 0, 0, 0.1);
   height: 1px;
   margin: 0 12px 12px 12px;
-  transform: translateY(-2px);
+  transform: translateY(-4px);
   width: calc(100% - 24px);
 }
 
@@ -1225,7 +1232,7 @@
   justify-content: center;
   appearance: auto;
   background-color: rgb(22, 110, 225);
-  transform: translateY(2px);
+  transform: translateY(4px);
   border: none;
   border-radius: 6px;
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
@@ -1285,6 +1292,7 @@
    ======================================== */
 
 .main {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1299,7 +1307,7 @@
   max-width: 1920px;
   min-width: 0;
   padding: 0;
-  padding-left: 16px;
+  padding-left: 0px;
   padding-right: 16px;
   padding-top: 32px;
   text-align: center;
@@ -1328,20 +1336,20 @@
 }
 
 .mainShifted .subheader {
-  transform: translateX(14px);
+  margin-left: 14px;
 }
 
-.mainShifted .mainInner {
+/* Removed transform - it was breaking position: fixed on viewToggle */
+/* .mainShifted .mainInner {
   transform: translate(0, 0);
+} */
+
+/* When sidebar is expanded: reduce padding */
+.mainShifted .mainInner {
+  padding-left: 36px;
 }
 
-/* When sidebar is expanded: viewToggle stays in fixed position (no transform) */
-/* Removed transforms - viewToggle has consistent 48px right margin in all states */
-
-/* When sidebar is expanded: central text */
-.mainShifted .emptyState {
-  transform: translate(26px, 299.5px);
-}
+/* When sidebar is expanded: central text - now handled by flexbox centering */
 
 /* When sidebar is expanded, shift central content left */
 
@@ -1352,7 +1360,7 @@
   width: 100%;
   max-width: 1400px;
   min-width: 0;
-  padding-left: 36px;
+  padding-left: 48px;
   flex: 1 1 0;
   min-height: 0;
 }
@@ -1393,6 +1401,7 @@
   height: 48px;
   line-height: 18px;
   margin: 0;
+  margin-left: -3px;
   padding: 0;
   padding-bottom: 20px;
   position: relative;
@@ -1402,7 +1411,6 @@
   max-width: 1327px;
   min-width: 0;
   z-index: 2;
-  transform: translateX(-3px);
   overflow: visible;
   /* Don't shrink - stay in place */
   flex-shrink: 0;
@@ -1469,8 +1477,11 @@
   height: 16px;
 }
 
-/* View Toggle */
+/* View Toggle - position fixed to viewport, aligned with account button */
 .viewToggle {
+  position: fixed;
+  right: 48px;
+  top: 146px;
   display: flex;
   align-items: center;
   box-sizing: border-box;
@@ -1481,14 +1492,11 @@
   height: 28px;
   line-height: 18px;
   margin: 0;
-  /* No right margin - positioned at 16px from right edge (main's padding) */
-  margin-right: 0;
   padding: 0;
   text-align: center;
   white-space: nowrap;
   width: 56px;
-  /* Don't use transform - stay in fixed position */
-  flex-shrink: 0;
+  z-index: 100;
 }
 
 .viewToggleButton {
@@ -1547,6 +1555,13 @@
   width: 100%;
   max-width: 1400px;
   overflow-y: auto;
+  /* Hide scrollbar */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.contentArea::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
 }
 
 /* Override centering when content exists (bases grid) */
@@ -1591,43 +1606,53 @@
    These .mainShifted rules = sidebar OPEN (locked in, do not change)
    ======================================== */
 
+/* Move entire list view table 16px right - sidebar OPEN */
+.mainShifted [class*="listViewContainer"] {
+  transform: translateX(16px);
+}
+
 /* Header column shifts - sidebar OPEN */
 .mainShifted [class*="listViewHeaderNameShift"] {
-  margin-left: -12px;
+  margin-left: -11px;
 }
 
 .mainShifted [class*="listViewHeaderColumnShift"] {
-  margin-left: -12px;
+  margin-left: -11px;
 }
 
 .mainShifted [class*="listViewHeaderWorkspaceShift"] {
-  margin-left: -32px;
+  margin-left: -39px;
 }
 
 /* List item column shifts - sidebar OPEN */
 .mainShifted [class*="listItemNameColumnShift"] {
-  margin-left: -12px;
+  margin-left: -11px;
 }
 
 .mainShifted [class*="listItemColumnShift"] {
-  margin-left: -12px;
+  margin-left: -11px;
 }
 
 .mainShifted [class*="listItemWorkspaceShift"] {
-  margin-left: -32px;
+  margin-left: -39px;
 }
 
 /* Divider line - sidebar OPEN */
 .mainShifted [class*="listViewDivider"] {
-  width: calc(100% - 24px);
+  width: calc(100% - 12px);
   margin-left: -8px;
-  margin-right: 16px;
+  margin-right: 8px;
 }
 
 /* Hover highlight - sidebar OPEN */
 .mainShifted [class*="listItemHoverHighlight"] {
   left: -4px;
   right: 34px;
+}
+
+/* Menu opens up - sidebar OPEN */
+.mainShifted [class*="listItemMenuUp"] {
+  bottom: calc(100% + 8px);
 }
 
 /* ========================================
@@ -1641,7 +1666,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  transform: translate(2px, 300px);
+  transform: translate(-8px, -4px);
 }
 
 .emptyTitle {
@@ -2166,4 +2191,182 @@
   margin: 0;
   overflow-wrap: break-word;
   word-break: break-word;
+}
+
+/* ========================================
+   Account Dropdown Menu
+   ======================================== */
+
+.accountDropdownWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.accountDropdown {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  box-sizing: border-box;
+  width: 296px;
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 
+    rgba(0, 0, 0, 0.1) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.1) 0px 4px 11px;
+  z-index: 1100;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+.accountDropdownHeader {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 64px;
+  margin: 0 8px 8px 8px;
+  padding: 8px 0 16px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.accountDropdownName {
+  display: block;
+  box-sizing: border-box;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  white-space: nowrap;
+  cursor: default;
+  margin: 0;
+  text-align: left;
+}
+
+.accountDropdownEmail {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19.5px;
+  white-space: nowrap;
+  cursor: default;
+  text-align: left;
+}
+
+.accountDropdownItem {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 272px;
+  height: 34px;
+  padding: 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  color: rgb(29, 31, 37);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  text-decoration: none;
+  outline: none;
+  background: transparent;
+  border: none;
+  text-align: left;
+}
+
+.accountDropdownItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.accountDropdownItemIcon {
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+.accountDropdownItemText {
+  display: block;
+  flex: 0 1 auto;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.accountDropdownItemArrow {
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  transform: rotate(-90deg);
+}
+
+.accountDropdownDivider {
+  background-color: rgba(0, 0, 0, 0.05);
+  height: 1px;
+  margin: 8px;
+  padding: 0;
+}
+
+.accountDropdownBadgeBusiness {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 18px;
+  line-height: 18px;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgb(15, 104, 162);
+  background-color: rgb(196, 236, 255);
+  border-radius: 9999px;
+  padding: 0 8px;
+  margin-left: auto;
+  margin-right: 8px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.accountDropdownBadgeBusinessIcon {
+  display: block;
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+.accountDropdownBadgeBeta {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 18px;
+  line-height: 18px;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgb(175, 96, 2);
+  background-color: rgb(255, 234, 182);
+  border-radius: 9999px;
+  padding: 0 8px;
+  margin: 0 8px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Hide tooltip when dropdown is open */
+.accountDropdownWrapper .hoverTooltip {
+  display: none;
 }
