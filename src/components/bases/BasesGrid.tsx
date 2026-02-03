@@ -23,12 +23,8 @@ export function BasesGrid({ bases }: BasesGridProps) {
   return (
     <div className={styles.basesGridWrapper}>
       <div className={styles.basesGrid}>
-        {bases.map((base, index) => (
-          <BaseCard 
-            key={base.id} 
-            base={base} 
-            isLast={index === bases.length - 1}
-          />
+        {bases.map((base) => (
+          <BaseCard key={base.id} base={base} />
         ))}
       </div>
     </div>

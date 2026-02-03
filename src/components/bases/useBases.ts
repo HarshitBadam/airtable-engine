@@ -138,9 +138,7 @@ export function useBases(): UseBasesResult {
   });
 
   const createBase = async (name: string): Promise<{ id: string }> => {
-    console.log("createBase called with name:", name);
     const result = await createMutation.mutateAsync({ name });
-    console.log("createBase result:", result);
     return { id: result.id };
   };
 

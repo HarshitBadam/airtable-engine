@@ -75,6 +75,7 @@
   --home-text-secondary: rgb(97, 102, 112);
   --home-text-tertiary: rgb(151, 154, 160);
   --home-text-quaternary: #CCCCCC;
+  --home-text-muted: #56575C;
   --home-icon-default: rgb(29, 31, 37);
   --home-icon-active: rgb(29, 31, 37);
   --home-primary: rgb(22, 110, 225);

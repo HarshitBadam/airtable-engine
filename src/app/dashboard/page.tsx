@@ -53,8 +53,8 @@ export default function DashboardPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   // Track if sidebar was auto-collapsed due to narrow width (vs manually collapsed)
-  // Using ref to avoid re-triggering useEffect when this changes
   const wasAutoCollapsedRef = useRef(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const { bases, isLoading, createBase } = useBases();
   const { data: session } = useSession();
   
@@ -105,6 +105,19 @@ export default function DashboardPage() {
     const target = e.currentTarget;
     setIsScrolled(target.scrollTop > 0);
   };
+  
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setFilterOpen(false);
+      }
+    }
+    if (filterOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [filterOpen]);
   
   // Fetch starred bases for sidebar
   const { data: starredBases = [] } = api.base.listStarred.useQuery(undefined, {
@@ -469,7 +482,7 @@ export default function DashboardPage() {
 
             {/* Subheader: Filter + View Toggle */}
             <div className={`${styles.subheader} ${isScrolled ? styles.subheaderScrolled : ''}`}>
-              <div className={styles.filterWrapper}>
+              <div className={styles.filterWrapper} ref={filterRef}>
                 <button
                   type="button"
                   className={styles.filterButton}

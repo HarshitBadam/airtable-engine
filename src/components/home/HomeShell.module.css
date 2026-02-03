@@ -1067,7 +1067,7 @@
   display: flex;
   flex-direction: column;
   padding: 0;
-  padding-left: 11px;
+  padding-left: 1px;
   margin: 0;
   max-height: 377px;
   overflow-x: hidden;
@@ -1338,10 +1338,6 @@
   padding-left: 36px;
 }
 
-/* When sidebar is expanded: central text - now handled by flexbox centering */
-
-/* When sidebar is expanded, shift central content left */
-
 .mainInner {
   display: flex;
   flex-direction: column;
@@ -1372,7 +1368,7 @@
   max-width: 1327px;
   min-width: 0;
   -webkit-font-smoothing: antialiased;
-  transform: translate(-4px, 0px);
+  transform: translate(-3px, -1px);
   /* Don't shrink - stay in place */
   flex-shrink: 0;
 }
@@ -1572,14 +1568,30 @@
   padding-left: 17px;
 }
 
-/* Grid container adjustments - sidebar OPEN */
-.mainShifted [class*="basesGrid"] {
-  /* Adjust gap/columns for sidebar open state */
+/* Starred list scroll area - sidebar OPEN */
+.sidebarExpanded .starredList {
+  max-height: 380px;
+}
+
+/* Card icon square - sidebar OPEN */
+.mainShifted [class*="baseCardIconSquare"] {
+  margin-left: 1px;
+}
+
+/* Card base name - sidebar OPEN */
+.mainShifted [class*="baseCardName"] {
+  margin-top: 1px;
+  margin-left: 0px;
+}
+
+/* Card opened time - sidebar OPEN */
+.mainShifted [class*="baseCardTime"] {
+  margin-left: 0px;
 }
 
 /* Card initials text - sidebar OPEN */
 .mainShifted [class*="baseCardInitials"] {
-  transform: translate(0, 0);
+  transform: translate(-1px, 0px);
 }
 
 /* Delete confirmation panel - sidebar OPEN */
@@ -1598,11 +1610,11 @@
 
 /* Header column shifts - sidebar OPEN */
 .mainShifted [class*="listViewHeaderNameShift"] {
-  margin-left: -11px;
+  margin-left: -10px;
 }
 
 .mainShifted [class*="listViewHeaderColumnShift"] {
-  margin-left: -11px;
+  margin-left: -10px;
 }
 
 .mainShifted [class*="listViewHeaderWorkspaceShift"] {
@@ -1611,11 +1623,11 @@
 
 /* List item column shifts - sidebar OPEN */
 .mainShifted [class*="listItemNameColumnShift"] {
-  margin-left: -11px;
+  margin-left: -10px;
 }
 
 .mainShifted [class*="listItemColumnShift"] {
-  margin-left: -11px;
+  margin-left: -10px;
 }
 
 .mainShifted [class*="listItemWorkspaceShift"] {
@@ -1624,20 +1636,25 @@
 
 /* Divider line - sidebar OPEN */
 .mainShifted [class*="listViewDivider"] {
-  width: calc(100% - 12px);
-  margin-left: -8px;
+  width: calc(100% - 18px);
+  margin-left: -2px;
   margin-right: 8px;
 }
 
 /* Hover highlight - sidebar OPEN */
 .mainShifted [class*="listItemHoverHighlight"] {
-  left: -4px;
-  right: 34px;
+  left: -3px;
+  right: 20px;
 }
 
 /* Menu opens up - sidebar OPEN */
 .mainShifted [class*="listItemMenuUp"] {
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 10px);
+}
+
+/* Delete dialog - sidebar OPEN */
+.mainShifted [class*="listItemDeleteDialog"] {
+  left: 6px;
 }
 
 /* ========================================
@@ -1651,7 +1668,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  transform: translate(-8px, -4px);
+  transform: translate(-15px, -4px);
 }
 
 .emptyTitle {
@@ -2335,7 +2352,9 @@
   user-select: none;
 }
 
-/* Hide tooltip when dropdown is open */
-.accountDropdownWrapper .hoverTooltip {
-  display: none;
+/* Show tooltip on hover (only rendered when dropdown is closed) */
+.accountDropdownWrapper:hover .hoverTooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0.5s;
 }

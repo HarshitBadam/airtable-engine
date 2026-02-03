@@ -72,7 +72,10 @@ export function useBaseCardActions() {
       const previousMine = utils.base.listMine.getData();
       const previousStarred = utils.base.listStarred.getData();
 
-      const baseToToggle = previousMine?.find((b) => b.id === id);
+      // Check both lists - base might be in starred but not in recently opened
+      const baseFromMine = previousMine?.find((b) => b.id === id);
+      const baseFromStarred = previousStarred?.find((b) => b.id === id);
+      const baseToToggle = baseFromMine ?? baseFromStarred;
       const newIsStarred = baseToToggle ? !baseToToggle.isStarred : false;
 
       utils.base.listMine.setData(undefined, (old) =>

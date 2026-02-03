@@ -18,22 +18,38 @@ interface DeleteConfirmDialogProps {
 
 export function DeleteConfirmDialog({ baseName, onConfirm, onCancel }: DeleteConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [offsetY, setOffsetY] = useState(0);
+  const [adjustedTransform, setAdjustedTransform] = useState<string | null>(null);
 
   // useLayoutEffect runs synchronously after DOM mutations but before paint
-  // This is the correct hook for measuring and adjusting layout
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
 
-    const rect = dialog.getBoundingClientRect();
+    // Get computed transform to preserve X offset
+    const computedStyle = window.getComputedStyle(dialog);
+    const matrix = new DOMMatrix(computedStyle.transform);
+    const currentX = matrix.m41;
+    const currentY = matrix.m42;
+
+    // Get dialog height
+    const dialogHeight = dialog.offsetHeight;
     const viewportHeight = window.innerHeight;
 
-    if (rect.bottom > viewportHeight - VIEWPORT_BOTTOM_BUFFER) {
-      const overflow = rect.bottom - viewportHeight + VIEWPORT_BOTTOM_BUFFER;
-      setOffsetY(-overflow);
+    // Calculate expected dialog bottom using parent's position
+    const parent = dialog.parentElement;
+    if (!parent) return;
+    
+    const parentRect = parent.getBoundingClientRect();
+    // Dialog CSS: top: calc(100% + 8px) + transform Y offset
+    const expectedDialogTop = parentRect.bottom + 8 + currentY;
+    const expectedDialogBottom = expectedDialogTop + dialogHeight;
+
+    if (expectedDialogBottom > viewportHeight - VIEWPORT_BOTTOM_BUFFER) {
+      // Move dialog up exactly enough so its bottom edge is flush with viewport bottom
+      const overflow = expectedDialogBottom - viewportHeight;
+      setAdjustedTransform(`translate(${currentX}px, ${currentY - overflow}px)`);
     } else {
-      setOffsetY(0);
+      setAdjustedTransform(null);
     }
   }, []);
 
@@ -43,7 +59,7 @@ export function DeleteConfirmDialog({ baseName, onConfirm, onCancel }: DeleteCon
       <div
         ref={dialogRef}
         className={styles.deleteConfirmDialog}
-        style={offsetY !== 0 ? { transform: `translateY(${offsetY}px)` } : undefined}
+        style={adjustedTransform ? { transform: adjustedTransform } : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         <p className={styles.deleteConfirmTitle}>

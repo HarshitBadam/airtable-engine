@@ -32,10 +32,9 @@ export interface BaseCardProps {
     updatedAt: Date;
     isStarred: boolean;
   };
-  isLast?: boolean;
 }
 
-export function BaseCard({ base, isLast = false }: BaseCardProps) {
+export function BaseCard({ base }: BaseCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuRight, setMenuRight] = useState(false);
   const [menuUp, setMenuUp] = useState(false);
@@ -225,9 +224,9 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
                 }}
               >
                 {base.isStarred ? (
-                  <StarFilledIcon size={16} color="#FFBA06" />
+                  <StarFilledIcon size={18} color="#FFBA06" />
                 ) : (
-                  <StarOutlineIcon size={16} />
+                  <StarOutlineIcon size={18} />
                 )}
               </button>
             <button 
@@ -244,7 +243,7 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
                 setMenuOpen(!menuOpen);
               }}
             >
-              <OverflowIcon size={16} />
+              <OverflowIcon size={18} />
             </button>
             </div>
 
@@ -264,7 +263,7 @@ export function BaseCard({ base, isLast = false }: BaseCardProps) {
                   <span>Move</span>
                 </li>
                 <li className={`${styles.baseCardMenuItem} ${styles.baseCardMenuItemWorkspace}`}>
-                  <WorkspacesIcon size={22} />
+                  <WorkspacesIcon size={20} />
                   <span>Go to workspace</span>
                 </li>
                 <li className={styles.baseCardMenuItem}>

@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import styles from "./bases.module.css";
 import { getBaseColor, getBaseTextColor, getBaseInitials, formatRelativeTime } from "./useBases";
+import { useBaseCardActions } from "./useBaseCardActions";
 import { 
   StarOutlineIcon, 
   StarFilledIcon,
@@ -21,7 +22,6 @@ import {
   TrashIcon,
   QuestionMarkCircleIcon
 } from "~/components/home/Icons";
-import { api } from "~/trpc/react";
 
 export interface BasesListProps {
   bases: Array<{
@@ -54,93 +54,7 @@ function ListItem({ base }: ListItemProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const deleteDialogRef = useRef<HTMLDivElement>(null);
 
-  const utils = api.useUtils();
-  
-  // Optimistic rename mutation
-  const renameMutation = api.base.rename.useMutation({
-    onMutate: async ({ id, name }) => {
-      await utils.base.listMine.cancel();
-      const previousMine = utils.base.listMine.getData();
-      utils.base.listMine.setData(undefined, (old) =>
-        old?.map((b) => (b.id === id ? { ...b, name } : b))
-      );
-      return { previousMine };
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousMine) {
-        utils.base.listMine.setData(undefined, context.previousMine);
-      }
-    },
-    onSettled: () => {
-      void utils.base.listMine.invalidate();
-    },
-  });
-  
-  // Optimistic delete mutation
-  const deleteMutation = api.base.delete.useMutation({
-    onMutate: async ({ id }) => {
-      await utils.base.listMine.cancel();
-      await utils.base.listStarred.cancel();
-      const previousMine = utils.base.listMine.getData();
-      const previousStarred = utils.base.listStarred.getData();
-      utils.base.listMine.setData(undefined, (old) =>
-        old?.filter((b) => b.id !== id)
-      );
-      utils.base.listStarred.setData(undefined, (old) =>
-        old?.filter((b) => b.id !== id)
-      );
-      return { previousMine, previousStarred };
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousMine) {
-        utils.base.listMine.setData(undefined, context.previousMine);
-      }
-      if (context?.previousStarred) {
-        utils.base.listStarred.setData(undefined, context.previousStarred);
-      }
-    },
-    onSettled: () => {
-      void utils.base.listMine.invalidate();
-      void utils.base.listStarred.invalidate();
-    },
-  });
-
-  // Optimistic star toggle mutation
-  const toggleStarMutation = api.base.toggleStar.useMutation({
-    onMutate: async ({ id }) => {
-      await utils.base.listMine.cancel();
-      await utils.base.listStarred.cancel();
-      const previousMine = utils.base.listMine.getData();
-      const previousStarred = utils.base.listStarred.getData();
-      const baseToToggle = previousMine?.find((b) => b.id === id);
-      const newIsStarred = baseToToggle ? !baseToToggle.isStarred : false;
-      utils.base.listMine.setData(undefined, (old) =>
-        old?.map((b) => (b.id === id ? { ...b, isStarred: newIsStarred } : b))
-      );
-      if (newIsStarred && baseToToggle) {
-        utils.base.listStarred.setData(undefined, (old) => 
-          old ? [{ ...baseToToggle, isStarred: true }, ...old] : [{ ...baseToToggle, isStarred: true }]
-        );
-      } else {
-        utils.base.listStarred.setData(undefined, (old) =>
-          old?.filter((b) => b.id !== id)
-        );
-      }
-      return { previousMine, previousStarred };
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousMine) {
-        utils.base.listMine.setData(undefined, context.previousMine);
-      }
-      if (context?.previousStarred) {
-        utils.base.listStarred.setData(undefined, context.previousStarred);
-      }
-    },
-    onSettled: () => {
-      void utils.base.listMine.invalidate();
-      void utils.base.listStarred.invalidate();
-    },
-  });
+  const actions = useBaseCardActions();
 
   const color = getBaseColor(base.id);
   const textColor = getBaseTextColor(base.id);
@@ -209,8 +123,6 @@ function ListItem({ base }: ListItemProps) {
   // Adjust delete dialog position if it would overflow viewport
   useEffect(() => {
     if (showDeleteConfirm && deleteDialogRef.current) {
-      // Double RAF ensures layout is fully stable before measuring
-      // Single RAF can fire before browser completes layout calculations
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           const dialog = deleteDialogRef.current;
@@ -219,7 +131,6 @@ function ListItem({ base }: ListItemProps) {
           const rect = dialog.getBoundingClientRect();
           const viewportHeight = window.innerHeight;
           
-          // If dialog bottom extends past viewport, move up just enough to fit
           if (rect.bottom > viewportHeight) {
             const overflow = rect.bottom - viewportHeight;
             setDeleteDialogOffset(-overflow);
@@ -237,7 +148,7 @@ function ListItem({ base }: ListItemProps) {
     e.preventDefault();
     e.stopPropagation();
     if (showDeleteConfirm) return;
-    toggleStarMutation.mutate({ id: base.id });
+    actions.toggleStar(base.id);
   };
 
   const handleRenameClick = () => {
@@ -249,7 +160,7 @@ function ListItem({ base }: ListItemProps) {
   const handleRenameSubmit = () => {
     const trimmedName = editName.trim();
     if (trimmedName && trimmedName !== base.name) {
-      renameMutation.mutate({ id: base.id, name: trimmedName });
+      actions.rename(base.id, trimmedName);
     }
     setIsRenaming(false);
   };
@@ -271,7 +182,7 @@ function ListItem({ base }: ListItemProps) {
 
   const handleDeleteConfirm = () => {
     setShowDeleteConfirm(false);
-    deleteMutation.mutate({ id: base.id });
+    actions.delete(base.id);
   };
 
   const handleDeleteCancel = () => {
@@ -326,7 +237,12 @@ function ListItem({ base }: ListItemProps) {
                 type="button"
                 className={styles.listItemActionButton}
                 aria-label={base.isStarred ? "Unstar this base" : "Star this base"}
-                onClick={handleStarClick}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (showDeleteConfirm) return;
+                  actions.toggleStar(base.id);
+                }}
               >
                 {base.isStarred ? (
                   <StarFilledIcon size={16} color="#FFBA06" />
@@ -367,8 +283,8 @@ function ListItem({ base }: ListItemProps) {
                 <ArrowRightIcon size={16} />
                 <span>Move</span>
               </li>
-              <li className={styles.baseCardMenuItem}>
-                <WorkspacesIcon size={16} />
+              <li className={`${styles.baseCardMenuItem} ${styles.baseCardMenuItemWorkspace}`}>
+                <WorkspacesIcon size={20} />
                 <span>Go to workspace</span>
               </li>
               <li className={styles.baseCardMenuItem}>
@@ -390,7 +306,12 @@ function ListItem({ base }: ListItemProps) {
           {base.isStarred && (
             <span 
               className={styles.listItemStarredIndicator}
-              onClick={handleStarClick}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (showDeleteConfirm) return;
+                actions.toggleStar(base.id);
+              }}
             >
               <StarFilledIcon size={16} color="#FFBA06" />
             </span>
@@ -407,7 +328,7 @@ function ListItem({ base }: ListItemProps) {
         <span className={`${styles.listItemColumn} ${styles.listItemColumnShift} ${styles.listItemWorkspaceShift}`}>My First Workspace</span>
       </div>
 
-      {/* Delete confirmation dialog - outside content grid for proper positioning */}
+      {/* Delete confirmation dialog */}
       {showDeleteConfirm && (
         <>
           <div 
