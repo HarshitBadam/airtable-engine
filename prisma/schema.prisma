@@ -84,6 +84,7 @@ enum ColumnType {
 model Base {
   id        String   @id @default(cuid())
   name      String
+  isStarred Boolean  @default(false)
   ownerId   String
   owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   tables    Table[]

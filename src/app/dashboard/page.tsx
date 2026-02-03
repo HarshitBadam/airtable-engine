@@ -5,7 +5,7 @@
  * Airtable-style home shell with sidebar navigation
  */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import styles from "~/components/home/HomeShell.module.css";
 import Image from "next/image";
@@ -27,12 +27,16 @@ import {
   ListViewIcon,
   GridViewIcon,
   StarOutlineIcon,
+  StarFilledIcon,
+  DotsSixVerticalIcon,
   CheckIcon,
   AirtableLogoMark,
   AirtableWordmark,
   CloseIcon,
 } from "~/components/home/Icons";
-import { useBases } from "~/components/home/useBases";
+import { useBases, BasesGrid, BasesList, getBaseColor, getBaseTextColor, getBaseInitials } from "~/components/bases";
+import { api } from "~/trpc/react";
+import basesStyles from "~/components/bases/bases.module.css";
 
 type FilterOption = "today" | "past7days" | "past30days" | "anytime";
 type ViewMode = "list" | "grid";
@@ -45,7 +49,138 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState<FilterOption>("anytime");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const { bases } = useBases();
+  const [isCreating, setIsCreating] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  // Track if sidebar was auto-collapsed due to narrow width (vs manually collapsed)
+  // Using ref to avoid re-triggering useEffect when this changes
+  const wasAutoCollapsedRef = useRef(false);
+  const { bases, isLoading, createBase } = useBases();
+  
+  // Auto-collapse sidebar when width is narrow, auto-restore when width increases
+  useEffect(() => {
+    const AUTO_COLLAPSE_WIDTH = 600;
+    let prevWidth = window.innerWidth;
+    
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const wasNarrow = prevWidth <= AUTO_COLLAPSE_WIDTH;
+      const isNarrow = width <= AUTO_COLLAPSE_WIDTH;
+      
+      // Crossing from wide to narrow
+      if (!wasNarrow && isNarrow) {
+        setSidebarExpanded((prev) => {
+          if (prev) {
+            // Was expanded, now auto-collapsing
+            wasAutoCollapsedRef.current = true;
+            return false;
+          }
+          return prev;
+        });
+      }
+      
+      // Crossing from narrow to wide
+      if (wasNarrow && !isNarrow) {
+        if (wasAutoCollapsedRef.current) {
+          // Was auto-collapsed, now restore
+          wasAutoCollapsedRef.current = false;
+          setSidebarExpanded(true);
+        }
+      }
+      
+      prevWidth = width;
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  // Handle scroll to show/hide subheader shadow
+  const handleContentScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    setIsScrolled(target.scrollTop > 0);
+  };
+  
+  // Fetch starred bases for sidebar
+  const { data: starredBases = [] } = api.base.listStarred.useQuery(undefined, {
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const utils = api.useUtils();
+  
+  // Optimistic star toggle mutation for sidebar
+  const toggleStarMutation = api.base.toggleStar.useMutation({
+    onMutate: async ({ id }) => {
+      // Cancel outgoing refetches
+      await utils.base.listMine.cancel();
+      await utils.base.listStarred.cancel();
+      
+      // Snapshot previous state
+      const previousMine = utils.base.listMine.getData();
+      const previousStarred = utils.base.listStarred.getData();
+      
+      // Get the base being toggled (check both lists)
+      const baseFromMine = previousMine?.find((b) => b.id === id);
+      const baseFromStarred = previousStarred?.find((b) => b.id === id);
+      const baseToToggle = baseFromMine ?? baseFromStarred;
+      const newIsStarred = baseToToggle ? !baseToToggle.isStarred : false;
+      
+      // Optimistically update listMine
+      utils.base.listMine.setData(undefined, (old) =>
+        old?.map((b) => (b.id === id ? { ...b, isStarred: newIsStarred } : b))
+      );
+      
+      // Optimistically update listStarred
+      if (newIsStarred && baseToToggle) {
+        // Add to starred list
+        utils.base.listStarred.setData(undefined, (old) => 
+          old ? [{ ...baseToToggle, isStarred: true }, ...old] : [{ ...baseToToggle, isStarred: true }]
+        );
+      } else {
+        // Remove from starred list
+        utils.base.listStarred.setData(undefined, (old) =>
+          old?.filter((b) => b.id !== id)
+        );
+      }
+      
+      return { previousMine, previousStarred };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousMine) {
+        utils.base.listMine.setData(undefined, context.previousMine);
+      }
+      if (context?.previousStarred) {
+        utils.base.listStarred.setData(undefined, context.previousStarred);
+      }
+    },
+    onSettled: () => {
+      void utils.base.listMine.invalidate();
+      void utils.base.listStarred.invalidate();
+    },
+  });
+
+  const handleCreateBase = () => {
+    console.log("handleCreateBase called");
+    if (isCreating) {
+      console.log("Already creating, skipping");
+      return;
+    }
+    // Close modal immediately for snappy UX (optimistic update shows the new base)
+    setCreateModalOpen(false);
+    setIsCreating(true);
+    
+    // Fire and forget - optimistic update handles the UI
+    createBase("Untitled")
+      .then(() => {
+        console.log("Base created successfully");
+      })
+      .catch((error) => {
+        console.error("Failed to create base:", error);
+      })
+      .finally(() => {
+        setIsCreating(false);
+      });
+  };
 
   const filterLabels: Record<FilterOption, string> = {
     today: "Today",
@@ -116,7 +251,7 @@ export default function DashboardPage() {
           <div className={styles.topbarRight}>
             <button type="button" className={styles.helpButton} aria-label="Help">
               <HelpIcon size={16} />
-              <span>Help</span>
+              <span className={styles.helpText}>Help</span>
             </button>
 
             <div className={styles.tooltipWrapper}>
@@ -257,14 +392,50 @@ export default function DashboardPage() {
             {/* Starred items section */}
             {starredExpanded && (
               <section className={styles.navSection} aria-label="Starred items">
-                <div className={styles.starredEmpty}>
-                  <span className={styles.starredEmptyIcon}>
-                    <StarOutlineIcon size={18} />
-                  </span>
-                  <p className={styles.starredEmptyText}>
-                    Your starred bases, interfaces, and workspaces will appear here
-                  </p>
-                </div>
+                {starredBases.length === 0 ? (
+                  <div className={styles.starredEmpty}>
+                    <span className={styles.starredEmptyIcon}>
+                      <StarOutlineIcon size={18} />
+                    </span>
+                    <p className={styles.starredEmptyText}>
+                      Your starred bases, interfaces, and workspaces will appear here
+                    </p>
+                  </div>
+                ) : (
+                  <div className={styles.starredList}>
+                    {starredBases.map((base) => (
+                      <Link
+                        key={base.id}
+                        href={`/bases/${base.id}`}
+                        className={basesStyles.starredEntry}
+                      >
+                        <div 
+                          className={basesStyles.starredEntryLogo}
+                          style={{ backgroundColor: getBaseColor(base.id) }}
+                        >
+                          <span style={{ color: getBaseTextColor(base.id) }}>
+                            {getBaseInitials(base.name)}
+                          </span>
+                        </div>
+                        <p className={basesStyles.starredEntryTitle}>{base.name}</p>
+                        <span className={basesStyles.starredEntryAppLabel}>App</span>
+                        <span 
+                          className={basesStyles.starredEntryStar}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleStarMutation.mutate({ id: base.id });
+                          }}
+                        >
+                          <StarFilledIcon size={16} color="#FFBA06" />
+                        </span>
+                        <span className={basesStyles.starredEntryDragHandle}>
+                          <DotsSixVerticalIcon size={16} />
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 
@@ -352,7 +523,7 @@ export default function DashboardPage() {
             <h1 className={styles.title}>Home</h1>
 
             {/* Subheader: Filter + View Toggle */}
-            <div className={styles.subheader}>
+            <div className={`${styles.subheader} ${isScrolled ? styles.subheaderScrolled : ''}`}>
               <div className={styles.filterWrapper}>
                 <button
                   type="button"
@@ -428,8 +599,15 @@ export default function DashboardPage() {
             </div>
 
             {/* Content: Empty state or bases list */}
-            <div className={styles.contentArea}>
-              {bases.length === 0 ? (
+            <div 
+              onScroll={handleContentScroll}
+              className={`${styles.contentArea} ${bases.length > 0 ? styles.contentAreaWithBases : ''}`}
+            >
+              {isLoading ? (
+                <section className={styles.emptyState} aria-label="Loading">
+                  <p className={styles.emptySubtitle}>Loading...</p>
+                </section>
+              ) : bases.length === 0 ? (
                 <section className={styles.emptyState} aria-label="Empty state">
                   <h2 className={styles.emptyTitle}>
                     You haven&apos;t opened anything recently
@@ -441,10 +619,10 @@ export default function DashboardPage() {
                     Go to all workspaces
                   </button>
                 </section>
+              ) : viewMode === "list" ? (
+                <BasesList bases={bases} />
               ) : (
-                <section aria-label="Recently opened bases">
-                  {/* TODO: Render bases list/grid */}
-                </section>
+                <BasesGrid bases={bases} />
               )}
             </div>
           </div>
@@ -507,7 +685,19 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Build an app on your own */}
-                <div className={styles.modalOptionCard}>
+                <div
+                  className={styles.modalOptionCard}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleCreateBase();
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  style={{ 
+                    cursor: isCreating ? "wait" : "pointer",
+                    opacity: isCreating ? 0.6 : 1,
+                  }}
+                >
                   <Image
                     src="/images/build-app.png"
                     alt="Build an app on your own"
@@ -516,7 +706,9 @@ export default function DashboardPage() {
                     className={styles.modalOptionImage}
                   />
                   <div className={styles.modalOptionText}>
-                    <h3 className={styles.modalOptionTitle}>Build an app on your own</h3>
+                    <h3 className={styles.modalOptionTitle}>
+                      {isCreating ? "Creating..." : "Build an app on your own"}
+                    </h3>
                     <p className={styles.modalOptionDesc}>
                       Start with a blank app and build your ideal workflow.
                     </p>

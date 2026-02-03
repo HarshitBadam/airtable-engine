@@ -85,9 +85,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* All three sections shrink equally */
   flex: 1 1 0;
-  min-width: 120px;
-  max-width: 354px;
+  min-width: 0;
 }
 
 .topbarRight {
@@ -372,8 +372,8 @@
   padding: 0 16px;
   padding-left: 18px;
   text-align: center;
+  /* Scale with container - limited max width */
   width: 100%;
-  min-width: 120px;
   max-width: 354px;
   overflow: hidden;
 }
@@ -478,6 +478,11 @@
   background: rgb(229, 233, 240);
 }
 
+.helpText {
+  /* Will be hidden at narrow widths via media query */
+  display: inline;
+}
+
 /* Avatar - pink/magenta, white border, soft shadow */
 .avatar {
   display: flex;
@@ -550,10 +555,14 @@
   margin: 0;
   padding: 0;
   padding-top: 20px;
+  padding-bottom: 0;
   position: absolute;
   text-align: center;
   top: 0px;
   width: 46px;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  /* Clip overflow for short viewport heights */
+  overflow: hidden;
 }
 
 .railHidden {
@@ -567,6 +576,10 @@
   flex: 1;
   width: 100%;
   gap: 8px;
+  padding-bottom: 0px;
+  /* Min-height triggers overflow at ~400px viewport:
+     400 - 56 (topbar) - 20 (rail padding-top) = 324px */
+  min-height: 324px;
 }
 
 /* Extra spacing between top 4 symbols only; Home stays aligned */
@@ -574,9 +587,6 @@
 .railNav .railItem:nth-child(3),
 .railNav .railItem:nth-child(4) {
   margin-top: 12px;
-}
-
-.railNav .railItem:nth-child(4) {
 }
 
 .railNav .railItem:nth-child(4) svg {
@@ -637,7 +647,7 @@
 
 /* Move only the line above Templates (icons stay in place) */
 .railFooter > .railDivider:first-child {
-  transform: translateY(1px);
+  transform: translateY(22px);
 }
 
 .railSpacer {
@@ -653,7 +663,7 @@
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
-  height: 124px;
+  min-height: 124px;
   line-height: 18px;
   margin: 0;
   padding: 0;
@@ -686,7 +696,7 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  transform: translateY(-1px);
+  transform: translateY(0px);
 }
 
 .railFooterItem:hover {
@@ -733,7 +743,6 @@
   background: transparent;
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
   cursor: pointer;
-  transform: translateY(-1px);
 }
 
 .railCreatePartial:hover {
@@ -743,6 +752,11 @@
 .railCreatePartial svg {
   width: 14px;
   height: 14px;
+  opacity: 0.5;
+}
+
+.railCreatePartial:hover svg {
+  opacity: 1;
 }
 
 /* ========================================
@@ -750,7 +764,8 @@
    ======================================== */
 
 .sidebar {
-  display: block;
+  display: flex;
+  flex-direction: column;
   position: absolute;
   top: 0px;
   left: 0px;
@@ -765,7 +780,8 @@
   min-height: 0;
   line-height: 18px;
   margin: 0;
-  overflow-y: auto;
+  /* Default: allow content to be clipped at bottom for short heights */
+  overflow: hidden;
   padding: 12px;
   text-align: center;
   width: 300px;
@@ -783,6 +799,12 @@
   transition: transform 100ms ease-out, visibility 0ms linear 0ms;
 }
 
+/* Shadow only for hover-opened sidebar (not toggle-opened) */
+.sidebarContainer:hover .sidebar:not(.sidebarExpanded),
+.sidebar:hover:not(.sidebarExpanded) {
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.12) 0px 2px 8px 0px, rgba(0, 0, 0, 0.1) 0px 4px 14px 0px;
+}
+
 .sidebarHidden {
   display: none;
 }
@@ -798,7 +820,9 @@
   height: 100%;
   line-height: 18px;
   margin: 0;
-  min-height: 0;
+  /* Min-height triggers overflow at ~660px viewport:
+     660 - 56 (topbar) - 24 (sidebar padding) = 580px */
+  min-height: 580px;
   min-width: 0;
   padding: 0;
   text-align: center;
@@ -942,13 +966,13 @@
   background-color: rgb(242, 244, 248);
 }
 
-/* Shared and Workspaces: 8px up */
+/* Nav items spacing - clean layout without transforms */
 .sidebarNavTop > button.navItem {
-  transform: translateY(-10px);
+  margin-bottom: 0;
 }
 
 .sidebarNavTop > .navRow:nth-of-type(2) {
-  transform: translateY(-10px);
+  margin-top: 0;
 }
 
 .navRow .navItem {
@@ -1031,11 +1055,24 @@
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* Nav Section (Starred dropdown content) – moved up 9px from Starred row; when open: 2 right 8 up */
+/* Nav Section (Starred dropdown content) */
 .navSection {
-  padding: 2px 8px 0 9px;
+  padding: 0 8px 0 0;
   margin: 0;
-  transform: translate(2px, -7px);
+  margin-top: -8px;
+}
+
+/* Push Workspaces row down */
+.navRow:has(.navIconWorkspaces) {
+  transform: translateY(4px);
+}
+
+/* Starred List */
+.starredList {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
 }
 
 /* Starred Empty State – icon and text aligned */
@@ -1060,7 +1097,6 @@
   color: var(--home-text-tertiary);
   line-height: 0;
   margin-left: 1px;
-  transform: translateY(-4px);
 }
 
 .starredEmptyIcon svg {
@@ -1078,15 +1114,14 @@
   line-height: 13.75px;
   letter-spacing: 0;
   color: var(--home-text-secondary);
-  margin: 0 0 0 10px;
+  margin: 0 0 0 2px;
   padding: 8px 0;
   text-align: left;
   flex: 1;
   min-width: 0;
-  transform: translate(-8px, -3px);
 }
 
-/* Sidebar Bottom - decoupled: links block and Create button positioned independently */
+/* Sidebar Bottom - pushed to bottom with flexible whitespace above */
 .sidebarBottom {
   display: flex;
   flex-direction: column;
@@ -1095,14 +1130,17 @@
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
-  min-height: 169px;
   line-height: 18px;
   margin: 0;
+  /* Push to bottom - creates flexible whitespace that shrinks as height decreases */
   margin-top: auto;
   padding: 0;
+  padding-top: 12px;
+  padding-bottom: 12px;
   text-align: center;
   width: 275px;
-  position: relative;
+  /* Fixed size - does not grow or shrink */
+  flex: 0 0 auto;
 }
 
 /* Divider line at top of bottom container */
@@ -1110,25 +1148,16 @@
   content: "";
   display: block;
   background-color: rgba(0, 0, 0, 0.1);
-  color: rgb(29, 31, 37);
-  font-size: 13px;
-  font-weight: 400;
   height: 1px;
-  line-height: 18px;
-  margin-left: 12px;
-  margin-right: 12px;
-  position: relative;
-  text-align: center;
-  width: 251px;
-  transform: translateY(20px);
+  margin: 0 12px 12px 12px;
+  transform: translateY(-2px);
+  width: calc(100% - 24px);
 }
 
 /* Wrapper for the three bottom links (expanded sidebar) */
 .bottomLinksWrap {
   display: flex;
   flex-direction: column;
-  padding-top: 20px;
-  transform: translateY(16px);
 }
 
 /* Template gap between line and first link (first child of wrap so it can’t be skipped) */
@@ -1196,6 +1225,7 @@
   justify-content: center;
   appearance: auto;
   background-color: rgb(22, 110, 225);
+  transform: translateY(2px);
   border: none;
   border-radius: 6px;
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
@@ -1209,8 +1239,7 @@
   height: 32px;
   line-height: 22px;
   margin: 0;
-  margin-top: 32px;
-  margin-bottom: 8px;
+  margin-top: 12px;
   max-width: 100%;
   padding: 0 12px;
   text-align: center;
@@ -1270,8 +1299,8 @@
   max-width: 1920px;
   min-width: 0;
   padding: 0;
-  padding-left: 48px;
-  padding-right: 48px;
+  padding-left: 16px;
+  padding-right: 16px;
   padding-top: 32px;
   text-align: center;
   flex: 1 1 0;
@@ -1279,6 +1308,8 @@
   margin-right: auto;
   background: var(--home-bg-main);
   transition: padding-left 100ms ease-out;
+  /* Clip content at bottom when viewport height shrinks */
+  overflow: hidden;
 }
 
 /* ========================================
@@ -1291,31 +1322,21 @@
   padding-left: calc(var(--home-sidebar-width) - var(--home-rail-width));
 }
 
-/* When sidebar is expanded: Home and Opened 50px right */
+/* When sidebar is expanded: Home and Opened - minimal shift */
 .mainShifted .title {
-  transform: translate(50px, -1px);
+  transform: translate(14px, -1px);
 }
 
 .mainShifted .subheader {
-  transform: translateX(50px);
+  transform: translateX(14px);
 }
 
 .mainShifted .mainInner {
   transform: translate(0, 0);
 }
 
-/* When sidebar is expanded: grid icons 50px left */
-.mainShifted .viewToggle {
-  transform: translate(-50px, 0);
-}
-
-.mainShifted .viewToggle > .tooltipWrapper:first-child .viewToggleButton {
-  transform: translate(0, 0);
-}
-
-.mainShifted .viewToggle > .tooltipWrapper:last-child .viewToggleButton {
-  transform: translate(0, 0);
-}
+/* When sidebar is expanded: viewToggle stays in fixed position (no transform) */
+/* Removed transforms - viewToggle has consistent 48px right margin in all states */
 
 /* When sidebar is expanded: central text */
 .mainShifted .emptyState {
@@ -1329,8 +1350,11 @@
   flex-direction: column;
   align-items: flex-start;
   width: 100%;
-  max-width: 1327px;
+  max-width: 1400px;
   min-width: 0;
+  padding-left: 36px;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .title {
@@ -1349,8 +1373,11 @@
   text-align: left;
   width: 100%;
   max-width: 1327px;
+  min-width: 0;
   -webkit-font-smoothing: antialiased;
-  transform: translate(1px, -1px);
+  transform: translate(-4px, 0px);
+  /* Don't shrink - stay in place */
+  flex-shrink: 0;
 }
 
 /* Subheader (Filter + View Toggle) */
@@ -1373,9 +1400,40 @@
   white-space: nowrap;
   width: 100%;
   max-width: 1327px;
-  z-index: 1;
-  transform: translateX(1px);
+  min-width: 0;
+  z-index: 2;
+  transform: translateX(-3px);
   overflow: visible;
+  /* Don't shrink - stay in place */
+  flex-shrink: 0;
+}
+
+/* Shadow below subheader when content scrolls underneath */
+/* Default: sidebar collapsed */
+.subheader::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -4px;
+  bottom: -12px;
+  height: 12px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.03) 50%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 1%, black 99%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 1%, black 99%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.01s ease;
+}
+
+/* Show shadow only when scrolled */
+.subheaderScrolled::after {
+  opacity: 1;
+}
+
+/* When sidebar is expanded: extend 2px left and right from base */
+.mainShifted .subheader::after {
+  left: -2px;
+  right: 44px;
 }
 
 .filterButton {
@@ -1423,11 +1481,14 @@
   height: 28px;
   line-height: 18px;
   margin: 0;
+  /* No right margin - positioned at 16px from right edge (main's padding) */
+  margin-right: 0;
   padding: 0;
   text-align: center;
   white-space: nowrap;
   width: 56px;
-  transform: translate(0, 0);
+  /* Don't use transform - stay in fixed position */
+  flex-shrink: 0;
 }
 
 .viewToggleButton {
@@ -1477,12 +1538,96 @@
   font-weight: 400;
   flex: 1 1 0;
   min-height: 0;
+  /* Prevent content from expanding container */
+  min-width: 0;
   line-height: 18px;
   margin: 0;
   padding: 0;
   text-align: center;
   width: 100%;
-  max-width: 1327px;
+  max-width: 1400px;
+  overflow-y: auto;
+}
+
+/* Override centering when content exists (bases grid) */
+.contentAreaWithBases {
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
+  padding-left: 0;
+  /* Clip horizontal overflow so list view doesn't push layout */
+  overflow-x: clip;
+}
+
+/* ========================================
+   Grid View: Sidebar OPEN overrides
+   Base styles in bases.module.css = sidebar CLOSED
+   These .mainShifted rules = sidebar OPEN
+   ======================================== */
+
+/* Grid wrapper adjustments - sidebar OPEN */
+.mainShifted [class*="basesGridWrapper"] {
+  padding-left: 17px;
+}
+
+/* Grid container adjustments - sidebar OPEN */
+.mainShifted [class*="basesGrid"] {
+  /* Adjust gap/columns for sidebar open state */
+}
+
+/* Card initials text - sidebar OPEN */
+.mainShifted [class*="baseCardInitials"] {
+  transform: translate(0, 0);
+}
+
+/* Delete confirmation panel - sidebar OPEN */
+.mainShifted [class*="deleteConfirmDialog"] {
+  transform: translate(-4px, -6px);
+}
+
+/* ========================================
+   List View: Sidebar OPEN overrides
+   Base styles in bases.module.css = sidebar CLOSED
+   These .mainShifted rules = sidebar OPEN (locked in, do not change)
+   ======================================== */
+
+/* Header column shifts - sidebar OPEN */
+.mainShifted [class*="listViewHeaderNameShift"] {
+  margin-left: -12px;
+}
+
+.mainShifted [class*="listViewHeaderColumnShift"] {
+  margin-left: -12px;
+}
+
+.mainShifted [class*="listViewHeaderWorkspaceShift"] {
+  margin-left: -32px;
+}
+
+/* List item column shifts - sidebar OPEN */
+.mainShifted [class*="listItemNameColumnShift"] {
+  margin-left: -12px;
+}
+
+.mainShifted [class*="listItemColumnShift"] {
+  margin-left: -12px;
+}
+
+.mainShifted [class*="listItemWorkspaceShift"] {
+  margin-left: -32px;
+}
+
+/* Divider line - sidebar OPEN */
+.mainShifted [class*="listViewDivider"] {
+  width: calc(100% - 24px);
+  margin-left: -8px;
+  margin-right: 16px;
+}
+
+/* Hover highlight - sidebar OPEN */
+.mainShifted [class*="listItemHoverHighlight"] {
+  left: -4px;
+  right: 34px;
 }
 
 /* ========================================
@@ -1654,57 +1799,34 @@
 }
 
 /* ========================================
-   Responsive: Reduce sidebar whitespace (600px - 660px)
+   Responsive: Collapse Help button to just "?" at < 1459px
    ======================================== */
-@media (max-width: 660px) {
-  .mainInner {
-    padding: 27px 32px 20px 32px;
+@media (max-width: 1458px) {
+  /* Hide the "Help" text, show only ? icon */
+  .helpText {
+    display: none;
   }
 
-  .contentArea {
-    padding: 32px 16px;
-  }
-
-  .sidebarNavTop {
-    padding: 2px 0 0 6px;
-  }
-
-  .sidebarNavTop > .navRow:first-of-type {
-    margin-top: 6px;
-  }
-
-  .sidebarNavTop > .navRow:nth-of-type(2) {
-    margin-top: 6px;
-  }
-
-  .sidebarBottom {
-    padding-bottom: 48px;
-  }
-
-  .sidebarBottom::before {
-    top: -40px;
-  }
-
-  .bottomLinksWrap {
-    transform: translateY(12px);
-  }
-
-  .sidebarBottom .createButton {
-    bottom: 12px;
-  }
-
-  .navSection {
-    padding: 0 8px 0 9px;
+  /* Align ? icon to the left of its container, shift 4px right */
+  .helpButton {
+    justify-content: flex-start;
+    transform: translateX(-13px);
   }
 }
 
 /* ========================================
    Responsive: Hide menu button, auto-close sidebar (<= 600px)
+   Note: No padding changes - layout stays consistent at all widths
    ======================================== */
 @media (max-width: 600px) {
-  /* Hide hamburger menu button */
-  .hamburgerButton {
+  /* Hide hamburger menu button wrapper */
+  .hamburgerWrapper {
     display: none !important;
+  }
+
+  /* Move brand/logo left to take the hamburger's place */
+  .brand {
+    margin-left: 0;
   }
 
   /* Disable JS-toggled expanded state - sidebar only opens on hover */
@@ -1722,188 +1844,24 @@
     transform: translateX(0) !important;
     transition: transform 100ms ease-out, visibility 0ms linear 0ms !important;
   }
-
-  /* Reduce main content padding */
-  .mainInner {
-    padding: 20px 16px 16px 16px;
-  }
-
-  .contentArea {
-    padding: 24px 12px;
-  }
-
-  /* Further reduce whitespace */
-  .sidebarNavTop {
-    padding: 0 0 0 6px;
-  }
-
-  .sidebarNavTop > .navRow:first-of-type {
-    margin-top: 4px;
-  }
-
-  .sidebarNavTop > .navRow:nth-of-type(2) {
-    margin-top: 4px;
-  }
-
-  .sidebarBottom {
-    padding-bottom: 44px;
-  }
-
-  .sidebarBottom::before {
-    top: -32px;
-  }
-
-  .bottomLinksWrap {
-    transform: translateY(16px);
-  }
-
-  .sidebarBottom .createButton {
-    bottom: 8px;
-  }
 }
 
 /* ========================================
-   Responsive: Short viewport height – sidebar nav scrolls, lower menu overflows
+   Responsive: Short viewport height
+   
+   Main content area:
+   - Header (title, subheader) has flex-shrink: 0 - stays in place
+   - .main has overflow: hidden - content clips at bottom
+   - No padding/layout changes on height reduction
+   
+   Sidebar:
+   - sidebarNav has min-height: 580px - triggers overflow at ~660px viewport
+   - sidebar has overflow: hidden - clips content at bottom
+   
+   Rail:
+   - railNav has min-height: 324px - triggers overflow at ~400px viewport
+   - rail has overflow: hidden - clips content at bottom
    ======================================== */
-@media (max-height: 600px) {
-  .sidebarBottom {
-    flex-shrink: 0;
-    padding-bottom: 16px;
-  }
-}
-
-@media (max-height: 700px) {
-  /* Sidebar: reduce whitespace */
-  .sidebarNavTop {
-    padding: 2px 0 0 6px;
-  }
-
-  .sidebarNavTop > .navRow:first-of-type {
-    margin-top: 6px;
-  }
-
-  .sidebarNavTop > .navRow:nth-of-type(2) {
-    margin-top: 6px;
-  }
-
-  .sidebarBottom {
-    padding-bottom: 44px;
-  }
-
-  .sidebarBottom::before {
-    top: -40px;
-  }
-
-  .bottomLinksWrap {
-    transform: translateY(12px);
-  }
-
-  .sidebarBottom .createButton {
-    bottom: 10px;
-  }
-
-  .navSection {
-    padding: 0 8px 0 9px;
-  }
-
-  /* Main content */
-  .contentArea {
-    padding: 16px 24px;
-    justify-content: flex-start;
-  }
-
-  .emptyState {
-    min-height: 150px;
-  }
-
-  .mainInner {
-    padding-top: 16px;
-    padding-bottom: 16px;
-  }
-}
-
-@media (max-height: 550px) {
-  /* Sidebar: further reduce whitespace */
-  .sidebarNavTop {
-    padding: 0 0 0 6px;
-  }
-
-  .sidebarNavTop > .navRow:first-of-type {
-    margin-top: 4px;
-  }
-
-  .sidebarNavTop > .navRow:nth-of-type(2) {
-    margin-top: 4px;
-  }
-
-  .sidebarBottom {
-    padding-bottom: 40px;
-  }
-
-  .sidebarBottom::before {
-    top: -24px;
-    transform: translate(3px, 40px) scaleX(0.92);
-  }
-
-  .bottomLinksWrap {
-    transform: translateY(16px);
-  }
-
-  .bottomLink {
-    height: 28px;
-  }
-
-  .sidebarBottom .createButton {
-    bottom: 6px;
-    height: 30px;
-  }
-
-  /* Main content */
-  .contentArea {
-    padding: 8px 16px;
-  }
-
-  .emptyState {
-    min-height: 100px;
-  }
-
-  .mainInner {
-    padding-top: 12px;
-    padding-bottom: 12px;
-  }
-
-  .title {
-    font-size: 22px;
-    line-height: 28px;
-    margin: 2px 0 4px 0;
-  }
-}
-
-@media (max-height: 450px) {
-  /* Sidebar: minimal spacing */
-  .sidebarNav {
-    padding-top: 4px;
-  }
-
-  .sidebarBottom::before {
-    display: none;
-  }
-
-  .bottomLinksWrap {
-    transform: translateY(20px);
-  }
-
-  .bottomLink {
-    height: 26px;
-    font-size: 12px;
-  }
-
-  .sidebarBottom .createButton {
-    bottom: 4px;
-    height: 28px;
-    font-size: 12px;
-  }
-}
 
 /* ========================================
    Create Modal Overlay & Container
