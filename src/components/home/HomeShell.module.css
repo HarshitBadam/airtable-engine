@@ -127,12 +127,13 @@
   text-align: center;
   width: 28px;
   flex-shrink: 0;
-  transform: translate(-14px, 1px);
+  transform: translateX(-14px);
+  
 }
 
 .bellButton svg {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
 }
 
 .bellButton:hover {
@@ -296,7 +297,6 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 2px;
   box-sizing: border-box;
   color: var(--home-text-primary);
   cursor: pointer;
@@ -306,14 +306,13 @@
   height: 46.1953px;
   line-height: 18px;
   margin-right: 4px;
-  margin-left: 6px;
-  margin-top: 1px;
   outline: none;
   padding: 12px;
   text-align: center;
   text-decoration: none;
   border-radius: 3px;
   flex-shrink: 0;
+  transform: translate(8px, 1px);
 }
 
 .brandMark {
@@ -326,6 +325,7 @@
 .brandMark svg {
   width: 30px;
   height: 30px;
+  transform: translate(-1px, -1px);
 }
 
 .brandWordmark {
@@ -345,6 +345,7 @@
 .brandWordmark svg {
   height: 15px;
   width: auto;
+  transform: translate(0.5px, -0.5px);
 }
 
 /* Search Pill / Menu Bar */
@@ -374,7 +375,7 @@
 }
 
 .searchPill:hover {
-  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.12) 0px 2px 8px 0px, var(--home-border) 0px 4px 14px 0px;
+  box-shadow: rgba(0, 0, 0, 0.38) 0px 0px 1px 0px, rgba(0, 0, 0, 0.18) 0px 2px 8px 0px;
 }
 
 .searchPill:focus {
@@ -408,13 +409,14 @@
   height: 19.5px;
   line-height: 19.5px;
   text-align: left;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   margin-left: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transform: translate(-2px, -1px);
+  transform: translate(-2px, -0.5px);
 }
 
 .searchKbd {
@@ -438,11 +440,11 @@
 }
 
 .searchKbd span:first-of-type {
-  transform: translate(0, -1px);
+  transform: translate(0, -0.5px);
 }
 
 .searchKbd span:last-of-type {
-  transform: translate(2px, -1px);
+  transform: translate(1.5px, -0.5px);
 }
 
 /* Help Button - pill shape with highlight on hover */
@@ -480,17 +482,16 @@
 
 /* Avatar - pink/magenta, white border, soft shadow */
 .avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   box-sizing: border-box;
   color: var(--home-bg);
   fill: var(--home-bg);
   cursor: pointer;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   height: 26px;
+  transform: translateX(-1px);
   line-height: 26px;
   margin: 0;
   padding: 0;
@@ -499,7 +500,6 @@
   border-radius: 9999px;
   background: var(--home-avatar-bg);
   border: none;
-  flex-shrink: 0;
 }
 
 .avatar:hover {
@@ -525,7 +525,7 @@
   position: relative;
   display: flex;
   flex-shrink: 0;
-  width: 46px; /* Width of collapsed rail */
+  width: 47px; /* Width of collapsed rail */
   height: 100%;
   min-height: 0;
 }
@@ -554,7 +554,7 @@
   position: absolute;
   text-align: center;
   top: 0px;
-  width: 46px;
+  width: 47px;
   border-right: 1px solid var(--home-border);
   /* Clip overflow for short viewport heights */
   overflow: hidden;
@@ -1054,7 +1054,8 @@
 .navSection {
   padding: 0 8px 0 0;
   margin: 0;
-  margin-top: -8px;
+  margin-bottom: -8px;
+  transform: translateY(-8px);
 }
 
 /* Push Workspaces row down */
@@ -1069,7 +1070,7 @@
   padding: 0;
   padding-left: 1px;
   margin: 0;
-  max-height: 377px;
+  max-height: 376px;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -1137,7 +1138,7 @@
   /* Push to bottom - creates flexible whitespace that shrinks as height decreases */
   margin-top: auto;
   padding: 0;
-  padding-top: 12px;
+  padding-top: 8px;
   padding-bottom: 12px;
   text-align: center;
   width: 275px;
@@ -1289,7 +1290,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   box-sizing: border-box;
   color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -1325,17 +1326,18 @@
 
 /* When sidebar is expanded: Home and Opened - minimal shift */
 .mainShifted .title {
-  transform: translate(14px, -1px);
+  transform: translate(13px, -1px);
 }
 
 .mainShifted .subheader {
-  margin-left: 14px;
+  margin-left: 13px;
 }
 
 
 /* When sidebar is expanded: reduce padding */
 .mainShifted .mainInner {
   padding-left: 36px;
+  transform: none;
 }
 
 .mainInner {
@@ -1345,9 +1347,10 @@
   width: 100%;
   max-width: 1400px;
   min-width: 0;
-  padding-left: 48px;
+  padding-left: 43px;
   flex: 1 1 0;
   min-height: 0;
+  transform: translateX(8px);
 }
 
 .title {
@@ -1570,7 +1573,7 @@
 
 /* Starred list scroll area - sidebar OPEN */
 .sidebarExpanded .starredList {
-  max-height: 380px;
+  max-height: 379px;
 }
 
 /* Card icon square - sidebar OPEN */
@@ -1591,7 +1594,7 @@
 
 /* Card initials text - sidebar OPEN */
 .mainShifted [class*="baseCardInitials"] {
-  transform: translate(-1px, 0px);
+  transform: translate(-1.5px, 0.5px);
 }
 
 /* Delete confirmation panel - sidebar OPEN */
@@ -1605,7 +1608,7 @@
 
 /* Move entire list view table 16px right - sidebar OPEN */
 .mainShifted [class*="listViewContainer"] {
-  transform: translateX(16px);
+  transform: translateX(15px);
 }
 
 /* Header column shifts - sidebar OPEN */
@@ -1647,9 +1650,15 @@
   right: 20px;
 }
 
-/* Menu opens up - sidebar OPEN */
-.mainShifted [class*="listItemMenuUp"] {
-  bottom: calc(100% + 10px);
+/* List view menu regular - sidebar OPEN */
+.mainShifted [class*="listItemOverflowWrap"] ul[class*="listItemMenu"] {
+  left: 0px;
+  margin-top: 8px;
+}
+
+/* List view menu opens up - sidebar OPEN */
+.mainShifted [class*="listItemOverflowWrap"] ul[class*="listItemMenuUp"] {
+  bottom: calc(100% + 9px);
 }
 
 /* Delete dialog - sidebar OPEN */
@@ -1668,7 +1677,12 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  transform: translate(-15px, -4px);
+  transform: translate(-16px, -4px);
+}
+
+/* Empty state - sidebar OPEN */
+.mainShifted .emptyState {
+  transform: translate(-8px, -4px);
 }
 
 .emptyTitle {

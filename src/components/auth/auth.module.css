@@ -220,23 +220,43 @@
   gap: 9.75px;
   font-size: 15px;
   font-weight: 400;
-  letter-spacing: 0.002em;
-  transform: translate(-1px, 0px);
+  transform: translate(0px, 0px);
 }
 
 .providerButtonContentSSO {
-  transform: translate(0px, 0px);
+  transform: translate(4px, 0px);
 }
 
 .providerButtonIcon {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  transform: translate(2px, -1px);
+  transform: translate(-0.5px, -0.5px);
 }
 
 .providerButtonIconApple {
-  transform: translate(2px, -3px);
+  transform: translate(0px, -2.5px);
+}
+
+/* Sign-up variant overrides (must be after base classes) */
+.providerButtonContentSSOSignUp {
+  transform: translate(0px, -0.5px);
+}
+
+.providerButtonContentGoogleSignUp {
+  transform: translate(-1px, -0.5px);
+}
+
+.providerButtonContentAppleSignUp {
+  transform: translate(-1px, -0.5px);
+}
+
+.providerButtonIconGoogleSignUp {
+  transform: translate(1.5px, 0px);
+}
+
+.providerButtonIconAppleSignUp {
+  transform: translate(1.5px, -2px);
 }
 
 .providerButtonLabel {

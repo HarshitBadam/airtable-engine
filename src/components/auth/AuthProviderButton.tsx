@@ -40,6 +40,9 @@ export function AuthProviderButton({
   const contentClass = [
     styles.providerButtonContent,
     provider === "sso" && styles.providerButtonContentSSO,
+    provider === "sso" && variant === "sign-up" && styles.providerButtonContentSSOSignUp,
+    provider === "google" && variant === "sign-up" && styles.providerButtonContentGoogleSignUp,
+    provider === "apple" && variant === "sign-up" && styles.providerButtonContentAppleSignUp,
   ]
     .filter(Boolean)
     .join(" ");
@@ -47,6 +50,8 @@ export function AuthProviderButton({
   const iconClass = [
     styles.providerButtonIcon,
     provider === "apple" && styles.providerButtonIconApple,
+    provider === "google" && variant === "sign-up" && styles.providerButtonIconGoogleSignUp,
+    provider === "apple" && variant === "sign-up" && styles.providerButtonIconAppleSignUp,
   ]
     .filter(Boolean)
     .join(" ");

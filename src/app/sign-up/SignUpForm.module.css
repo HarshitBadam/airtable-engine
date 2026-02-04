@@ -101,7 +101,7 @@
 
 .checkboxInput:checked + .checkboxBox {
   border: none;
-  background-color: var(--auth-color-primary);
+  background-color: #156EE1;
 }
 
 .checkboxInput:focus-visible + .checkboxBox {
@@ -145,6 +145,17 @@
   margin-top: 16px;
   text-align: center;
   box-sizing: border-box;
+}
+
+.cookieHereLink {
+  display: inline-block;
+  transform: translateX(2px);
+}
+
+.signInLink {
+  display: inline-block;
+  transform: translateX(1px);
+  text-underline-offset: 1px !important;
 }
 
 @media (max-width: 1151px) {

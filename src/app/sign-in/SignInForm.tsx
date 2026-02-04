@@ -61,7 +61,7 @@ export function SignInForm() {
         Manage your cookie preferences{" "}
         <a
           href="#"
-          className={authStyles.authLink}
+          className={`${authStyles.authLink} ${styles.cookieHereLink}`}
           onClick={(e) => e.preventDefault()}
         >
           here

@@ -82,6 +82,11 @@
   transform: translateY(2px);
 }
 
+.cookieHereLink {
+  display: inline-block;
+  transform: translateX(2px);
+}
+
 @media (max-width: 1151px) {
   .title {
     font-size: 24px;

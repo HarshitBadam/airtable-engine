@@ -13,8 +13,8 @@
   align-items: flex-start;
   justify-content: flex-start;
   width: 100%;
-  margin-top: 5px;
-  padding-left: 2px; /* Prevent left box-shadow from being clipped */
+  margin-top: 4px;
+  padding-left: 1px; /* Prevent left box-shadow from being clipped */
   padding-right: 36px; /* Add to main's 16px to get 52px total - adjusted for cell width */
   box-sizing: border-box;
 }
@@ -125,7 +125,7 @@
   height: 56px;
   border-radius: 12px;
   margin-top: -1px;
-  margin-left: -1px;
+  margin-left: 0px;
 }
 
 .baseCardInitials {
@@ -135,7 +135,7 @@
   text-transform: capitalize;
   user-select: none;
   margin-left: 2px;
-  transform: translate(-1px, 0px);
+  transform: translate(-1px, 0.5px);
 }
 
 /* ========================================
@@ -147,7 +147,7 @@
   flex-direction: column;
   justify-content: center;
   flex: 1;
-  padding: 0 16px 1px 1px;
+  margin-right: 16px;
   min-width: 0; /* Allow text truncation */
 }
 
@@ -175,8 +175,8 @@
   color: var(--home-text-primary);
   line-height: 1.4;
   margin: 0;
-  margin-top: 0px;
-  margin-left: -2px;
+  margin-top: 1px;
+  margin-left: 0px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -196,10 +196,12 @@
   font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
-  width: 176px;
+  width: 100%;
   height: 30px;
   line-height: 18px;
   margin: 0;
+  margin-top: 0px;
+  margin-left: -1px;
   min-height: 0;
   min-width: 0;
   outline: none;
@@ -234,7 +236,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
-  margin-left: -2px;
+  margin-left: 0px;
   margin-top: 1px;
 }
 
@@ -263,8 +265,8 @@
 /* Action buttons container (star + overflow) */
 .baseCardActionButtonsWrapper {
   position: absolute;
-  top: 15px;
-  right: 15px;
+  top: 15.5px;
+  right: 16.5px;
 }
 
 .baseCardActionButtons {
@@ -283,8 +285,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 29px;
+  height: 29px;
   padding: 0 5px;
   border: 1px solid var(--home-border);
   border-radius: 6px;
@@ -303,7 +305,7 @@
 }
 
 .baseCardActionButton + .baseCardActionButton {
-  margin-left: 6px;
+  margin-left: 5px;
 }
 
 .baseCardActionButton svg {
@@ -324,7 +326,7 @@
   line-height: 16px;
   text-decoration: none;
   cursor: pointer;
-  margin-left: 1px;
+  margin-left: 0px;
   margin-top: 0px;
 }
 
@@ -363,8 +365,8 @@
   line-height: 16px;
   text-decoration: none;
   cursor: pointer;
-  margin-left: -1px;
-  margin-top: 5px;
+  margin-left: -2px;
+  margin-top: 1px;
 }
 
 .baseCardOpenDataStatic:hover {
@@ -373,6 +375,10 @@
 
 .baseCardOpenDataStatic svg {
   transform: translateX(-1px);
+}
+
+.baseCardOpenDataStatic span {
+  transform: translate(1px, -1px);
 }
 
 /* ========================================
@@ -456,7 +462,7 @@
 /* Grid view upward menu - same vertical gap as downward (9px) */
 .baseCard .listItemMenuUp {
   top: auto;
-  bottom: calc(100% + 9px);
+  bottom: calc(100% + 8px);
   margin-top: 0;
 }
 
@@ -469,7 +475,7 @@
 /* Upward menu variant for last card */
 .baseCardMenuUp {
   top: auto;
-  bottom: calc(100% + 10px); /* 10px above the button */
+  bottom: calc(100% + 8px); /* 9px above the button */
 }
 
 /* ========================================
@@ -489,7 +495,7 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  transform: translate(21px, -6px);
+  transform: translate(22.5px, -5.5px);
   display: block;
   width: 232px;
   min-width: 232px;
@@ -713,6 +719,7 @@
   line-height: 16.5px;
   color: var(--home-text-tertiary);
   white-space: nowrap;
+  transform: translate(-1px, 1px);
 }
 
 .starredEntry:hover .starredEntryAppLabel {
@@ -735,6 +742,7 @@
   border-radius: 3px;
   cursor: pointer;
   user-select: none;
+  transform: translate(-1px, 0px);
 }
 
 .starredEntry:hover .starredEntryStar {
@@ -757,6 +765,7 @@
   border-radius: 3px;
   cursor: grab;
   opacity: 0;
+  transform: translate(-1px, 0px);
 }
 
 .starredEntry:hover .starredEntryDragHandle {
@@ -850,11 +859,11 @@
 
 /* Last opened column */
 .listViewHeaderColumnShift {
-  margin-left: -12px;
+  margin-left: -11px;
 }
 
 .listViewHeaderWorkspaceShift {
-  margin-left: -30px;
+  margin-left: -32px;
 }
 
 /* Divider line below header */
@@ -866,7 +875,6 @@
   height: 33.5px;
   margin-top: -26px;
   margin-bottom: 16px;
-  width: calc(100% + 8px);
   margin-left: -7px;
   margin-right: 0;
   border-bottom: 1px solid var(--home-border);
@@ -1008,7 +1016,7 @@
 
 /* Last opened column */
 .listItemColumnShift {
-  margin-left: -12px;
+  margin-left: -11px;
 }
 
 /* Last opened column with tooltip */
@@ -1048,7 +1056,7 @@
 }
 
 .listItemWorkspaceShift {
-  margin-left: -30px;
+  margin-left: -32px;
 }
 
 /* Starred indicator in list view (visible when starred, non-hover) */
@@ -1168,8 +1176,8 @@
 .listItemMenu {
   position: absolute;
   top: 100%;
-  left: 1px;
-  margin-top: 10px;
+  left: -1px;
+  margin-top: 7px;
   width: 240px;
   height: 245px;
   max-height: 245px;
@@ -1203,7 +1211,7 @@
 /* Upward menu variant when not enough space below */
 .listItemMenuUp {
   top: auto;
-  bottom: calc(100% + 10px);
+  bottom: calc(100% + 9px);
   margin-top: 0;
   margin-bottom: 0;
 }

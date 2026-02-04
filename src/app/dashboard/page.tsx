@@ -30,6 +30,7 @@ import {
   CheckIcon,
   AirtableLogoMark,
   AirtableWordmark,
+  DotsSixVerticalIcon,
 } from "~/components/home/Icons";
 import { AccountDropdown, CreateModal } from "~/components/home";
 import { useBases, BasesGrid, BasesList, getBaseColor, getBaseTextColor, getBaseInitials } from "~/components/bases";
@@ -390,6 +391,9 @@ export default function DashboardPage() {
                         >
                           <StarFilledIcon size={16} color="#FFBA06" />
                         </span>
+                        <span className={basesStyles.starredEntryDragHandle}>
+                          <DotsSixVerticalIcon size={16} />
+                        </span>
                       </Link>
                     ))}
                   </div>
@@ -522,38 +526,6 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <div
-                className={styles.viewToggle}
-                role="radiogroup"
-                aria-label="View mode"
-              >
-                <div className={styles.tooltipWrapper}>
-                  <button
-                    type="button"
-                    className={styles.viewToggleButton}
-                    role="radio"
-                    aria-checked={viewMode === "list"}
-                    aria-label="List view"
-                    onClick={() => setViewMode("list")}
-                  >
-                    <ListViewIcon size={20} />
-                  </button>
-                  <span className={styles.hoverTooltip} role="tooltip">View items in a list</span>
-                </div>
-                <div className={styles.tooltipWrapper}>
-                  <button
-                    type="button"
-                    className={styles.viewToggleButton}
-                    role="radio"
-                    aria-checked={viewMode === "grid"}
-                    aria-label="Grid view"
-                    onClick={() => setViewMode("grid")}
-                  >
-                    <GridViewIcon size={20} />
-                  </button>
-                  <span className={styles.hoverTooltip} role="tooltip">View items in a grid</span>
-                </div>
-              </div>
             </div>
 
             {/* Content: Empty state or bases list */}
@@ -582,6 +554,40 @@ export default function DashboardPage() {
               ) : (
                 <BasesGrid bases={bases} />
               )}
+            </div>
+          </div>
+
+          {/* View Toggle - positioned fixed, outside mainInner to avoid transform issues */}
+          <div
+            className={styles.viewToggle}
+            role="radiogroup"
+            aria-label="View mode"
+          >
+            <div className={styles.tooltipWrapper}>
+              <button
+                type="button"
+                className={styles.viewToggleButton}
+                role="radio"
+                aria-checked={viewMode === "list"}
+                aria-label="List view"
+                onClick={() => setViewMode("list")}
+              >
+                <ListViewIcon size={20} />
+              </button>
+              <span className={styles.hoverTooltip} role="tooltip">View items in a list</span>
+            </div>
+            <div className={styles.tooltipWrapper}>
+              <button
+                type="button"
+                className={styles.viewToggleButton}
+                role="radio"
+                aria-checked={viewMode === "grid"}
+                aria-label="Grid view"
+                onClick={() => setViewMode("grid")}
+              >
+                <GridViewIcon size={20} />
+              </button>
+              <span className={styles.hoverTooltip} role="tooltip">View items in a grid</span>
             </div>
           </div>
         </main>

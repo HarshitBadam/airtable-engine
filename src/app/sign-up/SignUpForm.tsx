@@ -84,12 +84,11 @@ export function SignUpForm() {
           Manage your cookie preferences{" "}
           <a
             href="#"
-            className={authStyles.authLink}
+            className={`${authStyles.authLink} ${styles.cookieHereLink}`}
             onClick={(e) => e.preventDefault()}
           >
             here
           </a>
-          .
         </p>
       </div>
 
@@ -101,8 +100,8 @@ export function SignUpForm() {
           className={styles.checkboxInput}
         />
         <span className={styles.checkboxBox}>
-          <svg className={styles.checkboxIcon} width="12" height="12" viewBox="0 0 16 16" fill="white">
-            <path d="M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z" />
+          <svg className={styles.checkboxIcon} width="16" height="16" viewBox="0 0 16 16" fill="white" style={{ shapeRendering: "geometricPrecision" }}>
+            <path fillRule="nonzero" d="M13.5 4C13.3674 4.00002 13.2402 4.05271 13.1465 4.14648L6.49999 10.793L3.3535 7.64648C3.25974 7.55274 3.13258 7.50008 2.99999 7.50008C2.8674 7.50008 2.74023 7.55274 2.64647 7.64648C2.55272 7.74025 2.50006 7.86741 2.50006 8C2.50006 8.13259 2.55272 8.25975 2.64647 8.35352L6.14647 11.8535C6.24024 11.9472 6.3674 11.9999 6.49999 11.9999C6.63257 11.9999 6.75973 11.9472 6.8535 11.8535L13.8535 4.85352C13.9472 4.75975 13.9999 4.63259 13.9999 4.5C13.9999 4.36741 13.9472 4.24025 13.8535 4.14648C13.7597 4.05271 13.6326 4.00002 13.5 4Z" />
           </svg>
         </span>
         <span className={styles.checkboxText}>
@@ -114,7 +113,7 @@ export function SignUpForm() {
 
       <p className={styles.footer}>
         Already have an account?{"\u00A0\u00A0"}
-        <Link href="/sign-in" className={authStyles.authLink}>
+        <Link href="/sign-in" className={`${authStyles.authLink} ${styles.signInLink}`}>
           Sign in
         </Link>
       </p>
