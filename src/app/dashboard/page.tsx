@@ -367,9 +367,10 @@ export default function DashboardPage() {
                     {starredBases.map((base) => (
                       <Link
                         key={base.id}
-                        href={`/bases/${base.id}`}
+                        href={`/bases/${base.id}/tables/default`}
                         className={basesStyles.starredEntry}
                         draggable={false}
+                        onClick={() => actions.recordOpen(base.id)}
                       >
                         <div 
                           className={basesStyles.starredEntryLogo}

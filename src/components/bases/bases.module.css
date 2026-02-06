@@ -51,7 +51,29 @@
     rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
     rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
   cursor: pointer;
-  transition: box-shadow 0.15s ease;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  border: 1px solid transparent;
+}
+
+/* Click animation - blue border flash */
+.baseCardClicked {
+  animation: borderFlash 0.3s ease-out;
+}
+
+@keyframes borderFlash {
+  0% {
+    border-color: #156EE1;
+    box-shadow: 
+      0 0 0 1px #156EE1,
+      rgba(21, 110, 225, 0.2) 0px 0px 8px 2px;
+  }
+  100% {
+    border-color: transparent;
+    box-shadow: 
+      rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+      rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+      rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  }
 }
 
 .baseCard:hover,
@@ -899,6 +921,24 @@
   position: relative;
   text-align: center;
   border-radius: 6px;
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+/* Click animation - blue border flash for list items */
+.listItemClicked {
+  animation: listBorderFlash 0.3s ease-out;
+}
+
+@keyframes listBorderFlash {
+  0% {
+    border-color: #156EE1;
+    box-shadow: 0 0 0 1px #156EE1, rgba(21, 110, 225, 0.15) 0px 0px 6px 1px;
+  }
+  100% {
+    border-color: transparent;
+    box-shadow: none;
+  }
 }
 
 .listItem:hover {

@@ -7,6 +7,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styles from "./bases.module.css";
 import { getBaseColor, getBaseTextColor, getBaseInitials, formatRelativeTime } from "./useBases";
 import { useBaseCardActions } from "./useBaseCardActions";
@@ -27,7 +28,7 @@ export interface BasesListProps {
   bases: Array<{
     id: string;
     name: string;
-    updatedAt: Date;
+    lastOpenedAt: Date;
     isStarred: boolean;
   }>;
 }
@@ -36,7 +37,7 @@ interface ListItemProps {
   base: {
     id: string;
     name: string;
-    updatedAt: Date;
+    lastOpenedAt: Date;
     isStarred: boolean;
   };
 }
@@ -49,25 +50,46 @@ function ListItem({ base }: ListItemProps) {
   const [editName, setEditName] = useState(base.name);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteDialogOffset, setDeleteDialogOffset] = useState(0);
+  const [isClicked, setIsClicked] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const deleteDialogRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  // Handle click animation and navigation
+  const handleItemClick = (e: React.MouseEvent) => {
+    // Don't navigate if in special states
+    if (isRenaming || menuOpen || showDeleteConfirm) return;
+    
+    // Check if click was on an interactive element (buttons, links, inputs)
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a') || target.closest('input')) {
+      return;
+    }
+    
+    setIsClicked(true);
+    setTimeout(() => setIsClicked(false), 300);
+    // Record the open action to update lastOpenedAt
+    actions.recordOpen(base.id);
+    // Navigate to the table workspace page (default table for now)
+    router.push(`/bases/${base.id}/tables/default`);
+  };
 
   const actions = useBaseCardActions();
 
   const color = getBaseColor(base.id);
   const textColor = getBaseTextColor(base.id);
   const initials = getBaseInitials(base.name);
-  const timeAgo = formatRelativeTime(base.updatedAt);
+  const timeAgo = formatRelativeTime(base.lastOpenedAt);
   
   // Format full date/time for tooltip: "February 3, 2026 at 2:37 AM"
-  const datePart = base.updatedAt.toLocaleDateString("en-US", {
+  const datePart = base.lastOpenedAt.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
-  const timePart = base.updatedAt.toLocaleTimeString("en-US", {
+  const timePart = base.lastOpenedAt.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
@@ -190,11 +212,14 @@ function ListItem({ base }: ListItemProps) {
   };
 
   return (
-    <div className={`${styles.listItem} ${showDeleteConfirm ? styles.listItemDeleteConfirm : ""} ${menuOpen ? styles.listItemMenuOpen : ""} ${isRenaming ? styles.listItemRenaming : ""}`}>
+    <div 
+      className={`${styles.listItem} ${showDeleteConfirm ? styles.listItemDeleteConfirm : ""} ${menuOpen ? styles.listItemMenuOpen : ""} ${isRenaming ? styles.listItemRenaming : ""} ${isClicked ? styles.listItemClicked : ""}`}
+      onClick={handleItemClick}
+    >
       {/* Hover highlight (real element so it can be positioned; 16px left) */}
       <div className={styles.listItemHoverHighlight} aria-hidden />
       {/* Clickable link area */}
-      {!isRenaming && <Link href={`/bases/${base.id}`} className={styles.listItemLink} />}
+      {!isRenaming && <Link href={`/bases/${base.id}/tables/default`} className={styles.listItemLink} onClick={() => actions.recordOpen(base.id)} />}
       
       {/* Content grid */}
       <div className={styles.listItemContent}>
@@ -223,9 +248,12 @@ function ListItem({ base }: ListItemProps) {
           
           {/* Open data link - left, beside title, visible on hover */}
           <Link 
-            href={`/bases/${base.id}`} 
+            href={`/bases/${base.id}/tables/default`} 
             className={styles.listItemOpenData}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              actions.recordOpen(base.id);
+            }}
           >
             <span>Open data</span>
           </Link>

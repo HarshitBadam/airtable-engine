@@ -7,6 +7,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styles from "./bases.module.css";
 import { getBaseColor, getBaseBorderColor, getBaseTextColor, getBaseInitials, formatRelativeTime } from "./useBases";
 import { useBaseCardActions } from "./useBaseCardActions";
@@ -29,7 +30,7 @@ export interface BaseCardProps {
   base: {
     id: string;
     name: string;
-    updatedAt: Date;
+    lastOpenedAt: Date;
     isStarred: boolean;
   };
 }
@@ -42,9 +43,30 @@ export function BaseCard({ base }: BaseCardProps) {
   const [editName, setEditName] = useState(base.name);
   const [isHoveringActions, setIsHoveringActions] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isClicked, setIsClicked] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  // Handle click animation and navigation
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on interactive elements or in special states
+    if (isRenaming || menuOpen || showDeleteConfirm) return;
+    
+    // Check if click was on an interactive element (buttons, links, inputs)
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a') || target.closest('input')) {
+      return;
+    }
+    
+    setIsClicked(true);
+    setTimeout(() => setIsClicked(false), 300);
+    // Record the open action to update lastOpenedAt
+    actions.recordOpen(base.id);
+    // Navigate to the table workspace page (default table for now)
+    router.push(`/bases/${base.id}/tables/default`);
+  };
   
   const actions = useBaseCardActions();
   
@@ -52,7 +74,7 @@ export function BaseCard({ base }: BaseCardProps) {
   const borderColor = getBaseBorderColor(base.id);
   const textColor = getBaseTextColor(base.id);
   const initials = getBaseInitials(base.name);
-  const timeAgo = formatRelativeTime(base.updatedAt);
+  const timeAgo = formatRelativeTime(base.lastOpenedAt);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -134,7 +156,12 @@ export function BaseCard({ base }: BaseCardProps) {
   };
 
   return (
-    <div className={`${styles.baseCard} ${isRenaming ? styles.baseCardRenaming : ""} ${showDeleteConfirm ? styles.baseCardDeleteConfirm : ""} ${menuOpen ? styles.baseCardMenuOpen : ""}`} role="region" aria-label={base.name}>
+    <div 
+      className={`${styles.baseCard} ${isRenaming ? styles.baseCardRenaming : ""} ${showDeleteConfirm ? styles.baseCardDeleteConfirm : ""} ${menuOpen ? styles.baseCardMenuOpen : ""} ${isClicked ? styles.baseCardClicked : ""}`} 
+      role="region" 
+      aria-label={base.name}
+      onClick={handleCardClick}
+    >
       {/* Hover tooltip - hidden when renaming, hovering over actions, menu open, or delete confirm shown */}
       {!isRenaming && !isHoveringActions && !menuOpen && !showDeleteConfirm && (
         <span className={styles.baseCardTooltip} role="tooltip">
@@ -179,7 +206,11 @@ export function BaseCard({ base }: BaseCardProps) {
                 onKeyDown={handleRenameKeyDown}
               />
             ) : (
-              <Link href={`/bases/${base.id}`} className={styles.baseCardLink}>
+              <Link 
+                href={`/bases/${base.id}/tables/default`} 
+                className={styles.baseCardLink}
+                onClick={() => actions.recordOpen(base.id)}
+              >
                 <h3 className={styles.baseCardName}>{base.name}</h3>
               </Link>
             )}
@@ -187,7 +218,11 @@ export function BaseCard({ base }: BaseCardProps) {
           <div className={styles.baseCardMeta}>
             {isRenaming ? (
               /* Show Open data when renaming */
-              <Link href={`/bases/${base.id}`} className={styles.baseCardOpenDataStatic}>
+              <Link 
+                href={`/bases/${base.id}/tables/default`} 
+                className={styles.baseCardOpenDataStatic}
+                onClick={() => actions.recordOpen(base.id)}
+              >
                 <DatabaseIcon size={16} />
                 <span>Open data</span>
               </Link>
@@ -195,7 +230,11 @@ export function BaseCard({ base }: BaseCardProps) {
               <>
                 <span className={styles.baseCardTime}>{timeAgo}</span>
                 {/* Open data link - shown on hover, replaces timeAgo */}
-                <Link href={`/bases/${base.id}`} className={styles.baseCardOpenData}>
+                <Link 
+                  href={`/bases/${base.id}/tables/default`} 
+                  className={styles.baseCardOpenData}
+                  onClick={() => actions.recordOpen(base.id)}
+                >
                   <DatabaseIcon size={16} />
                   <span>Open data</span>
                 </Link>

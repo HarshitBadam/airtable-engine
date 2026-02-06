@@ -71,4 +71,26 @@ export const viewRouter = createTRPCRouter({
         select: { id: true, name: true, config: true },
       });
     }),
+
+  delete: protectedProcedure
+    .input(z.object({ viewId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // ownership check + get tableId for sibling count
+      const view = await ctx.db.view.findFirst({
+        where: { id: input.viewId, table: { base: { ownerId: ctx.session.user.id } } },
+        select: { id: true, tableId: true },
+      });
+      if (!view) throw new Error("View not found");
+
+      // prevent deleting the last view
+      const siblingCount = await ctx.db.view.count({
+        where: { tableId: view.tableId },
+      });
+      if (siblingCount <= 1) {
+        throw new Error("Cannot delete the only view");
+      }
+
+      await ctx.db.view.delete({ where: { id: input.viewId } });
+      return { deleted: true };
+    }),
 });

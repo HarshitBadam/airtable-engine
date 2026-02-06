@@ -10,7 +10,7 @@ export interface BasesGridProps {
   bases: Array<{
     id: string;
     name: string;
-    updatedAt: Date;
+    lastOpenedAt: Date;
     isStarred: boolean;
   }>;
 }

@@ -108,9 +108,53 @@ export function useBaseCardActions() {
     },
   });
 
+  // Record open mutation - updates lastOpenedAt and moves base to top
+  const recordOpenMutation = api.base.recordOpen.useMutation({
+    onMutate: async ({ id }) => {
+      await utils.base.listMine.cancel();
+      await utils.base.listStarred.cancel();
+
+      const previousMine = utils.base.listMine.getData();
+      const previousStarred = utils.base.listStarred.getData();
+      const now = new Date();
+
+      // Update lastOpenedAt and move to top of list
+      utils.base.listMine.setData(undefined, (old) => {
+        if (!old) return old;
+        const base = old.find((b) => b.id === id);
+        if (!base) return old;
+        const updated = { ...base, lastOpenedAt: now };
+        return [updated, ...old.filter((b) => b.id !== id)];
+      });
+
+      utils.base.listStarred.setData(undefined, (old) => {
+        if (!old) return old;
+        const base = old.find((b) => b.id === id);
+        if (!base) return old;
+        const updated = { ...base, lastOpenedAt: now };
+        return [updated, ...old.filter((b) => b.id !== id)];
+      });
+
+      return { previousMine, previousStarred };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousMine) {
+        utils.base.listMine.setData(undefined, context.previousMine);
+      }
+      if (context?.previousStarred) {
+        utils.base.listStarred.setData(undefined, context.previousStarred);
+      }
+    },
+    onSettled: () => {
+      void utils.base.listMine.invalidate();
+      void utils.base.listStarred.invalidate();
+    },
+  });
+
   return {
     rename: (id: string, name: string) => renameMutation.mutate({ id, name }),
     delete: (id: string) => deleteMutation.mutate({ id }),
     toggleStar: (id: string) => toggleStarMutation.mutate({ id }),
+    recordOpen: (id: string) => recordOpenMutation.mutate({ id }),
   };
 }
