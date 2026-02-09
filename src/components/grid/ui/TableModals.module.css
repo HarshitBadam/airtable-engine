@@ -1,0 +1,622 @@
+/* ============================================
+   Clear Data Warning Modal
+   ============================================ */
+
+/* Modal overlay - dims background */
+.clearDataModalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  unicode-bidi: isolate;
+}
+
+/* Modal container - the white popup */
+.clearDataModal {
+  animation-duration: 0.24s;
+  animation-name: bounceIn;
+  background-color: rgb(255, 255, 255);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 0px 1px 0px, rgba(0, 0, 0, 0.16) 0px 0px 2px 0px, rgba(0, 0, 0, 0.06) 0px 3px 4px 0px, rgba(0, 0, 0, 0.06) 0px 6px 8px 0px, rgba(0, 0, 0, 0.08) 0px 12px 16px 0px, rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 200px;
+  line-height: 19.5px;
+  margin-bottom: 0px;
+  margin-left: 483px;
+  margin-right: 483px;
+  margin-top: 0px;
+  max-width: 440px;
+  overflow-x: auto;
+  overflow-y: auto;
+  padding-bottom: 32px;
+  padding-left: 32px;
+  padding-right: 32px;
+  padding-top: 32px;
+  pointer-events: all;
+  position: relative;
+  unicode-bidi: isolate;
+  width: 440px;
+}
+
+/* Bounce in animation */
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Modal title - "Are you sure..." */
+.clearDataModalTitle {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 21px;
+  font-weight: 600;
+  height: 68.5px;
+  line-height: 26.25px;
+  margin-block-end: 0px;
+  margin-block-start: 0px;
+  margin-bottom: 0px;
+  margin-inline-end: 0px;
+  margin-inline-start: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 16px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  pointer-events: all;
+  unicode-bidi: isolate;
+  width: 376px;
+}
+
+/* Modal description - "All records will be deleted..." */
+.clearDataModalDescription {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 35.5px;
+  line-height: 19.5px;
+  margin-block-end: 0px;
+  margin-block-start: 0px;
+  margin-bottom: 0px;
+  margin-inline-end: 0px;
+  margin-inline-start: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 16px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  pointer-events: all;
+  unicode-bidi: isolate;
+  width: 376px;
+}
+
+/* Buttons container */
+.clearDataModalButtons {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  justify-content: flex-end;
+  line-height: 19.5px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  pointer-events: all;
+  unicode-bidi: isolate;
+  width: 376px;
+}
+
+/* Cancel button */
+.clearDataCancelButton {
+  align-items: center;
+  appearance: auto;
+  background-color: rgba(0, 0, 0, 0);
+  border-bottom-color: rgb(29, 31, 37);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom-style: none;
+  border-bottom-width: 0px;
+  border-image-outset: 0;
+  border-image-repeat: stretch;
+  border-image-slice: 100%;
+  border-image-source: none;
+  border-image-width: 1;
+  border-left-color: rgb(29, 31, 37);
+  border-left-style: none;
+  border-left-width: 0px;
+  border-right-color: rgb(29, 31, 37);
+  border-right-style: none;
+  border-right-width: 0px;
+  border-top-color: rgb(29, 31, 37);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-top-style: none;
+  border-top-width: 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-feature-settings: normal;
+  font-kerning: auto;
+  font-language-override: normal;
+  font-optical-sizing: auto;
+  font-size: 13px;
+  font-size-adjust: none;
+  font-stretch: 100%;
+  font-style: normal;
+  font-variant-alternates: normal;
+  font-variant-caps: normal;
+  font-variant-east-asian: normal;
+  font-variant-emoji: normal;
+  font-variant-ligatures: normal;
+  font-variant-numeric: normal;
+  font-variant-position: normal;
+  font-variation-settings: normal;
+  font-weight: 400;
+  height: 32px;
+  justify-content: center;
+  letter-spacing: normal;
+  line-height: 22px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  max-width: 100%;
+  padding-block-end: 0px;
+  padding-block-start: 0px;
+  padding-bottom: 0px;
+  padding-inline-end: 12px;
+  padding-inline-start: 12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 0px;
+  pointer-events: all;
+  print-color-adjust: exact;
+  text-align: center;
+  text-decoration-color: rgb(29, 31, 37);
+  text-decoration-line: none;
+  text-decoration-style: solid;
+  text-decoration-thickness: auto;
+  text-indent: 0px;
+  text-rendering: auto;
+  text-shadow: none;
+  text-transform: none;
+  word-spacing: 0px;
+}
+
+.clearDataCancelButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Clear data button (red) */
+.clearDataConfirmButton {
+  align-items: center;
+  appearance: auto;
+  background-color: rgb(220, 4, 59);
+  border-bottom-color: rgb(255, 255, 255);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom-style: none;
+  border-bottom-width: 0px;
+  border-image-outset: 0;
+  border-image-repeat: stretch;
+  border-image-slice: 100%;
+  border-image-source: none;
+  border-image-width: 1;
+  border-left-color: rgb(255, 255, 255);
+  border-left-style: none;
+  border-left-width: 0px;
+  border-right-color: rgb(255, 255, 255);
+  border-right-style: none;
+  border-right-width: 0px;
+  border-top-color: rgb(255, 255, 255);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-top-style: none;
+  border-top-width: 0px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(255, 255, 255);
+  cursor: pointer;
+  display: flex;
+  fill: rgb(255, 255, 255);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-feature-settings: normal;
+  font-kerning: auto;
+  font-language-override: normal;
+  font-optical-sizing: auto;
+  font-size: 13px;
+  font-size-adjust: none;
+  font-stretch: 100%;
+  font-style: normal;
+  font-variant-alternates: normal;
+  font-variant-caps: normal;
+  font-variant-east-asian: normal;
+  font-variant-emoji: normal;
+  font-variant-ligatures: normal;
+  font-variant-numeric: normal;
+  font-variant-position: normal;
+  font-variation-settings: normal;
+  font-weight: 400;
+  height: 32px;
+  justify-content: center;
+  letter-spacing: normal;
+  line-height: 22px;
+  margin-bottom: 0px;
+  margin-left: 8px;
+  margin-right: 0px;
+  margin-top: 0px;
+  max-width: 100%;
+  padding-block-end: 0px;
+  padding-block-start: 0px;
+  padding-bottom: 0px;
+  padding-inline-end: 12px;
+  padding-inline-start: 12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 0px;
+  pointer-events: all;
+  print-color-adjust: exact;
+  text-align: center;
+  text-decoration-color: rgb(255, 255, 255);
+  text-decoration-line: none;
+  text-decoration-style: solid;
+  text-decoration-thickness: auto;
+  text-indent: 0px;
+  text-rendering: auto;
+  text-shadow: none;
+  text-transform: none;
+  word-spacing: 0px;
+}
+
+.clearDataConfirmButton:hover {
+  background-color: rgb(195, 4, 52);
+}
+
+/* ============================================
+   Delete Table Popup
+   ============================================ */
+
+/* Delete popup container */
+.deleteTablePopup {
+  animation-duration: 0.24s;
+  animation-name: bounceIn;
+  background-color: rgb(255, 255, 255);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 0px 1px 0px, rgba(0, 0, 0, 0.16) 0px 0px 2px 0px, rgba(0, 0, 0, 0.06) 0px 3px 4px 0px, rgba(0, 0, 0, 0.06) 0px 6px 8px 0px, rgba(0, 0, 0, 0.08) 0px 12px 16px 0px, rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  height: 169.188px;
+  left: 0px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  max-width: 400px;
+  min-width: 200px;
+  padding-bottom: 16px;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-top: 16px;
+  position: fixed;
+  top: 30px;
+  unicode-bidi: isolate;
+  z-index: 1001;
+}
+
+/* Delete popup title */
+.deleteTablePopupTitle {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 14.4px;
+  font-weight: 500;
+  height: 43.1875px;
+  line-height: 21.6px;
+  margin-bottom: 8px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 200px;
+}
+
+/* Delete popup description with icon */
+.deleteTablePopupDescription {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  height: 38px;
+  line-height: 20px;
+  margin-bottom: 16px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  opacity: 0.75;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 200px;
+}
+
+/* Delete popup question icon */
+.deleteTablePopupIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: inline;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  height: 16px;
+  line-height: 18px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricprecision;
+  width: 16px;
+  vertical-align: text-top;
+  margin-left: 1px;
+  position: relative;
+  top: -3px;
+}
+
+/* Delete popup buttons container */
+.deleteTablePopupButtons {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  height: 32px;
+  justify-content: flex-end;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 200px;
+}
+
+/* Delete popup cancel button */
+.deleteTableCancelButton {
+  align-items: center;
+  appearance: auto;
+  background-color: rgba(0, 0, 0, 0);
+  border-bottom-color: rgb(29, 31, 37);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom-style: none;
+  border-bottom-width: 0px;
+  border-image-outset: 0;
+  border-image-repeat: stretch;
+  border-image-slice: 100%;
+  border-image-source: none;
+  border-image-width: 1;
+  border-left-color: rgb(29, 31, 37);
+  border-left-style: none;
+  border-left-width: 0px;
+  border-right-color: rgb(29, 31, 37);
+  border-right-style: none;
+  border-right-width: 0px;
+  border-top-color: rgb(29, 31, 37);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-top-style: none;
+  border-top-width: 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-feature-settings: normal;
+  font-kerning: auto;
+  font-language-override: normal;
+  font-optical-sizing: auto;
+  font-size: 13px;
+  font-size-adjust: none;
+  font-stretch: 100%;
+  font-style: normal;
+  font-variant-alternates: normal;
+  font-variant-caps: normal;
+  font-variant-east-asian: normal;
+  font-variant-emoji: normal;
+  font-variant-ligatures: normal;
+  font-variant-numeric: normal;
+  font-variant-position: normal;
+  font-variation-settings: normal;
+  font-weight: 500;
+  height: 32px;
+  justify-content: center;
+  letter-spacing: normal;
+  line-height: 22px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 8px;
+  margin-top: 0px;
+  max-width: 192px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  padding-block-end: 0px;
+  padding-block-start: 0px;
+  padding-bottom: 0px;
+  padding-inline-end: 12px;
+  padding-inline-start: 12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 0px;
+  print-color-adjust: exact;
+  text-align: center;
+  text-decoration-color: rgb(29, 31, 37);
+  text-decoration-line: none;
+  text-decoration-style: solid;
+  text-decoration-thickness: auto;
+  text-indent: 0px;
+  text-overflow: ellipsis;
+  text-rendering: auto;
+  text-shadow: none;
+  text-transform: none;
+  white-space: nowrap;
+  word-spacing: 0px;
+}
+
+.deleteTableCancelButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Delete popup confirm button */
+.deleteTableConfirmButton {
+  align-items: center;
+  appearance: auto;
+  background-color: rgb(220, 4, 59);
+  border-bottom-color: rgb(255, 255, 255);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom-style: none;
+  border-bottom-width: 0px;
+  border-image-outset: 0;
+  border-image-repeat: stretch;
+  border-image-slice: 100%;
+  border-image-source: none;
+  border-image-width: 1;
+  border-left-color: rgb(255, 255, 255);
+  border-left-style: none;
+  border-left-width: 0px;
+  border-right-color: rgb(255, 255, 255);
+  border-right-style: none;
+  border-right-width: 0px;
+  border-top-color: rgb(255, 255, 255);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-top-style: none;
+  border-top-width: 0px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(255, 255, 255);
+  cursor: pointer;
+  display: flex;
+  fill: rgb(255, 255, 255);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-feature-settings: normal;
+  font-kerning: auto;
+  font-language-override: normal;
+  font-optical-sizing: auto;
+  font-size: 13px;
+  font-size-adjust: none;
+  font-stretch: 100%;
+  font-style: normal;
+  font-variant-alternates: normal;
+  font-variant-caps: normal;
+  font-variant-east-asian: normal;
+  font-variant-emoji: normal;
+  font-variant-ligatures: normal;
+  font-variant-numeric: normal;
+  font-variant-position: normal;
+  font-variation-settings: normal;
+  font-weight: 500;
+  height: 32px;
+  justify-content: center;
+  letter-spacing: normal;
+  line-height: 22px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  max-width: 192px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  padding-block-end: 0px;
+  padding-block-start: 0px;
+  padding-bottom: 0px;
+  padding-inline-end: 12px;
+  padding-inline-start: 12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 0px;
+  print-color-adjust: exact;
+  text-align: center;
+  text-decoration-color: rgb(255, 255, 255);
+  text-decoration-line: none;
+  text-decoration-style: solid;
+  text-decoration-thickness: auto;
+  text-indent: 0px;
+  text-overflow: ellipsis;
+  text-rendering: auto;
+  text-shadow: none;
+  text-transform: none;
+  white-space: nowrap;
+  word-spacing: 0px;
+}
+
+.deleteTableConfirmButton:hover {
+  background-color: rgb(195, 4, 52);
+}

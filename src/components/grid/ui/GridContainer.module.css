@@ -1,0 +1,1159 @@
+/* =============================================
+   GRID CONTAINER — Headers, Rows, Footer, Overlays
+   ============================================= */
+
+.gridContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* === GRID BODY (header + content panes, fills space above footer) === */
+.gridBody {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* --- Header panes (32px tall) --- */
+.gridHeaderFrozen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 32px;
+  background: #FBFCFE;
+  box-sizing: border-box;
+  overflow: hidden;
+  z-index: 2;
+  display: flex;
+}
+
+.gridHeaderScrollable {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 32px;
+  background: #FBFCFE;
+  box-sizing: border-box;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* --- Serial number / checkbox header (leftmost, always frozen) --- */
+.gridHeaderRowNum {
+  width: 83px;
+  flex-shrink: 0;
+  overflow: visible;
+  position: relative;
+  border-bottom: 1px solid #dde1e3;
+  box-sizing: border-box;
+}
+
+.gridHeaderRowNumInner {
+  width: 32px;
+  height: 22px;
+  padding: 8px 0 0 12px;
+  background: #FFFFFF;
+  display: flex;
+  align-items: flex-start;
+  box-sizing: content-box;
+}
+
+.gridHeaderCheckbox {
+  width: 16px;
+  height: 16px;
+  margin: 0 8px;
+  border-radius: 3px;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  background: #FFFFFF;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* --- Column header cell --- */
+/* Total: 180 × 32 (box-sizing: border-box)
+   Content area: 179 × 30 (after 1px left border, 1px bottom border, 1px top padding) */
+.gridHeaderCell {
+  width: 180px;
+  height: 32px;
+  padding-top: 1px;
+  border-left: 1px solid #dde1e3;
+  border-bottom: 1px solid #dde1e3;
+  background: #FFFFFF;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Inner media container: 179 × 30 (matches content area).
+   Stays top-left when outer grows; shrinks with outer when outer shrinks. */
+.gridHeaderCellMedia {
+  width: 179px;
+  max-width: 100%;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 1;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Resize handle on right edge of each header cell */
+.gridHeaderCellResizeHandle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.gridHeaderCellResizeHandle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 2px;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.gridHeaderCellResizeHandle:hover::before {
+  background: rgb(43, 126, 230);
+}
+
+/* Bottom resize handle on header cells (drag to change row height) */
+.gridHeaderBottomResizeHandle {
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: row-resize;
+  z-index: 1;
+}
+
+.gridHeaderBottomResizeHandle::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 2px;
+  height: 2px;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.gridHeaderBottomResizeHandle:hover::before {
+  background: rgb(43, 126, 230);
+}
+
+
+.gridHeaderCellIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 16px;
+  padding: 0 4px 0 5px;
+  flex-shrink: 0;
+  color: rgb(29, 31, 37);
+  box-sizing: border-box;
+  position: relative;
+  top: -1px;
+}
+
+.gridHeaderCellIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.gridHeaderCellName {
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  height: 19.5px;
+  line-height: 19.5px;
+  color: rgb(29, 31, 37);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+  position: relative;
+  top: -2px;
+  left: 0px;
+}
+
+/* --- Scrollable header inner (horizontal flex row) --- */
+.gridHeaderScrollableInner {
+  display: flex;
+  height: 32px;
+  width: max-content;
+}
+
+/* --- Add column button (right of last header) --- */
+.gridHeaderAddCol {
+  width: 93px;
+  padding-top: 8px;
+  background: #FFFFFF;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-bottom: 1px solid #dde1e3;
+  border-right: 1px solid #dde1e3;
+  border-left: 1px solid #dde1e3;
+  box-sizing: border-box;
+  position: relative;
+  color: rgb(150, 150, 150);
+}
+
+.gridHeaderAddCol:hover {
+  color: rgb(51, 51, 51);
+}
+
+/* --- Right spacer after add-column button --- */
+.gridHeaderSpacer {
+  width: 0;
+  height: 32px;
+  padding-right: 60px;
+  flex-shrink: 0;
+  box-sizing: content-box;
+}
+
+/* --- Content panes (below header, fills remaining height) --- */
+.gridContentFrozen {
+  position: absolute;
+  top: 32px;
+  left: 0;
+  bottom: 0;
+  background: #F7F8FC;
+  box-sizing: border-box;
+  overflow: hidden;
+  z-index: 2;
+}
+
+/* Flat translucent scroll shadow strip at freeze line */
+.freezeScrollShadow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: rgba(0, 0, 0, 0.04);
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.gridContentScrollable {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  bottom: 0;
+  background: #F7F8FC;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 1;
+}
+
+/* === UNIFIED SCROLL CONTAINER (replaces separate frozen + scrollable content panes) ===
+   Single container handles vertical scroll natively — no JS sync needed.
+   Horizontal scroll is driven by the custom hScrollbar below the footer.
+   Frozen cells use position:sticky to stay pinned during horizontal scroll. */
+.gridContentScroller {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #F7F8FC;
+  box-sizing: border-box;
+  z-index: 1;
+}
+/* Vertical scrollbar — visible, slightly thick, inset gap */
+.gridContentScroller::-webkit-scrollbar {
+  width: 14px;
+  height: 0; /* hides native horizontal scrollbar — driven by custom hScrollbar */
+  background: #FFFFFF;
+}
+.gridContentScroller::-webkit-scrollbar-track {
+  background: #FFFFFF;
+}
+.gridContentScroller::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 7px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.gridContentScroller::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+/* Inner wrapper — min-width set via inline style to match header scroll extent */
+.gridContentScrollerInner {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Frozen cell group within each row — sticks to left during horizontal scroll */
+.gridRowFrozenGroup {
+  display: flex;
+  flex-shrink: 0;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #FFFFFF;
+}
+.gridRow:hover .gridRowFrozenGroup {
+  background: #F8F8F8;
+}
+
+/* === FULL-WIDTH HORIZONTAL SCROLLBAR (below footer) === */
+.gridHorizontalScrollbar {
+  height: 12px;
+  min-height: 12px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #fbfcfe;
+  box-sizing: border-box;
+}
+.gridHorizontalScrollbar::-webkit-scrollbar {
+  height: 14px;
+}
+.gridHorizontalScrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.gridHorizontalScrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 7px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.gridHorizontalScrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+/* Inner spacer — width set via inline style */
+.gridHorizontalScrollbarInner {
+  height: 1px;
+}
+
+/* --- Add Row: frozen pane (below serial column) --- */
+.gridAddRowFrozen {
+  width: 100%;
+  height: 30px;
+  border-bottom: 1px solid rgb(221, 225, 227);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  background: #FFFFFF;
+}
+
+.gridAddRowFrozenInner {
+  width: 32px;
+  height: 30px;
+  margin-left: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.gridAddRowFrozenInner:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.gridAddRowFrozenInner:hover svg {
+  color: rgb(51, 51, 51);
+}
+
+.gridAddRowFrozenInner svg {
+  box-sizing: border-box;
+  color: rgb(84, 84, 84);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 14px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  text-align: center;
+  user-select: none;
+  width: 16px;
+}
+
+/* --- Add Row: scrollable pane (slab spanning all scrollable columns) --- */
+.gridAddRowScrollable {
+  height: 30px;
+  border-bottom: 1px solid rgb(221, 225, 227);
+  border-right: 1px solid rgb(221, 225, 227);
+  border-left: 1px solid rgb(221, 225, 227);
+  background: #FFFFFF;
+  box-sizing: content-box;
+  flex-shrink: 0;
+}
+
+/* =============================================
+   GRID ROW & CELL STYLES
+   ============================================= */
+
+/* --- Row container (frozen pane) --- */
+.gridRow {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  background: #FFFFFF;
+}
+
+/* --- Row container (scrollable pane) --- */
+.gridRowScrollable {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  background: #FFFFFF;
+}
+
+/* --- Row hover state (applies to both frozen + scrollable rows) --- */
+.gridRow:hover {
+  background: #F8F8F8;
+}
+.gridRow:hover .gridRowNumCell {
+  background: #F8F8F8;
+}
+.gridRow:hover .gridDataCell {
+  background: #F8F8F8;
+}
+
+/* --- Serial number cell (leftmost, 83px wide) --- */
+.gridRowNumCell {
+  width: 83px;
+  height: 33px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgb(221, 225, 227);
+  box-sizing: border-box;
+  background: #FFFFFF;
+}
+
+.gridRowNumOuter {
+  width: 44px;
+  height: 25px;
+  padding-top: 7px;
+  display: flex;
+  justify-content: flex-start;
+  box-sizing: border-box;
+}
+
+.gridRowNumInner {
+  width: 32px;
+  height: 25px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: center;
+  user-select: none;
+}
+
+/* --- Data cell (each column cell, 180x32 border-box with 1px left + 1px bottom border) --- */
+.gridDataCell {
+  height: 33px;
+  flex-shrink: 0;
+  border-left: 1px solid rgb(221, 225, 227);
+  border-bottom: 1px solid rgb(221, 225, 227);
+  box-sizing: border-box;
+  background: #FFFFFF;
+  cursor: default;
+  overflow: hidden;
+}
+
+/* Last cell in each scrollable row gets a right border */
+.gridRowScrollable .gridDataCell:last-child {
+  border-right: 1px solid rgb(221, 225, 227);
+}
+
+/* Last scrollable cell in unified rows (direct child of gridRow, not inside frozenGroup) */
+.gridRow > .gridDataCell:last-child {
+  border-right: 1px solid rgb(221, 225, 227);
+}
+
+/* Active cell — minimal marker class. Selection border is drawn by the overlay. */
+.gridDataCellActive {
+  /* no visual border — the overlay at .gridBody level handles the selection rectangle */
+  outline: none;
+}
+
+/* ========================================================================
+   SELECTION OVERLAY — rendered as a sibling of the freeze line in .gridBody
+   so it paints ABOVE the freeze bar, frozen groups, and all cells.
+   ======================================================================== */
+.gridSelectionOverlay {
+  position: absolute;
+  /* sized & positioned via JS: top, left, width, height */
+  border: 2px solid rgb(22, 110, 225);
+  border-radius: 2px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 6; /* above freeze line (z:4) and everything else */
+  display: none; /* shown by JS when a cell is active */
+}
+
+/* Fill handle — centered on the overlay's bottom-right grid-line corner.
+   The overlay extends 1px outside the cell, so the grid-line corner is
+   1px inside the overlay's border-box edge = in the middle of the 2px border.
+   Absolute pos relative to padding-box, so that corner is at
+   (padding-right + 1px, padding-bottom + 1px) → right: -5px, bottom: -5px. */
+.gridSelectionHandle {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border: 1px solid rgb(22, 110, 225);
+  border-radius: 2px;
+  cursor: crosshair;
+  z-index: 1;
+  pointer-events: auto;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+/* Number cells turn blue when their cell is active */
+.gridDataCellActive .gridCellNumber {
+  color: rgb(22, 110, 225);
+}
+
+/* --- Cell content wrapper (6px padding all sides, fills cell) --- */
+.gridCellContent {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  overflow: hidden;
+}
+
+/* --- Text cell inner (left-aligned by default) --- */
+.gridCellText {
+  width: 100%;
+  height: 19.5px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* First data column: right-aligned */
+.gridCellTextFirst {
+  justify-content: flex-end;
+}
+
+/* --- Number cell inner (directly in content wrapper, right-aligned in first col) --- */
+.gridCellNumber {
+  width: 100%;
+  height: 19.5px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* First data column: right-aligned */
+.gridCellNumberFirst {
+  justify-content: flex-end;
+}
+
+/* --- Inline cell editor --- */
+.gridCellEditor {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  border: none;
+  outline: none;
+  background: #FFFFFF;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  box-sizing: border-box;
+}
+
+/* --- Blue snap preview line (shown during freeze drag at target boundary) --- */
+.gridFreezeSnapPreview {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgb(43, 126, 230);
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transition: left 0.08s ease-out, opacity 0.1s ease-out;
+}
+
+/* --- Freeze divider line (spans full gridBody height) --- */
+.gridFreezeLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  z-index: 4;
+  cursor: grab;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+/* The thin line (always visible) */
+.gridFreezeLine::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: #cccccc;
+}
+
+/* On hover / drag: line thickens (stays #CCCCCC) */
+.gridFreezeLine:hover::before,
+.gridFreezeLine:global(.freeze-dragging)::before {
+  width: 2px;
+  left: 2px;
+}
+
+.gridFreezeLine:global(.freeze-dragging) {
+  cursor: grabbing;
+}
+
+/* Blue pill handle (real DOM element, positioned via JS) */
+.gridFreezeLinePill {
+  position: absolute;
+  left: 0;
+  width: 6px;
+  height: 24px;
+  border-radius: 3px;
+  background: rgb(43, 126, 230);
+  transform: translateY(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.gridFreezeLine:hover .gridFreezeLinePill,
+.gridFreezeLine:global(.freeze-dragging) .gridFreezeLinePill {
+  opacity: 1;
+}
+
+/* === GRID FOOTER BAR === */
+.gridFooter {
+  height: 34px;
+  min-height: 34px;
+  display: flex;
+  align-items: stretch;
+  background: #fbfcfe;
+  border-top: 1px solid rgb(204, 204, 204);
+  box-shadow: rgba(0, 0, 0, 0) 4px 0px 0px 0px inset;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* Frozen (left) pane of the footer — holds record count */
+.gridFooterFrozen {
+  display: flex;
+  align-items: flex-start;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Visual freeze line in the footer (aligns with main freeze line) */
+.gridFooterFreezeLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgb(204, 204, 204);
+  z-index: 2;
+}
+
+/* Scrollable (right) pane of the footer */
+.gridFooterScrollable {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.gridFooterRecordCount {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 24px;
+  padding: 3px 8px 2px 8px;
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* === TOOLBAR === */
+.toolbar {
+  display: flex;
+  align-items: center;
+  height: var(--grid-toolbar-height);
+  min-height: var(--grid-toolbar-height);
+  padding: 0 8px;
+  background: var(--grid-bg);
+  border-bottom: 1px solid var(--grid-border);
+  gap: 4px;
+  overflow: visible;
+  position: relative;
+  z-index: 10;
+}
+
+.toolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.toolbarDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--grid-border);
+  margin: 0 8px;
+}
+
+.toolbarButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  font-size: var(--grid-font-size-base);
+  color: var(--grid-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--grid-transition-fast);
+  white-space: nowrap;
+}
+
+.toolbarButton:hover {
+  background: var(--grid-bg-hover);
+  color: var(--grid-text-primary);
+}
+
+.toolbarButtonActive {
+  background: var(--grid-primary-light);
+  color: var(--grid-primary);
+}
+
+.toolbarIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.toolbarSpacer {
+  flex: 1;
+}
+
+.searchInput {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  background: var(--grid-bg-subtle);
+  border: 1px solid var(--grid-border);
+  border-radius: 4px;
+  transition: all var(--grid-transition-fast);
+}
+
+.searchInput:focus-within {
+  border-color: var(--grid-primary);
+  background: var(--grid-bg);
+}
+
+.searchInput input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: var(--grid-font-size-base);
+  color: var(--grid-text-primary);
+  outline: none;
+  width: 160px;
+}
+
+.searchInput input::placeholder {
+  color: var(--grid-text-placeholder);
+}
+
+/* === VIEW TABS BAR === */
+.viewTabsBar {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 8px;
+  background: var(--grid-bg);
+  border-bottom: 1px solid var(--grid-border);
+  gap: 4px;
+}
+
+.viewTab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  font-size: var(--grid-font-size-base);
+  color: var(--grid-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  position: relative;
+  transition: all var(--grid-transition-fast);
+}
+
+.viewTab:hover {
+  background: var(--grid-bg-hover);
+  color: var(--grid-text-primary);
+}
+
+.viewTabActive {
+  color: var(--grid-text-primary);
+  font-weight: 500;
+}
+
+.viewTabActive::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--grid-primary);
+  border-radius: 2px 2px 0 0;
+}
+
+/* === GRID BODY WRAPPER === */
+.gridBodyWrapper {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* === ROW NUMBER COLUMN (Fixed on left) === */
+.rowNumberColumn {
+  width: var(--grid-row-num-width);
+  min-width: var(--grid-row-num-width);
+  display: flex;
+  flex-direction: column;
+  background: var(--grid-bg);
+  border-right: 1px solid var(--grid-border);
+  z-index: 2;
+}
+
+.rowNumberHeader {
+  height: var(--grid-header-height);
+  min-height: var(--grid-header-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--grid-bg-header);
+  border-bottom: 1px solid var(--grid-border);
+}
+
+.rowNumberHeader input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.rowNumberBody {
+  flex: 1;
+  overflow: hidden;
+}
+
+.rowNumber {
+  height: var(--grid-cell-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--grid-font-size-sm);
+  color: var(--grid-text-muted);
+  border-bottom: 1px solid var(--grid-border);
+  background: var(--grid-bg);
+}
+
+.rowNumber:hover {
+  background: var(--grid-bg-hover);
+}
+
+/* === SCROLLABLE GRID === */
+.scrollableGrid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* === GRID HEADER === */
+.gridHeader {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--grid-bg-header);
+  border-bottom: 1px solid var(--grid-border);
+  min-height: var(--grid-header-height);
+  height: var(--grid-header-height);
+}
+
+.columnHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: var(--grid-cell-min-width);
+  width: var(--grid-cell-min-width);
+  height: var(--grid-header-height);
+  padding: 0 8px;
+  font-size: var(--grid-font-size-base);
+  font-weight: 400;
+  color: var(--grid-text-primary);
+  border-right: 1px solid var(--grid-border);
+  cursor: pointer;
+  transition: background var(--grid-transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.columnHeader:hover {
+  background: var(--grid-bg-hover);
+}
+
+.columnIcon {
+  width: 14px;
+  height: 14px;
+  color: var(--grid-text-muted);
+  flex-shrink: 0;
+}
+
+.columnName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.addColumnHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  width: 92px;
+  height: var(--grid-header-height);
+  color: var(--grid-text-muted);
+  background: var(--grid-bg-header);
+  border-right: 1px solid var(--grid-border);
+  cursor: pointer;
+  transition: all var(--grid-transition-fast);
+}
+
+.addColumnHeader:hover {
+  background: var(--grid-bg-hover);
+  color: var(--grid-text-primary);
+}
+
+/* === GRID ROWS CONTAINER (single scroll container) === */
+.gridRowsContainer {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+/* (gridRow height is determined by its cell children — no fixed height here) */
+
+.cell {
+  display: flex;
+  align-items: center;
+  min-width: var(--grid-cell-min-width);
+  width: var(--grid-cell-min-width);
+  height: var(--grid-cell-height);
+  padding: 0 8px;
+  font-size: var(--grid-font-size-base);
+  color: var(--grid-text-primary);
+  border-right: 1px solid var(--grid-border);
+  border-bottom: 1px solid var(--grid-border);
+  background: var(--grid-bg);
+  cursor: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellSelected {
+  outline: 2px solid var(--grid-primary);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.addColumnCell {
+  min-width: 92px;
+  width: 92px;
+  height: var(--grid-cell-height);
+  border-right: 1px solid var(--grid-border);
+  border-bottom: 1px solid var(--grid-border);
+  background: var(--grid-bg);
+}
+
+/* === ADD ROW === */
+.addRowContainer {
+  display: flex;
+  align-items: center;
+  height: var(--grid-add-row-height);
+  border-bottom: 1px solid var(--grid-border);
+}
+
+.addRowButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 12px;
+  font-size: var(--grid-font-size-base);
+  color: var(--grid-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--grid-transition-fast);
+}
+
+.addRowButton:hover {
+  color: var(--grid-text-primary);
+  background: var(--grid-bg-hover);
+}
+
+
+/* === LOADING STATE === */
+.loadingOverlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--grid-text-muted);
+  font-size: var(--grid-font-size-md);
+}
+
+/* === EMPTY STATE === */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  color: var(--grid-text-muted);
+  font-size: var(--grid-font-size-md);
+}
+
+/* === SCROLLBAR STYLING === */
+.gridRowsContainer::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.gridRowsContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gridRowsContainer::-webkit-scrollbar-thumb {
+  background: var(--grid-border);
+  border-radius: 4px;
+}
+
+.gridRowsContainer::-webkit-scrollbar-thumb:hover {
+  background: #ccc;
+}
+
+.scrollableGrid::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollableGrid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollableGrid::-webkit-scrollbar-thumb {
+  background: var(--grid-border);
+  border-radius: 4px;
+}
+
+.scrollableGrid::-webkit-scrollbar-thumb:hover {
+  background: #ccc;
+}

@@ -1,0 +1,1463 @@
+/* =============================================
+   VIEWS SIDEBAR
+   ============================================= */
+
+/* === VIEWS SIDEBAR (collapsible) === */
+.viewsSidebar {
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  width: var(--grid-sidebar-width);
+  min-width: var(--grid-sidebar-width);
+  flex-shrink: 0;
+  transition:
+    width 350ms cubic-bezier(0.2, 0, 0, 1),
+    min-width 350ms cubic-bezier(0.2, 0, 0, 1),
+    border-right-width 350ms cubic-bezier(0.2, 0, 0, 1);
+  overflow: hidden;
+}
+
+.viewsSidebarCollapsed {
+  width: 0px;
+  min-width: 0px;
+  border-right-width: 0px;
+}
+
+/* Inner wrapper - preserves layout at fixed width during animation.
+   Padding lives here so it never animates / shifts content. */
+.viewsSidebarInner {
+  display: flex;
+  flex-direction: column;
+  min-width: 264px;
+  width: 264px;
+  flex-shrink: 0;
+  padding: 10px 8px;
+  box-sizing: border-box;
+}
+
+/* --- "+ Create new..." button --- */
+.viewsSidebarCreateButton {
+  align-items: center;
+  appearance: auto;
+  background-color: rgba(0, 0, 0, 0);
+  border: none;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  justify-content: flex-start;
+  line-height: 22px;
+  margin: 0;
+  max-width: 100%;
+  padding: 0 12px;
+  text-align: center;
+  text-decoration: none;
+  user-select: none;
+  width: 263px;
+  transform: translateY(-1px);
+}
+
+.viewsSidebarCreateButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.viewsSidebarCreateButtonIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 22px;
+  margin-right: 8px;
+  overflow: hidden;
+  pointer-events: none;
+  shape-rendering: geometricPrecision;
+  text-align: center;
+  user-select: none;
+  width: 16px;
+}
+
+.viewsSidebarCreateButtonText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 22px;
+  line-height: 22px;
+  max-width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+  transform: translateY(-0.5px);
+}
+
+/* --- "Find a view" search wrapper --- */
+.viewsSidebarSearchWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  transform: translateY(3px);
+}
+
+.viewsSidebarSearchInput {
+  background-color: rgb(255, 255, 255);
+  border: none;
+  border-radius: 4px;
+  box-shadow: none;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: text;
+  display: block;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  line-height: 18px;
+  margin: 0;
+  outline: none;
+  overflow: clip;
+  padding: 6px 8px 6px 36px;
+  resize: none;
+  text-align: start;
+  user-select: none;
+  width: 263px;
+}
+
+.viewsSidebarSearchInput::placeholder {
+  color: rgb(97, 102, 112);
+}
+
+.viewsSidebarSearchIcon {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 14px;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  line-height: 18px;
+  overflow: hidden;
+  position: absolute;
+  shape-rendering: geometricPrecision;
+  user-select: none;
+  width: 14px;
+  pointer-events: none;
+}
+
+/* --- View item list --- */
+.viewsSidebarViewList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  transform: translateY(11px);
+}
+
+/* --- View item (default / non-hover) --- */
+.viewsSidebarViewItem {
+  background-color: transparent;
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 32.25px;
+  justify-content: center;
+  line-height: 18px;
+  list-style: none;
+  margin: 0;
+  padding: 8px 12px;
+  pointer-events: all;
+  position: relative;
+  user-select: none;
+  width: 263px;
+}
+
+.viewsSidebarViewItemActive {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.viewsSidebarViewItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Inner row - always present, holds content */
+.viewsSidebarViewItemRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Grid feature icon in the view item */
+.viewsSidebarViewItemGridIcon {
+  box-sizing: border-box;
+  color: #156EE1;
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style: none;
+  overflow: hidden;
+  pointer-events: all;
+  shape-rendering: geometricPrecision;
+  user-select: none;
+  width: 16px;
+  margin-right: 8px;
+}
+
+/* View name text */
+.viewsSidebarViewItemText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 500;
+  height: 16.25px;
+  line-height: 16.25px;
+  list-style: none;
+  max-width: 100%;
+  overflow: hidden;
+  pointer-events: all;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* --- Hover state: star icon (hidden by default, shown on hover) --- */
+.viewsSidebarViewItemStarIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: none;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  width: 16px;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  user-select: none;
+}
+
+.viewsSidebarViewItemStarIconFavorited {
+  color: #FFBA06;
+  fill: #FFBA06;
+}
+
+/* --- Hover state: actions container (overflow + drag handle) --- */
+.viewsSidebarViewItemActions {
+  display: none;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  transform: translateX(-3px);
+}
+
+/* Overflow (three dots) icon */
+.viewsSidebarViewItemOverflowIcon {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style: none;
+  overflow: hidden;
+  pointer-events: all;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  user-select: none;
+  width: 16px;
+  transform: translateX(-5px);
+}
+
+/* Drag handle (DotsSixVertical) icon */
+.viewsSidebarViewItemDragIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: grab;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style: none;
+  overflow: hidden;
+  pointer-events: all;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  user-select: none;
+  width: 16px;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  transform: translateX(-1px);
+}
+
+/* Hover state: show star, actions, hide grid icon */
+.viewsSidebarViewItem:hover .viewsSidebarViewItemStarIcon {
+  display: block;
+}
+
+.viewsSidebarViewItem:hover .viewsSidebarViewItemGridIcon {
+  display: none;
+}
+
+.viewsSidebarViewItem:hover .viewsSidebarViewItemActions {
+  display: flex;
+}
+
+/* =============================================
+   VIEW SIDEBAR EXPAND TOGGLE
+   ============================================= */
+
+/* === EXPAND TOGGLE (when sidebar collapsed) === */
+.viewsSidebarExpandToggle {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--grid-bg);
+  border: 1px solid var(--grid-border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--grid-text-secondary);
+  transition: all var(--grid-transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.viewsSidebarExpandToggle:hover {
+  background: var(--grid-bg-hover);
+  color: var(--grid-text-primary);
+}
+
+/* =============================================
+   CREATE NEW DROPDOWN (View Type Selector)
+   ============================================= */
+
+/* Main container */
+.createNewDropdownContainer {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 367px;
+  line-height: 18px;
+  list-style-type: disc;
+  margin-block-end: 0px;
+  margin-block-start: 0px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 12px;
+  padding-inline-start: 12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 12px;
+  unicode-bidi: isolate;
+  width: 240px;
+  position: fixed;
+  z-index: 100000;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.4), 0 8px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* Divider line */
+.createNewDropdownDivider {
+  background-color: rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: list-item;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 1px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 8px;
+  margin-left: 8px;
+  margin-right: 8px;
+  margin-top: 8px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 200px;
+}
+
+/* Each menu item row */
+.createNewDropdownItem {
+  align-items: center;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 34px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 8px;
+  unicode-bidi: isolate;
+  width: 216px;
+  -webkit-box-align: center;
+}
+
+.createNewDropdownItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* SVG icon on the left */
+.createNewDropdownItemIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-right: 8px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  width: 16px;
+  -webkit-box-flex: 0;
+}
+
+/* Text label */
+.createNewDropdownItemText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  max-width: 100%;
+  min-height: 0px;
+  min-width: 0px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  text-wrap-mode: nowrap;
+  user-select: none;
+  white-space-collapse: collapse;
+  width: 176px;
+  -webkit-box-flex: 1;
+}
+
+/* Team badge within text container */
+.createNewDropdownTeamBadge {
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 60.0859px;
+  height: 18px;
+  margin-bottom: 0px;
+  margin-left: 8px;
+  margin-right: 0px;
+  margin-top: 0px;
+  transform: translateY(-1px);
+  padding-bottom: 0px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 0px;
+  background-color: rgb(196, 236, 255);
+  border-radius: 9999px;
+  color: rgb(15, 104, 162);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  user-select: none;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+/* Team badge icon */
+.createNewDropdownTeamBadgeIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  color: rgb(15, 104, 162);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  user-select: none;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+/* =============================================
+   CREATE VIEW BOX
+   ============================================= */
+
+/* Main container */
+.createViewBoxContainer {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 233.25px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 16px;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-top: 16px;
+  unicode-bidi: isolate;
+  width: 400px;
+  position: fixed;
+  z-index: 100000;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.4), 0 8px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* Name input section */
+.createViewBoxInputSection {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-basis: auto;
+  flex-direction: column;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 75.25px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  min-height: 0px;
+  min-width: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 8px;
+  unicode-bidi: isolate;
+  width: 368px;
+}
+
+/* The text input */
+.createViewBoxInput {
+  appearance: none;
+  background-attachment: scroll;
+  background-clip: border-box;
+  background-color: rgb(255, 255, 255);
+  background-image: none;
+  background-origin: padding-box;
+  background-position-x: 0%;
+  background-position-y: 0%;
+  background-repeat: repeat;
+  background-size: auto;
+  border-bottom-color: rgba(0, 0, 0, 0);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-left-color: rgba(0, 0, 0, 0);
+  border-left-style: solid;
+  border-left-width: 2px;
+  border-right-color: rgba(0, 0, 0, 0);
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-top-color: rgba(0, 0, 0, 0);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-top-style: solid;
+  border-top-width: 2px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: text;
+  display: block;
+  fill: rgb(29, 31, 37);
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-feature-settings: normal;
+  font-kerning: auto;
+  font-optical-sizing: auto;
+  font-size: 17px !important;
+  font-stretch: 100%;
+  font-style: normal;
+  font-variant-alternates: normal;
+  font-variant-caps: normal;
+  font-variant-east-asian: normal;
+  font-variant-ligatures: normal;
+  font-variant-numeric: normal;
+  font-variant-position: normal;
+  font-variation-settings: normal;
+  font-weight: 500 !important;
+  height: 33.25px;
+  letter-spacing: normal;
+  line-height: 21.25px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  min-height: 0px;
+  min-width: 0px;
+  outline-color: rgb(29, 31, 37);
+  outline-style: none;
+  outline-width: 0px;
+  overflow-x: clip;
+  overflow-y: clip;
+  padding-bottom: 4px;
+  padding-left: 4px;
+  padding-right: 4px;
+  padding-top: 4px;
+  resize: none;
+  text-align: start;
+  text-indent: 0px;
+  text-rendering: auto;
+  text-shadow: none;
+  text-transform: none;
+  width: 368px;
+  word-spacing: 0px;
+}
+
+/* "Who can edit" label */
+.createViewBoxWhoCanEditLabel {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 15px;
+  font-weight: 500;
+  height: 26px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  min-height: 0px;
+  min-width: 0px;
+  padding-bottom: 8px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 368px;
+}
+
+/* Options container (the three radio options) */
+.createViewBoxOptionsContainer {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  list-style-type: disc;
+  margin-block-end: 0px;
+  margin-block-start: 0px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-inline-start: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 368px;
+}
+
+/* Each option item */
+.createViewBoxOption {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+}
+
+/* Radio circle (selected state) */
+.createViewBoxRadioCircleSelected {
+  align-items: center;
+  background-color: rgb(255, 255, 255);
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+  border-bottom-left-radius: 50%;
+  border-bottom-right-radius: 50%;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-left-color: rgba(0, 0, 0, 0.1);
+  border-left-style: solid;
+  border-left-width: 2px;
+  border-right-color: rgba(0, 0, 0, 0.1);
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-top-color: rgba(0, 0, 0, 0.1);
+  border-top-left-radius: 50%;
+  border-top-right-radius: 50%;
+  border-top-style: solid;
+  border-top-width: 2px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  justify-content: center;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 16px;
+}
+
+/* The blue dot inside selected radio */
+.createViewBoxRadioDot {
+  background-color: rgb(22, 110, 225);
+  border-bottom-left-radius: 50%;
+  border-bottom-right-radius: 50%;
+  border-top-left-radius: 50%;
+  border-top-right-radius: 50%;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 8px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 8px;
+}
+
+/* Radio circle (unselected state) */
+.createViewBoxRadioCircle {
+  align-items: center;
+  background-color: rgb(255, 255, 255);
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+  border-bottom-left-radius: 50%;
+  border-bottom-right-radius: 50%;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-left-color: rgba(0, 0, 0, 0.1);
+  border-left-style: solid;
+  border-left-width: 2px;
+  border-right-color: rgba(0, 0, 0, 0.1);
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-top-color: rgba(0, 0, 0, 0.1);
+  border-top-left-radius: 50%;
+  border-top-right-radius: 50%;
+  border-top-style: solid;
+  border-top-width: 2px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  justify-content: center;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 16px;
+}
+
+/* Option icon (SVG beside radio) */
+.createViewBoxOptionIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-left: 4px;
+  margin-right: 4px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  width: 16px;
+}
+
+/* Option text label */
+.createViewBoxOptionText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+}
+
+/* Upsell star icon (blue, next to Personal and Locked) */
+.createViewBoxUpsellStar {
+  box-sizing: border-box;
+  color: rgb(22, 110, 225);
+  cursor: pointer;
+  display: block;
+  fill: rgb(22, 110, 225);
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-right: 4px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  width: 16px;
+}
+
+/* Description text below options */
+.createViewBoxDescription {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 8px;
+  opacity: 0.75;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 368px;
+}
+
+/* Buttons container (Cancel + Create new view) */
+.createViewBoxButtonsContainer {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  transform: translate(-2px, 7px);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 48px;
+  justify-content: flex-end;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 16px;
+  unicode-bidi: isolate;
+  width: 368px;
+}
+
+/* Cancel button */
+.createViewBoxCancelButton {
+  align-items: center;
+  appearance: auto;
+  background-color: rgba(0, 0, 0, 0);
+  border-bottom-color: rgb(29, 31, 37);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom-style: none;
+  border-bottom-width: 0px;
+  border-left-color: rgb(29, 31, 37);
+  border-left-style: none;
+  border-left-width: 0px;
+  border-right-color: rgb(29, 31, 37);
+  border-right-style: none;
+  border-right-width: 0px;
+  border-top-color: rgb(29, 31, 37);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-top-style: none;
+  border-top-width: 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-feature-settings: normal;
+  font-kerning: auto;
+  font-optical-sizing: auto;
+  font-size: 13px;
+  font-stretch: 100%;
+  font-style: normal;
+  font-variant-alternates: normal;
+  font-variant-caps: normal;
+  font-variant-east-asian: normal;
+  font-variant-ligatures: normal;
+  font-variant-numeric: normal;
+  font-variant-position: normal;
+  font-variation-settings: normal;
+  font-weight: 400;
+  height: 32px;
+  justify-content: center;
+  letter-spacing: normal;
+  line-height: 22px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 8px;
+  margin-top: 0px;
+  max-width: 100%;
+  padding-bottom: 0px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 0px;
+  text-align: center;
+  text-decoration-color: rgb(29, 31, 37);
+  text-decoration-line: none;
+  text-decoration-style: solid;
+  text-indent: 0px;
+  text-rendering: auto;
+  text-shadow: none;
+  text-transform: none;
+  word-spacing: 0px;
+}
+
+/* "Create new view" button */
+.createViewBoxCreateButton {
+  align-items: center;
+  appearance: auto;
+  background-color: rgb(22, 110, 225);
+  border-bottom-color: rgb(255, 255, 255);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom-style: none;
+  border-bottom-width: 0px;
+  border-left-color: rgb(255, 255, 255);
+  border-left-style: none;
+  border-left-width: 0px;
+  border-right-color: rgb(255, 255, 255);
+  border-right-style: none;
+  border-right-width: 0px;
+  border-top-color: rgb(255, 255, 255);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-top-style: none;
+  border-top-width: 0px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(255, 255, 255);
+  cursor: pointer;
+  display: flex;
+  fill: rgb(255, 255, 255);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-feature-settings: normal;
+  font-kerning: auto;
+  font-optical-sizing: auto;
+  font-size: 13px;
+  font-stretch: 100%;
+  font-style: normal;
+  font-variant-alternates: normal;
+  font-variant-caps: normal;
+  font-variant-east-asian: normal;
+  font-variant-ligatures: normal;
+  font-variant-numeric: normal;
+  font-variant-position: normal;
+  font-variation-settings: normal;
+  font-weight: 500;
+  height: 32px;
+  justify-content: center;
+  letter-spacing: normal;
+  line-height: 22px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  max-width: 100%;
+  padding-bottom: 0px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 0px;
+  text-align: center;
+  text-decoration-color: rgb(255, 255, 255);
+  text-decoration-line: none;
+  text-decoration-style: solid;
+  text-indent: 0px;
+  text-rendering: auto;
+  text-shadow: none;
+  text-transform: none;
+  word-spacing: 0px;
+}
+
+/* =============================================
+   VIEW ITEM CONTEXT MENU
+   ============================================= */
+
+/* Main container */
+.viewItemContextMenuContainer {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  transform: translate(32px, 4px);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 178px;
+  line-height: 18px;
+  list-style-type: disc;
+  margin-block-end: 0px;
+  margin-block-start: 0px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 12px;
+  padding-inline-start: 12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 12px;
+  unicode-bidi: isolate;
+  width: 280px;
+  position: fixed;
+  z-index: 100000;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.4), 0 8px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* Each menu item row */
+.viewItemContextMenuItem {
+  align-items: center;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 35px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 8px;
+  unicode-bidi: isolate;
+  width: 256px;
+  -webkit-box-align: center;
+}
+
+.viewItemContextMenuItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Icon inside context menu items */
+.viewItemContextMenuItemIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-right: 8px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  width: 16px;
+  -webkit-box-flex: 0;
+}
+
+/* Text inside context menu items */
+.viewItemContextMenuItemText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  max-width: 100%;
+  min-height: 0px;
+  min-width: 0px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-box-flex: 1;
+}
+
+/* Favorites text+badge container */
+.viewItemContextMenuFavContainer {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 19px;
+  justify-content: space-between;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  text-wrap-mode: nowrap;
+  unicode-bidi: isolate;
+  user-select: none;
+  white-space-collapse: collapse;
+  width: 216px;
+  -webkit-box-align: center;
+  -webkit-box-pack: justify;
+}
+
+/* Favorites text */
+.viewItemContextMenuFavText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  text-wrap-mode: nowrap;
+  user-select: none;
+  white-space-collapse: collapse;
+}
+
+/* Separator line */
+.viewItemContextMenuSeparator {
+  background-color: rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: list-item;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 1px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 8px;
+  margin-left: 16px;
+  margin-right: 16px;
+  margin-top: 8px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 224px;
+}
+
+/* Delete view icon (1-1 copy from viewDropdownDeleteIcon) */
+.viewItemContextMenuDeleteIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-right: 8px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  width: 16px;
+  -webkit-box-flex: 0;
+}
+
+/* Delete view text (1-1 copy from viewDropdownDeleteText) */
+.viewItemContextMenuDeleteText {
+  box-sizing: border-box;
+  color: rgb(177, 15, 65);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  max-width: 100%;
+  min-height: 0px;
+  min-width: 0px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-box-flex: 1;
+}

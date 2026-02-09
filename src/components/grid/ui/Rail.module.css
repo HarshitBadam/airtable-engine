@@ -1,0 +1,512 @@
+/* =============================================
+   RAIL (Narrow vertical sidebar - 56px wide)
+   ============================================= */
+.rail {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: var(--grid-rail-width);
+  min-width: var(--grid-rail-width);
+  height: 100%;
+  padding: 16px 8px;
+  background-color: var(--grid-bg);
+  border-right: 1px solid var(--grid-border);
+  color: var(--grid-text-primary);
+  font-family: var(--grid-font-family);
+  font-size: var(--grid-font-size-base);
+  font-weight: 400;
+  line-height: 18px;
+  position: relative;
+  z-index: 100;
+}
+
+/* Rail Top - contains logo and second icon */
+.railTop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 39px;
+  height: 68px;
+  margin: 0;
+  padding: 0;
+  color: var(--grid-text-primary);
+  font-family: var(--grid-font-family);
+  font-size: var(--grid-font-size-base);
+  font-weight: 400;
+  line-height: 18px;
+  transform: translateY(2px);
+}
+
+/* Airtable Logo in rail */
+.railLogo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--grid-text-primary);
+  font-family: var(--grid-font-family);
+  font-size: var(--grid-font-size-base);
+  font-weight: 400;
+  line-height: 18px;
+  overflow: visible;
+  shape-rendering: geometricprecision;
+  width: 24px;
+  height: 20.3984px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Logo icon - default state */
+.logoIcon {
+  width: 24px;
+  height: 20.3984px;
+  display: block;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* Back arrow icon - hidden by default */
+.backArrowIcon {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.backArrowIcon path {
+  fill: currentColor;
+}
+
+/* Hover state - shrink + fade logo, show arrow */
+.railLogo:hover .logoIcon {
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.railLogo:hover .backArrowIcon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Second icon button in rail top (e.g. home/grid icon) */
+.railSecondIcon {
+  display: block;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0;
+  color: var(--grid-text-primary);
+  font-family: var(--grid-font-family);
+  font-size: var(--grid-font-size-base);
+  font-weight: 400;
+  line-height: 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transform: translateY(1px);
+}
+
+.railSecondIcon svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+/* Rail Bottom - contains help, bell, avatar */
+.railBottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  column-gap: 12.5px;
+  row-gap: 12.5px;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  box-sizing: border-box;
+  min-height: 0;
+  min-width: 0;
+  width: 39px;
+  margin: 0;
+  padding: 0;
+  color: var(--grid-text-primary);
+  font-family: var(--grid-font-family);
+  font-size: var(--grid-font-size-base);
+  font-weight: 400;
+  line-height: 18px;
+}
+
+/* Help button (?) */
+.railHelpButton {
+  position: relative;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--grid-text-primary);
+  cursor: pointer;
+  font-family: var(--grid-font-family);
+  font-size: var(--grid-font-size-base);
+  font-weight: 400;
+  line-height: 18px;
+}
+
+.railHelpButton:hover {
+  background: var(--grid-bg-hover);
+}
+
+.railHelpButton svg {
+  width: 16px;
+  height: 16px;
+  transform: translateY(1px);
+}
+
+/* Bell button */
+.railBellButton {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+  color: var(--grid-text-primary);
+  cursor: pointer;
+  font-family: var(--grid-font-family);
+  font-size: var(--grid-font-size-base);
+  font-weight: 400;
+  line-height: 18px;
+}
+
+.railBellButton:hover {
+  background: var(--grid-bg-hover);
+}
+
+.railBellButton svg {
+  width: 16px;
+  height: 16px;
+  transform: translateY(1px);
+}
+
+/* Avatar button */
+.railAvatar {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border-radius: 9999px;
+  background: var(--grid-avatar-bg);
+  border: 1px solid #ffffff;
+  box-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.2), 0 0 0 0.5px rgba(0, 0, 0, 0.1);
+  color: var(--grid-bg);
+  fill: var(--grid-bg);
+  cursor: pointer;
+  font-family: var(--grid-font-family);
+  font-size: var(--grid-font-size-base);
+  font-weight: 400;
+  line-height: 24px;
+  text-align: center;
+}
+
+/* =============================================
+   RAIL ACCOUNT DROPDOWN
+   ============================================= */
+.railAccountWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.railAccountDropdown {
+  position: absolute;
+  bottom: 0;
+  left: calc(100% + 8px);
+  box-sizing: content-box;
+  width: 284px;
+  height: 548px;
+  max-height: 548px;
+  padding: 0 12px 0 0;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+  z-index: 5;
+  color: var(--grid-text-primary);
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Scrollbar for account dropdown - system style */
+.railAccountDropdown::-webkit-scrollbar {
+  width: 12px;
+}
+
+.railAccountDropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.railAccountDropdown::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+.railAccountDropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Inner content wrapper - same as dashboard menu */
+.railAccountDropdownContent {
+  width: 284px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+/* =============================================
+   RAIL HOVER TOOLTIPS
+   ============================================= */
+.railTooltip {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 5px 8px 4px 8px;
+  font-family: var(--grid-font-family);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #ffffff;
+  background: #31353e;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  z-index: 99999;
+}
+
+.railLogo:hover .railTooltip,
+.railHelpButton:hover .railTooltip,
+.railBellButton:hover .railTooltip,
+.railAvatar:hover .railTooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+
+/* Help, Notifications, Account tooltips - adjusted positioning */
+.railHelpButton .railTooltip,
+.railBellButton .railTooltip,
+.railAvatar .railTooltip {
+  transform: translateY(calc(-50% + 1px));
+  padding: 5px 8px 5px 8px;
+}
+
+/* Notifications tooltip - specific adjustment */
+.railBellButton .railTooltip {
+  padding: 5px 8px 5.5px 8px;
+}
+
+/* Account tooltip - specific adjustment */
+.railAvatar .railTooltip {
+  left: calc(100% + 9px);
+  transform: translateY(-50%);
+}
+
+.railAccountDropdownHeader {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 64px;
+  margin: 0 8px 8px 8px;
+  padding: 8px 0 16px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.railAccountDropdownName {
+  display: block;
+  box-sizing: border-box;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  white-space: nowrap;
+  cursor: default;
+  margin: 0;
+  text-align: left;
+}
+
+.railAccountDropdownEmail {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19.5px;
+  white-space: nowrap;
+  cursor: default;
+  text-align: left;
+  color: #00000F;
+}
+
+.railAccountDropdownItem {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 34px;
+  padding: 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--grid-text-primary);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  text-decoration: none;
+  outline: none;
+  background: transparent;
+  border: none;
+  text-align: left;
+}
+
+.railAccountDropdownItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.railAccountDropdownItemIcon {
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+.railAccountDropdownItemText {
+  display: block;
+  flex: 0 1 auto;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.railAccountDropdownItemArrow {
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  transform: rotate(-90deg);
+}
+
+.railAccountDropdownDivider {
+  background-color: rgba(0, 0, 0, 0.05);
+  height: 1px;
+  margin: 8px;
+  padding: 0;
+}
+
+.railAccountDropdownBadgeBusiness {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 18px;
+  line-height: 18px;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgb(15, 104, 162);
+  background-color: rgb(196, 236, 255);
+  border-radius: 9999px;
+  padding: 0 8px;
+  margin-left: auto;
+  margin-right: 8px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.railAccountDropdownBadgeBusinessIcon {
+  display: block;
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+.railAccountDropdownBadgeBeta {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 18px;
+  line-height: 18px;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgb(175, 96, 2);
+  background-color: rgb(255, 234, 182);
+  border-radius: 9999px;
+  padding: 0 8px;
+  margin: 0 8px;
+  white-space: nowrap;
+  user-select: none;
+  transform: translateY(1px);
+}
+
+/* Divider after Appearance - adds 1px extra space */
+.railAccountDropdownDividerAfterAppearance {
+  background-color: rgba(0, 0, 0, 0.05);
+  height: 1px;
+  margin: 9px 8px 8px 8px;
+  padding: 0;
+}

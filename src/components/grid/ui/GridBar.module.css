@@ -1,0 +1,1029 @@
+/* ============================================
+   GRID BAR (sub-header below table toolbar)
+   ============================================ */
+
+/* Main container for the grid bar */
+.gridBar {
+  align-items: center;
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+  border-bottom-style: solid;
+  border-bottom-width: 1px;
+  border-left-color: rgba(0, 0, 0, 0.1);
+  border-right-color: rgba(0, 0, 0, 0.1);
+  border-top-color: rgba(0, 0, 0, 0.1);
+  /* No shadow needed - toolbar's inset shadow handles the depth effect */
+  box-shadow: none;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  column-gap: 8px;
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  grid-column-end: sub-header;
+  grid-column-start: sub-header;
+  grid-row-end: sub-header;
+  grid-row-start: sub-header;
+  height: 48px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  min-width: 600px;
+  overflow: visible;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  row-gap: 8px;
+  unicode-bidi: isolate;
+  user-select: none;
+  width: 100%;
+}
+
+/* Left section of the grid bar */
+.gridBarLeft {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  min-height: 0px;
+  min-width: 0px;
+  padding-bottom: 0px;
+  padding-left: 12px;
+  padding-right: 8px;
+  padding-top: 0px;
+  transform: translateY(-1px);
+  unicode-bidi: isolate;
+  user-select: none;
+}
+
+/* List icon button (hamburger menu style) */
+.gridBarListButton {
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border: none;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  justify-content: center;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 4px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  user-select: none;
+  width: 32px;
+}
+
+.gridBarListButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.gridBarListButtonIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  shape-rendering: geometricPrecision;
+}
+
+/* Grid View selector container */
+.gridBarViewSelector {
+  align-items: center;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 24px;
+  font-weight: 400;
+  height: 26px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  max-width: fit-content;
+  padding-bottom: 0px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 0px;
+  position: relative;
+  unicode-bidi: isolate;
+  user-select: none;
+}
+
+.gridBarViewSelector:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Grid View selector in rename mode — outer container */
+.gridBarViewSelectorRenaming {
+  align-items: center;
+  background-color: transparent;
+  border-bottom-left-radius: 0px;
+  border-bottom-right-radius: 0px;
+  border-top-left-radius: 0px;
+  border-top-right-radius: 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: text;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 24px;
+  font-weight: 400;
+  height: 30px;
+  line-height: 18px;
+  margin-block-end: 0px;
+  margin-block-start: 0px;
+  margin-bottom: 0px;
+  margin-inline-end: 0px;
+  margin-inline-start: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  max-width: none;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  position: static;
+  unicode-bidi: isolate;
+  user-select: none;
+  width: 196px;
+}
+
+.gridBarViewSelectorRenaming:hover {
+  background-color: transparent;
+}
+
+/* Rename input wrapper — inner container */
+.gridBarRenameInputWrapper {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 24px;
+  font-weight: 400;
+  height: 26px;
+  line-height: 18px;
+  margin-block-end: 0px;
+  margin-block-start: 0px;
+  margin-bottom: 0px;
+  margin-inline-end: 0px;
+  margin-inline-start: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  user-select: none;
+  width: 188px;
+}
+
+/* Rename input in grid bar view selector */
+.gridBarRenameInput {
+  border: 2px solid hsl(0, 0%, 82%);
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 15px;
+  font-weight: 550;
+  height: 30px;
+  line-height: 18px;
+  outline: none;
+  padding: 0px 8px;
+  background: white;
+  width: 100%;
+}
+
+/* Grid Feature icon in view selector */
+.gridBarViewIcon {
+  box-sizing: border-box;
+  color: #156EE1;
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 24px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  user-select: none;
+  width: 16px;
+}
+
+/* Grid View text */
+.gridBarViewText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  height: 18px;
+  line-height: 18px;
+  margin-left: 8px;
+  margin-right: 8px;
+  max-width: 200px;
+  min-height: 0px;
+  min-width: 0px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Dropdown chevron icon in view selector */
+.gridBarViewChevron {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: inline;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 24px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  margin-top: 4px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  user-select: none;
+  width: 16px;
+}
+
+/* Right section of the grid bar */
+.gridBarRight {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 47px;
+  justify-content: flex-end;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  min-height: 0px;
+  min-width: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 8px;
+  padding-top: 0px;
+  transform: translateY(-1px);
+  unicode-bidi: isolate;
+  user-select: none;
+  overflow: visible;
+}
+
+/* Search button (magnifying glass) */
+.gridBarSearchButton {
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border: none;
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 28px;
+  justify-content: center;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  user-select: none;
+  width: 28px;
+}
+
+.gridBarSearchButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.gridBarSearchIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  shape-rendering: geometricPrecision;
+}
+
+/* Tools container (inner wrapper for tools) */
+.gridBarToolsOuter {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 47px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  min-height: 0px;
+  min-width: 0px;
+  overflow: visible;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  user-select: none;
+}
+
+.gridBarToolsInner {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-grow: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 26px;
+  justify-content: flex-end;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  user-select: none;
+  overflow: visible;
+}
+
+/* Generic tool button with icon and text */
+.gridBarToolButton {
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0);
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  border: none;
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 26px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 4px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 4px;
+  transition-behavior: normal;
+  transition-delay: 0s;
+  transition-duration: 0.085s;
+  transition-property: background-color;
+  transition-timing-function: ease-in;
+  unicode-bidi: isolate;
+  user-select: none;
+}
+
+/* Share and sync button - positioned 8px to the left */
+.gridBarShareSyncButton {
+  transform: translateX(-8px);
+}
+
+/* Color button - positioned 24px to the left */
+.gridBarColorButton {
+  transform: translateX(-24px);
+}
+
+/* Sort button - positioned 32px to the left */
+.gridBarSortButton {
+  transform: translateX(-32px);
+}
+
+/* Group button - positioned 40px to the left */
+.gridBarGroupButton {
+  transform: translateX(-40px);
+}
+
+/* Filter button - positioned 48px to the left */
+.gridBarFilterButton {
+  transform: translateX(-48px);
+}
+
+/* Hide fields button - positioned 56px to the left */
+.gridBarHideFieldsButton {
+  transform: translateX(-56px);
+}
+
+/* Custom tooltip styles */
+.tooltipWrapper {
+  position: relative;
+}
+
+.tooltip {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 8px);
+  transform: translateY(-50%);
+  padding: 5px 8px 4px 19px;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #ffffff;
+  background: #31353e;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.tooltipWrapper:hover .tooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+
+.tooltipText {
+  transform: translate(-10px, -0.5px);
+}
+
+.tooltipShortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 8px;
+  transform: translate(-0.5px, -0.5px);
+}
+
+.tooltipShortcutKey {
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--grid-font-family);
+  font-size: 11px;
+  font-weight: 600;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gridBarToolButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Tool button icon */
+.gridBarToolIcon {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  user-select: none;
+  width: 16px;
+}
+
+/* Tool button text */
+.gridBarToolText {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 4px;
+  margin-right: 0px;
+  margin-top: 0px;
+  max-width: 384px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  user-select: none;
+}
+
+/* Row height button wrapper for tooltip */
+.gridBarRowHeightWrapper {
+  position: relative;
+}
+
+/* Row height tooltip */
+.gridBarRowHeightTooltip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(calc(-50% - 16px));
+  padding: 5px 8px 4px 8px;
+  font-family: var(--grid-font-family);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #ffffff;
+  background: #31353e;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  z-index: 99999;
+}
+
+.gridBarRowHeightWrapper:hover .gridBarRowHeightTooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+
+/* Share view button wrapper for tooltip */
+.gridBarShareViewWrapper {
+  position: relative;
+}
+
+/* Share view tooltip */
+.gridBarShareViewTooltip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(calc(-50% - 8px));
+  padding: 5px 8px 4px 8px;
+  font-family: var(--grid-font-family);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #ffffff;
+  background: #31353e;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  z-index: 99999;
+}
+
+.gridBarShareViewWrapper:hover .gridBarShareViewTooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+
+/* Row height icon-only button */
+.gridBarRowHeightButton {
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0);
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  border: none;
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 24px;
+  justify-content: center;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 4px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 4px;
+  transform: translateX(-16px);
+  transition-behavior: normal;
+  transition-delay: 0s;
+  transition-duration: 0.085s;
+  transition-property: background-color;
+  transition-timing-function: ease-in;
+  unicode-bidi: isolate;
+  user-select: none;
+}
+
+.gridBarRowHeightButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================
+   VIEW DROPDOWN MENU
+   ============================================ */
+
+/* Main container for the view dropdown menu */
+.viewDropdownMenu {
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 335px;
+  line-height: 18px;
+  list-style-type: disc;
+  margin-block-end: 0px;
+  margin-block-start: 0px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 12px;
+  padding-inline-start: 12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 12px;
+  unicode-bidi: isolate;
+  width: 352px;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.24), 0 8px 16px rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
+}
+
+/* Collaborative view item (first item with subtitle) */
+.viewDropdownCollaborativeItem {
+  align-items: center;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-direction: column;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 56px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 8px;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-top: 8px;
+  unicode-bidi: isolate;
+  width: 328px;
+  -webkit-box-align: center;
+  -webkit-box-direction: normal;
+  -webkit-box-orient: vertical;
+}
+
+.viewDropdownCollaborativeItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Row inside collaborative item (icon + text + chevron) */
+.viewDropdownCollaborativeRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+/* Generic dropdown menu item (Rename, Edit desc, Duplicate, Download CSV, Print, Delete) */
+.viewDropdownItem {
+  align-items: center;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 34px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 8px;
+  unicode-bidi: isolate;
+  width: 328px;
+  -webkit-box-align: center;
+}
+
+.viewDropdownItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Icon inside dropdown items (16x16 with 8px right margin) */
+.viewDropdownItemIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-right: 8px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  width: 16px;
+  -webkit-box-flex: 0;
+}
+
+/* Text inside dropdown items */
+.viewDropdownItemText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  max-width: 100%;
+  min-height: 0px;
+  min-width: 0px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-box-flex: 1;
+}
+
+/* Collaborative view right chevron (ChevronDown rotated -90deg) */
+.viewDropdownCollaborativeChevron {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-left: 8px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  transform: matrix(0, -1, 1, 0, 0, 0);
+  width: 16px;
+  -webkit-box-flex: 0;
+}
+
+/* Subtitle text in collaborative view item */
+.viewDropdownCollaborativeSubtitle {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: block;
+  flex-direction: column;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 4px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  user-select: none;
+  width: 296px;
+  -webkit-box-direction: normal;
+  -webkit-box-orient: vertical;
+}
+
+/* Separator line between menu groups */
+.viewDropdownSeparator {
+  background-color: rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: list-item;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 1px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-bottom: 8px;
+  margin-left: 16px;
+  margin-right: 16px;
+  margin-top: 8px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 296px;
+}
+
+/* Delete view icon (same size as regular icon) */
+.viewDropdownDeleteIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin-right: 8px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  width: 16px;
+  -webkit-box-flex: 0;
+}
+
+/* Delete view text (red color) */
+.viewDropdownDeleteText {
+  box-sizing: border-box;
+  color: rgb(177, 15, 65);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  max-width: 100%;
+  min-height: 0px;
+  min-width: 0px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-box-flex: 1;
+}

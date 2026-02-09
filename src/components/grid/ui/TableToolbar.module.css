@@ -1,0 +1,2343 @@
+/* =============================================
+   TableToolbar.module.css
+   Extracted from GridWorkspace.module.css
+   
+   Contains all CSS classes for the table toolbar:
+   - Table toolbar layout (.tableToolbar, .tableToolbarInner, .tableToolbarSpacer, etc.)
+   - Tabs wrapper and scrollable area (.tableTabsWrapper, .tableTabsScrollable)
+   - Scroll indicators (.scrollIndicator*)
+   - Table tabs (.tableTab*, .tableTabWrapper)
+   - Table tabs dropdown (.tableTabsDropdown*)
+   - Table dropdown menu (.tableDropdown*)
+   - Add or import button and dropdown (.addOrImport*)
+   - Table title dropdown (.tableTitleDropdown*)
+   - Table rename popup (.tableRename*)
+   ============================================= */
+
+/* === TABLE TOOLBAR === */
+.tableToolbar {
+  display: flex;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  /* background-color set via inline style based on base */
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  z-index: 10;
+  transition-property: width;
+  transition-duration: 0.3s;
+  transition-timing-function: ease-in-out;
+  transition-delay: 0s;
+  transition-behavior: normal;
+  unicode-bidi: isolate;
+  /* Inset shadow at BOTTOM projecting UP - active tab + corners mask it */
+  box-shadow: inset 0 -3px 3px -2px rgba(0, 0, 0, 0.12);
+}
+
+.tableToolbarInner {
+  display: flex;
+  position: relative;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  height: 36px;
+  margin: -4px 0 0 -4px;
+  padding: 4px 0 0 4px;
+  overflow: visible;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  unicode-bidi: isolate;
+}
+
+/* Wrapper for scrollable area and indicators */
+.tableTabsWrapper {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  margin: -4px 0 0 -3px;
+  padding: 4px 0 0 3px;
+  overflow: visible;
+}
+
+/* Scrollable container for just the table tabs */
+.tableTabsScrollable {
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 1;
+  align-items: flex-end;
+  min-width: 0;
+  /* Padding to make room for corner SVGs (3px) and shadow (2px) */
+  padding: 4px 3px 0 3px;
+  margin: -4px 0px 0 -3px;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+}
+
+.tableTabsScrollable::-webkit-scrollbar {
+  display: none;
+}
+
+/* === SCROLL INDICATORS === */
+
+/* Scroll indicator containers - absolutely positioned to not affect layout */
+.scrollIndicatorLeft,
+.scrollIndicatorRight {
+  position: absolute;
+  top: -4px;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  z-index: 3;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+/* Left indicator - positioned at left edge */
+.scrollIndicatorLeft {
+  left: 4px;
+  top: 2px;
+  justify-content: flex-start;
+}
+
+/* Right indicator - positioned at right edge of wrapper */
+.scrollIndicatorRight {
+  right: 80px;
+  top: 2px;
+  justify-content: flex-end;
+}
+
+/* Clip wrapper - clips the button as container width changes */
+.scrollIndicatorClip {
+  width: 40px;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Left clip - centered */
+.scrollIndicatorLeft .scrollIndicatorClip {
+  justify-content: center;
+}
+
+/* Right clip - centered */
+.scrollIndicatorRight .scrollIndicatorClip {
+  justify-content: center;
+}
+
+/* The actual clickable button */
+.scrollIndicatorButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-width: 40px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.scrollIndicatorButton:hover {
+  color: #1D1F25;
+}
+
+/* Shadow that extends to the RIGHT (used by left indicator) */
+.scrollIndicatorShadowRight {
+  position: absolute;
+  top: -8px;
+  left: 100%;
+  width: 4px;
+  height: 42px;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.25), transparent);
+  pointer-events: none;
+}
+
+/* Shadow that extends to the LEFT (used by right indicator) */
+.scrollIndicatorShadowLeft {
+  position: absolute;
+  top: -8px;
+  right: 100%;
+  width: 4px;
+  height: 42px;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.25), transparent);
+  pointer-events: none;
+}
+
+.scrollIndicatorIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* === TABLE TAB (e.g., "Table 1") === */
+/* Note: Explicit overrides to prevent cascade from earlier .tableTab definition */
+.tableTab {
+  display: flex;
+  align-items: center;
+  position: relative;
+  box-sizing: border-box;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 0;
+  max-width: 512px;
+  height: 32px;
+  padding-left: 12px;
+  padding-right: 32px;
+  margin: 0;
+  border: none;
+  gap: 0;
+  color: #616670;
+  background: transparent;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  outline: none;
+  outline-offset: -5px;
+  transition: none;
+}
+
+/* Hide dropdown on non-active tabs */
+.tableTab:not(.tableTabActive) .tableTabDropdown {
+  display: none;
+}
+
+/* Non-active tab - less right padding since no dropdown */
+.tableTab:not(.tableTabActive) {
+  padding-right: 12px;
+}
+
+/* Spacer between consecutive non-active tabs */
+.tableTabWrapper:has(.tableTab:not(.tableTabActive)) + .tableTabWrapper:has(.tableTab:not(.tableTabActive)) .tableTab {
+  margin-left: 1px;
+}
+
+/* Spacer after last non-active tab */
+.tableTabWrapper:last-child .tableTab:not(.tableTabActive) {
+  margin-right: 1px;
+}
+
+/* Separator line between consecutive non-active tabs (not on hover) */
+/* Positioned in the 1px margin space */
+.tableTabWrapper:has(.tableTab:not(.tableTabActive):not(:hover)) + .tableTabWrapper:has(.tableTab:not(.tableTabActive):not(:hover)) .tableTab::before {
+  content: "";
+  display: block;
+  position: absolute;
+  left: -1px;
+  top: 10px;
+  width: 1px;
+  height: 12px;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Separator line after last non-active tab (not on hover) */
+.tableTabWrapper:last-child .tableTab:not(.tableTabActive):not(:hover)::after {
+  content: "";
+  display: block;
+  position: absolute;
+  right: -1px;
+  top: 10px;
+  width: 1px;
+  height: 12px;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Non-active tab hover - grey highlight with curves */
+.tableTab:not(.tableTabActive):hover {
+  color: #1D1F25;
+  background-color: rgba(0, 0, 0, 0.04);
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Left corner piece on hover for non-active tabs */
+.tableTab:not(.tableTabActive):hover::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='3' height='3' viewBox='0 0 3 3'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M3 0C3 1.65686 1.65674 3 0 3H3V0Z' fill='%23e8e5eb'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 3px 3px;
+}
+
+/* Right corner piece on hover for non-active tabs */
+.tableTab:not(.tableTabActive):hover::after {
+  content: '';
+  position: absolute;
+  right: -3px;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='3' height='3' viewBox='0 0 3 3'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M0 0C0 1.65686 1.34326 3 3 3H0V0Z' fill='%23e8e5eb'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 3px 3px;
+}
+
+/* Hide LEFT corner when active tab is immediately before (active takes priority) */
+.tableTabWrapper:has(.tableTabActive) + .tableTabWrapper .tableTab:not(.tableTabActive):hover::before {
+  display: none;
+}
+
+/* Hide left border-radius when active tab is immediately before */
+.tableTabWrapper:has(.tableTabActive) + .tableTabWrapper .tableTab:not(.tableTabActive):hover {
+  border-top-left-radius: 0;
+}
+
+/* Hide RIGHT corner when active tab is immediately after (active takes priority) */
+.tableTabWrapper:has(+ .tableTabWrapper .tableTabActive) .tableTab:not(.tableTabActive):hover::after {
+  display: none;
+}
+
+/* Hide right border-radius when active tab is immediately after */
+.tableTabWrapper:has(+ .tableTabWrapper .tableTabActive) .tableTab:not(.tableTabActive):hover {
+  border-top-right-radius: 0;
+}
+
+/* Active table tab - white background with curved corners */
+.tableTabActive {
+  background-color: white;
+  border-top-right-radius: 3px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  color: rgb(29, 31, 37);
+  font-weight: 500;
+  /* Tab shadows: dark, diffused, thin (negative spread shrinks it) */
+  box-shadow: 
+    rgba(0, 0, 0, 0.03) 0px -1px 1px 0px,    /* top */
+    rgba(0, 0, 0, 0.18) -1px 0px 3px -1px,   /* left - thin via negative spread */
+    rgba(0, 0, 0, 0.18) 1px 0px 3px -1px;    /* right - thin via negative spread */
+}
+
+/* Non-first active tab - left top corner rounded */
+.tableTabWrapper:not(:first-child) .tableTabActive {
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+
+/* Last active tab (multiple tabs) - keep right side rounded */
+.tableTabWrapper:last-child:not(:first-child) .tableTabActive {
+  border-top-right-radius: 3px;
+}
+
+
+/* Single tab case - left side flat, right side rounded */
+.tableTabWrapper:first-child:last-child .tableTabActive {
+  border-top-left-radius: 0;
+  border-top-right-radius: 3px;
+}
+
+/* Keep active tab styling on hover */
+.tableTabActive:hover {
+  background-color: white;
+  color: rgb(29, 31, 37);
+}
+
+/* Left corner piece - positioned to the left of the tab */
+/* No drop-shadow needed - the tab's box-shadow extends behind this to create continuity */
+.tableTabActive::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='3' height='3' viewBox='0 0 3 3'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M3 0C3 1.65686 1.65674 3 0 3H3V0Z' fill='white'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 3px 3px;
+}
+
+/* Right corner piece - positioned to the right of the tab */
+/* No drop-shadow needed - the tab's box-shadow extends behind this to create continuity */
+.tableTabActive::after {
+  content: '';
+  position: absolute;
+  right: -3px;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='3' height='3' viewBox='0 0 3 3'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M0 0C0 1.65686 1.34326 3 3 3H0V0Z' fill='white'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 3px 3px;
+}
+
+/* Hide left corner on first active tab (when wrapper is first child) */
+.tableTabWrapper:first-child .tableTabActive::before {
+  display: none;
+}
+
+/* Keep right corner visible on last active tab */
+.tableTabWrapper:last-child .tableTabActive::after {
+  display: block;
+}
+
+/* Table tab name text */
+.tableTabName {
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+  height: 18px;
+  color: inherit;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: inherit;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Dropdown icon container (absolute positioned) */
+.tableTabDropdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0;
+  right: 8px;
+  bottom: 0;
+  box-sizing: border-box;
+  width: 24px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgb(97, 102, 112);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  cursor: pointer;
+  user-select: none;
+  unicode-bidi: isolate;
+  outline: none;
+}
+
+.tableTabDropdown:hover {
+  color: rgb(29, 31, 37);
+}
+
+/* Dropdown chevron icon */
+.tableTabDropdownIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  color: rgb(97, 102, 112);
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* === TABLE TABS DROPDOWN BUTTON (chevron after tabs) === */
+.tableTabsDropdownButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 40px;
+  height: 32px;
+  margin: 0;
+  padding: 0 12px;
+  color: #616670;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  cursor: pointer;
+  unicode-bidi: isolate;
+  background: transparent;
+  border: none;
+}
+
+.tableTabsDropdownButton:hover {
+  color: #1D1F25;
+}
+
+.tableTabsDropdownButtonIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  color: inherit;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+/* === TABLE TABS DROPDOWN WRAPPER === */
+.tableTabsDropdownWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transform: translateX(1px);
+}
+
+.tableTabsDropdownWrapperNoScroll {
+  transform: translateX(-3px);
+}
+
+/* === TABLE DROPDOWN MENU === */
+.tableDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 456px;
+  max-height: 514.648px;
+  padding: 8px 16px;
+  background-color: rgb(255, 255, 255);
+  border-radius: 6px;
+  box-shadow: 
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  z-index: 100;
+  unicode-bidi: isolate;
+}
+
+/* Right-aligned variant when not enough space on right */
+.tableDropdownAlignRight {
+  left: auto;
+  right: 0;
+}
+
+/* === SEARCH SECTION === */
+.tableDropdownSearch {
+  display: flex;
+  box-sizing: border-box;
+  width: 424px;
+  height: 35px;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  unicode-bidi: isolate;
+}
+
+.tableDropdownSearchIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 34px;
+  margin: 0;
+  padding: 8px;
+  opacity: 0.75;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  unicode-bidi: isolate;
+}
+
+.tableDropdownSearchInput {
+  display: block;
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  width: 392px;
+  max-width: 100%;
+  height: 34px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 8px 16px 8px 4px;
+  border: none;
+  border-radius: 2px;
+  background-color: transparent;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  outline: none;
+  appearance: none;
+  box-shadow: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: clip;
+  resize: none;
+}
+
+.tableDropdownSearchInput::placeholder {
+  color: rgb(97, 102, 112);
+  opacity: 0.75;
+}
+
+/* === TABLE ENTRIES SECTION (Scrollable) === */
+.tableDropdownEntries {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(514.648px - 35px - 43px - 16px);
+  margin: 0;
+  padding: 8px 8px 8px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  unicode-bidi: isolate;
+}
+
+/* Scrollbar styling for entries */
+.tableDropdownEntries::-webkit-scrollbar {
+  width: 12px;
+}
+
+.tableDropdownEntries::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tableDropdownEntries::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+.tableDropdownEntries::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+/* === TABLE ENTRY ROW === */
+.tableDropdownEntry {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  width: 412px;
+  height: 34px;
+  min-height: 34px;
+  margin: 0;
+  padding: 8px 16px 8px 0;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 14.4px;
+  font-weight: 500;
+  line-height: 18px;
+  cursor: pointer;
+  outline: none;
+  text-decoration: none;
+  list-style: none;
+  pointer-events: auto;
+  user-select: none;
+  unicode-bidi: isolate;
+}
+
+/* Hover state for entry */
+.tableDropdownEntry:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.tableDropdownEntryHover {
+  padding-right: 8px;
+}
+
+/* === TABLE ENTRY CHECK ICON (for active table) === */
+.tableDropdownEntryCheck {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 32px;
+  height: 16px;
+  margin: 0;
+  padding: 0 8px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 14.4px;
+  font-weight: 500;
+  line-height: 18px;
+  cursor: pointer;
+  pointer-events: auto;
+  unicode-bidi: isolate;
+  list-style: none;
+}
+
+.tableDropdownEntryCheck svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* === TABLE ENTRY TEXT === */
+.tableDropdownEntryText {
+  display: block;
+  box-sizing: border-box;
+  width: 364px;
+  max-width: 100%;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 14.4px;
+  font-weight: 500;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  unicode-bidi: isolate;
+}
+
+/* Hover state for text - narrower width */
+.tableDropdownEntryTextHover {
+  width: 312px;
+}
+
+/* === ENTRY EYE SLASH BUTTON (appears on hover) === */
+.tableDropdownEntryEyeSlash {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 32px;
+  height: 28px;
+  margin: 0 -4px 0 0;
+  padding: 0 8px;
+  border: none;
+  border-radius: 6px;
+  background-color: transparent;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 22px;
+  cursor: pointer;
+  text-align: center;
+  max-width: 100%;
+  appearance: auto;
+  list-style: none;
+  pointer-events: auto;
+  transform: translateX(8px);
+}
+
+.tableDropdownEntryEyeSlash:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.tableDropdownEntryEyeSlash svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* === ENTRY DRAG HANDLE (appears on hover) === */
+.tableDropdownEntryDrag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 8px;
+  opacity: 0.5;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  cursor: grab;
+  unicode-bidi: isolate;
+  list-style: none;
+  pointer-events: auto;
+  transform: translateX(8px);
+}
+
+.tableDropdownEntryDrag svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* === ADD TABLE SECTION (Bottom) === */
+.tableDropdownAddSection {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 424px;
+  height: 43px;
+  margin: 0;
+  padding: 16px 8px 8px 8px;
+  opacity: 0.75;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+.tableDropdownAddSection:hover {
+  opacity: 1;
+}
+
+.tableDropdownAddIcon {
+  display: block;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.tableDropdownAddText {
+  display: block;
+  box-sizing: border-box;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+.tableDropdownAddChevron {
+  display: block;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  transform: rotate(-90deg);
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+/* === ADD OR IMPORT BUTTON === */
+.addOrImportButton {
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  height: 32px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 3px;
+  color: #616670;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  cursor: pointer;
+  unicode-bidi: isolate;
+  background: transparent;
+  border: none;
+  transform: translateX(2px);
+}
+
+.addOrImportButton:hover {
+  color: #1D1F25;
+}
+
+.addOrImportButtonNoScroll {
+  transform: translateX(-2px);
+}
+
+.addOrImportButtonIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin: 4px 0;
+  color: inherit;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+.addOrImportButtonText {
+  display: block;
+  box-sizing: border-box;
+  height: 16.25px;
+  margin: 0 0 0 8px;
+  padding: 0;
+  color: inherit;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 16.25px;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+/* Collapsed state - just the + icon, no text */
+.addOrImportButtonCollapsed {
+  width: 40px;
+}
+
+.addOrImportButtonCollapsed .addOrImportButtonText {
+  display: none;
+}
+
+.addOrImportButtonCollapsed .addOrImportButtonIcon {
+  margin: 0;
+}
+
+/* Spacer between toolbar inner and right button */
+.tableToolbarSpacer {
+  display: block;
+  box-sizing: border-box;
+  width: 26px;
+  height: 32px;
+  margin: 0;
+  padding: 0 8px;
+  border-top-right-radius: 6px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  unicode-bidi: isolate;
+}
+
+/* Right button in toolbar (e.g., Tools) */
+.tableToolbarRightButton {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 32px;
+  margin: 0;
+  margin-right: 4px;
+  padding: 0 12px;
+  color: #616670;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  cursor: pointer;
+  user-select: none;
+  unicode-bidi: isolate;
+  background: transparent;
+  border: none;
+}
+
+.tableToolbarRightButton:hover {
+  color: #1D1F25;
+}
+
+/* "Tools" text inside right button */
+.tableToolbarRightButtonText {
+  display: block;
+  box-sizing: border-box;
+  height: 18px;
+  margin: 0;
+  padding: 0 4px 0 0;
+  color: inherit;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  cursor: pointer;
+  user-select: none;
+  unicode-bidi: isolate;
+}
+
+/* Chevron icon inside right button */
+.tableToolbarRightButtonIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  color: inherit;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* =============================================
+   ADD OR IMPORT DROPDOWN MENU
+   ============================================= */
+.addOrImportWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Main dropdown container */
+.addOrImportDropdown {
+  position: fixed;
+  box-sizing: border-box;
+  display: block;
+  width: 280px;
+  height: 495.5px;
+  padding: 8px;
+  padding-inline-start: 8px;
+  margin: 0;
+  background-color: rgb(255, 255, 255);
+  border-radius: 6px;
+  box-shadow: 
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-type: disc;
+  unicode-bidi: isolate;
+  z-index: 100;
+}
+
+/* Section header: "Add a blank table" */
+.addOrImportSectionHeader {
+  display: list-item;
+  box-sizing: border-box;
+  width: 248px;
+  height: 16.5px;
+  margin: 0 8px 2px 8px;
+  padding: 0;
+  color: rgb(97, 102, 112);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16.5px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  unicode-bidi: isolate;
+}
+
+/* Menu item: "Add from scratch", "New table", etc. */
+.addOrImportMenuItem {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 264px;
+  height: 34px;
+  margin: 0;
+  padding: 8px;
+  border-radius: 3px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+.addOrImportMenuItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Menu item text */
+.addOrImportMenuItemText {
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+}
+
+/* Divider line */
+.addOrImportDivider {
+  display: list-item;
+  box-sizing: border-box;
+  width: 248px;
+  height: 1px;
+  margin: 8px;
+  padding: 0;
+  background-color: rgba(0, 0, 0, 0.05);
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  unicode-bidi: isolate;
+}
+
+/* Section header: "Build with Omni" (with extra top margin) */
+.addOrImportSectionHeaderOmni {
+  display: list-item;
+  box-sizing: border-box;
+  width: 248px;
+  height: 16.5px;
+  margin: 16px 8px 2px 8px;
+  padding: 0;
+  color: rgb(97, 102, 112);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16.5px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  unicode-bidi: isolate;
+}
+
+/* Section header: "Add from other sources" (with extra top margin) */
+.addOrImportSectionHeaderSources {
+  display: list-item;
+  box-sizing: border-box;
+  width: 248px;
+  height: 16.5px;
+  margin-bottom: 2px;
+  margin-left: 8px;
+  margin-right: 8px;
+  margin-top: 16px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  max-width: 100%;
+  color: rgb(97, 102, 112);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16.5px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  unicode-bidi: isolate;
+}
+
+/* Container for text + badge (e.g., "New table with web data" + "Beta") */
+.addOrImportMenuItemWithBadge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 248px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  user-select: none;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+/* Airtable logo icon for menu item */
+.addOrImportItemIconAirtable {
+  display: block;
+  box-sizing: border-box;
+  width: 16px;
+  height: 13.5938px;
+  margin-right: 12px;
+  color: rgb(97, 102, 112);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  cursor: pointer;
+}
+
+/* CSV file icon for menu item */
+.addOrImportItemIconCsv {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-right: 12px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  cursor: pointer;
+}
+
+/* Google Calendar icon for menu item */
+.addOrImportItemIconGoogle {
+  display: block;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-right: 12px;
+  border: none;
+  color: rgb(97, 102, 112);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: clip;
+  overflow-y: clip;
+  cursor: pointer;
+}
+
+/* Menu item text (for items with icons) */
+.addOrImportItemText {
+  display: block;
+  box-sizing: border-box;
+  height: 18px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  user-select: none;
+  cursor: pointer;
+}
+
+/* Google Sheets icon for menu item */
+.addOrImportItemIconGoogleSheets {
+  display: block;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-right: 12px;
+  border: none;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: clip;
+  overflow-y: clip;
+  cursor: pointer;
+}
+
+/* Microsoft Excel icon for menu item */
+.addOrImportItemIconExcel {
+  display: block;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-right: 12px;
+  border: none;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: clip;
+  overflow-y: clip;
+  cursor: pointer;
+}
+
+/* Salesforce icon for menu item */
+.addOrImportItemIconSalesforce {
+  display: block;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-right: 12px;
+  border: none;
+  color: rgb(97, 102, 112);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: clip;
+  overflow-y: clip;
+  cursor: pointer;
+}
+
+/* Smartsheet icon for menu item */
+.addOrImportItemIconSmartsheet {
+  display: block;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-right: 12px;
+  border: none;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: clip;
+  overflow-y: clip;
+  cursor: pointer;
+}
+
+/* BookOpen icon for menu item */
+.addOrImportItemIconBookOpen {
+  display: block;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-right: 12px;
+  border: none;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  cursor: pointer;
+}
+
+/* ChevronRight icon for "more sources" item */
+.addOrImportItemChevronRight {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  user-select: none;
+  cursor: pointer;
+}
+
+/* AirtablePlusFill icon inside Team/Business badges */
+.addOrImportBadgeIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  color: rgb(15, 104, 162);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  user-select: none;
+  cursor: pointer;
+}
+
+/* Team badge */
+.addOrImportTeamBadge {
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 60.0859px;
+  height: 18px;
+  margin-bottom: 0px;
+  margin-left: auto;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 0px;
+  background-color: rgb(196, 236, 255);
+  border-radius: 9999px;
+  color: rgb(15, 104, 162);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  user-select: none;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+/* Beta badge */
+.addOrImportBetaBadge {
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 39.8438px;
+  height: 18px;
+  margin: 0 0 0 auto;
+  padding: 0 8px;
+  background-color: rgb(255, 234, 182);
+  border-radius: 9999px;
+  color: rgb(175, 96, 2);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  user-select: none;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+/* Business badge */
+.addOrImportBusinessBadge {
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 78.75px;
+  height: 18px;
+  margin-bottom: 0px;
+  margin-left: auto;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 0px;
+  background-color: rgb(196, 236, 255);
+  border-radius: 9999px;
+  color: rgb(15, 104, 162);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  user-select: none;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+/* =============================================
+   TABLE TITLE DROPDOWN MENU
+   ============================================= */
+.tableTitleDropdown {
+  position: fixed;
+  box-sizing: border-box;
+  display: block;
+  width: 330px;
+  height: 432px;
+  padding-bottom: 12px;
+  padding-inline-start: 12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 12px;
+  margin: 0;
+  background-color: rgb(255, 255, 255);
+  border-radius: 6px;
+  box-shadow: 
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-type: none;
+  unicode-bidi: isolate;
+  z-index: 1000;
+  transform: translateY(0px);
+}
+
+/* Table title dropdown menu item */
+.tableTitleDropdownItem {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 306px;
+  height: 34px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 8px;
+  border-radius: 3px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+.tableTitleDropdownItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Disabled/inactive menu item (like Delete table) */
+.tableTitleDropdownItemDisabled {
+  opacity: 0.5;
+}
+
+.tableTitleDropdownItemDisabled:hover {
+  background-color: transparent;
+  cursor: default;
+}
+
+/* Menu item icon (left side) */
+.tableTitleDropdownItemIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  color: rgb(29, 31, 37);
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  cursor: pointer;
+}
+
+/* Menu item text */
+.tableTitleDropdownItemText {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: 0px;
+  min-width: 0px;
+  height: 18px;
+  width: 242px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  user-select: none;
+  cursor: pointer;
+}
+
+/* Arrow icon on right (for Import data) - rotated -90deg */
+.tableTitleDropdownItemArrow {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-left: 8px;
+  color: rgb(29, 31, 37);
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  transform: rotate(-90deg);
+  cursor: pointer;
+}
+
+/* Divider line */
+.tableTitleDropdownDivider {
+  display: list-item;
+  box-sizing: border-box;
+  width: 290px;
+  height: 1px;
+  margin-bottom: 8px;
+  margin-left: 8px;
+  margin-right: 8px;
+  margin-top: 8px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  background-color: rgba(0, 0, 0, 0.05);
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  unicode-bidi: isolate;
+}
+
+/* Team badge for table title dropdown */
+.tableTitleDropdownTeamBadge {
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 60.0859px;
+  height: 18px;
+  margin-bottom: 0px;
+  margin-left: auto;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 0px;
+  background-color: rgb(196, 236, 255);
+  border-radius: 9999px;
+  color: rgb(15, 104, 162);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  user-select: none;
+  cursor: pointer;
+  unicode-bidi: isolate;
+}
+
+/* Team badge icon */
+.tableTitleDropdownTeamBadgeIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  color: rgb(15, 104, 162);
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+/* Wrapper for table tab with dropdown */
+.tableTabWrapper {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+
+/* ============================================
+   Table Rename Popup
+   ============================================ */
+
+/* Main container */
+.tableRenamePopup {
+  position: fixed;
+  display: block;
+  box-sizing: border-box;
+  width: 331px;
+  max-width: 384px;
+  height: 212px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 16px;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-top: 16px;
+  background-color: rgb(255, 255, 255);
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 0px 2px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  unicode-bidi: isolate;
+  z-index: 1001;
+  transform: translateX(-71px);
+}
+
+/* Input box */
+.tableRenameInput {
+  display: block;
+  box-sizing: border-box;
+  width: 299px;
+  height: 38px;
+  margin-bottom: 16px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 8px;
+  background-attachment: scroll;
+  background-clip: border-box;
+  background-color: rgb(255, 255, 255);
+  background-image: none;
+  background-origin: padding-box;
+  background-position-x: 0%;
+  background-position-y: 0%;
+  background-repeat: repeat;
+  background-size: auto;
+  border-bottom-color: rgb(22, 110, 225);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-left-color: rgb(22, 110, 225);
+  border-left-style: solid;
+  border-left-width: 2px;
+  border-right-color: rgb(22, 110, 225);
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-top-color: rgb(22, 110, 225);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-top-style: solid;
+  border-top-width: 2px;
+  box-shadow: none;
+  color: rgb(29, 31, 37);
+  cursor: text;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-feature-settings: normal;
+  font-kerning: auto;
+  font-optical-sizing: auto;
+  font-size: 14.4px;
+  font-style: normal;
+  font-variant-alternates: normal;
+  font-variant-caps: normal;
+  font-variant-east-asian: normal;
+  font-variant-ligatures: normal;
+  font-variant-numeric: normal;
+  font-variant-position: normal;
+  font-variation-settings: normal;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 18px;
+  min-height: 0px;
+  min-width: 0px;
+  outline-color: rgb(29, 31, 37);
+  outline-offset: 0px;
+  outline-style: none;
+  outline-width: 0px;
+  overflow-x: clip;
+  overflow-y: clip;
+  resize: none;
+  text-align: start;
+  text-indent: 0px;
+  text-rendering: auto;
+  text-shadow: none;
+  text-transform: none;
+  word-spacing: 0px;
+}
+
+/* "What should each record be called?" row */
+.tableRenameRecordLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 299px;
+  height: 18px;
+  margin-bottom: 8px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  unicode-bidi: isolate;
+}
+
+/* Label text */
+.tableRenameRecordLabelText {
+  display: block;
+  box-sizing: border-box;
+  height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 18px;
+  opacity: 0.75;
+  unicode-bidi: isolate;
+}
+
+/* Question mark icon */
+.tableRenameQuestionIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+/* Record selector box */
+.tableRenameRecordSelector {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 299px;
+  height: 34px;
+  margin-bottom: 8px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 8px;
+  background-color: rgb(242, 244, 248);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  min-height: 0px;
+  min-width: 0px;
+  opacity: 0.75;
+  unicode-bidi: isolate;
+}
+
+/* Record text */
+.tableRenameRecordText {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: 0px;
+  min-width: 0px;
+  height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+  text-wrap-mode: nowrap;
+  white-space-collapse: collapse;
+  unicode-bidi: isolate;
+}
+
+/* Chevron down icon */
+.tableRenameChevronIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+/* Example row */
+.tableRenameExampleRow {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 299px;
+  height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 18px;
+  unicode-bidi: isolate;
+}
+
+/* Example label */
+.tableRenameExampleLabel {
+  display: block;
+  box-sizing: border-box;
+  height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 18px;
+  unicode-bidi: isolate;
+}
+
+/* Example items container */
+.tableRenameExampleItems {
+  display: flex;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+  height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 18px;
+  unicode-bidi: isolate;
+}
+
+/* Example item (Add record / Send records) */
+.tableRenameExampleItem {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 12px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 18px;
+  unicode-bidi: isolate;
+}
+
+.tableRenameExampleItem:last-child {
+  margin-right: 0px;
+  transform: translateX(3px);
+}
+
+/* Example item icon */
+.tableRenameExampleIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin-left: 5px;
+  margin-right: 4px;
+  color: rgb(29, 31, 37);
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+/* Buttons row */
+.tableRenameButtonsRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  width: 299px;
+  height: 28px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 12px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  unicode-bidi: isolate;
+}
+
+/* Cancel button */
+.tableRenameCancelButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 28px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 8px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 0px;
+  max-width: 100%;
+  appearance: auto;
+  background-color: rgba(0, 0, 0, 0);
+  border-bottom-color: rgb(29, 31, 37);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom-style: none;
+  border-bottom-width: 0px;
+  border-left-color: rgb(29, 31, 37);
+  border-left-style: none;
+  border-left-width: 0px;
+  border-right-color: rgb(29, 31, 37);
+  border-right-style: none;
+  border-right-width: 0px;
+  border-top-color: rgb(29, 31, 37);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-top-style: none;
+  border-top-width: 0px;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-feature-settings: normal;
+  font-kerning: auto;
+  font-optical-sizing: auto;
+  font-size: 13px;
+  font-style: normal;
+  font-variant-alternates: normal;
+  font-variant-caps: normal;
+  font-variant-east-asian: normal;
+  font-variant-ligatures: normal;
+  font-variant-numeric: normal;
+  font-variant-position: normal;
+  font-variation-settings: normal;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 22px;
+  text-align: center;
+  text-decoration-color: rgb(29, 31, 37);
+  text-decoration-line: none;
+  text-decoration-style: solid;
+  text-decoration-thickness: auto;
+  text-indent: 0px;
+  text-rendering: auto;
+  text-shadow: none;
+  text-transform: none;
+  word-spacing: 0px;
+}
+
+.tableRenameCancelButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Save button */
+.tableRenameSaveButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 28px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 0px;
+  max-width: 100%;
+  appearance: auto;
+  background-color: rgb(22, 110, 225);
+  border-bottom-color: rgb(255, 255, 255);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom-style: none;
+  border-bottom-width: 0px;
+  border-left-color: rgb(255, 255, 255);
+  border-left-style: none;
+  border-left-width: 0px;
+  border-right-color: rgb(255, 255, 255);
+  border-right-style: none;
+  border-right-width: 0px;
+  border-top-color: rgb(255, 255, 255);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-top-style: none;
+  border-top-width: 0px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  color: rgb(255, 255, 255);
+  cursor: pointer;
+  fill: rgb(255, 255, 255);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-feature-settings: normal;
+  font-kerning: auto;
+  font-optical-sizing: auto;
+  font-size: 13px;
+  font-style: normal;
+  font-variant-alternates: normal;
+  font-variant-caps: normal;
+  font-variant-east-asian: normal;
+  font-variant-ligatures: normal;
+  font-variant-numeric: normal;
+  font-variant-position: normal;
+  font-variation-settings: normal;
+  font-weight: 500;
+  letter-spacing: normal;
+  line-height: 22px;
+  text-align: center;
+  text-decoration-color: rgb(255, 255, 255);
+  text-decoration-line: none;
+  text-decoration-style: solid;
+  text-decoration-thickness: auto;
+  text-indent: 0px;
+  text-rendering: auto;
+  text-shadow: none;
+  text-transform: none;
+  word-spacing: 0px;
+}
+
+.tableRenameSaveButton:hover {
+  background-color: rgb(18, 95, 195);
+}
