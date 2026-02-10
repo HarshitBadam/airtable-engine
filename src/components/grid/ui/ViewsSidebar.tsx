@@ -44,6 +44,14 @@ interface ViewsSidebarProps {
 
   // Delete
   deleteViewMut: { mutate: (args: { viewId: string }) => void };
+
+  // Sidebar inline rename
+  renamingSidebarViewId: string | null;
+  sidebarRenameValue: string;
+  setSidebarRenameValue: (val: string) => void;
+  startSidebarRename: (viewId: string) => void;
+  commitSidebarRename: () => void;
+  cancelSidebarRename: () => void;
 }
 
 export function ViewsSidebar({
@@ -75,6 +83,12 @@ export function ViewsSidebar({
   setIsRenamingView,
   setIsViewDropdownOpen,
   deleteViewMut,
+  renamingSidebarViewId,
+  sidebarRenameValue,
+  setSidebarRenameValue,
+  startSidebarRename,
+  commitSidebarRename,
+  cancelSidebarRename,
 }: ViewsSidebarProps) {
   // refs
   const viewsSidebarRef = useRef<HTMLDivElement>(null);
@@ -83,6 +97,7 @@ export function ViewsSidebar({
   const createViewBoxRef = useRef<HTMLDivElement>(null);
   const createViewInputRef = useRef<HTMLInputElement>(null);
   const viewItemContextMenuRef = useRef<HTMLUListElement>(null);
+  const sidebarRenameInputRef = useRef<HTMLInputElement>(null);
 
   // Click-outside for createNewDropdown
   useEffect(() => {
@@ -126,6 +141,25 @@ export function ViewsSidebar({
       createViewInputRef.current.select();
     }
   }, [isCreateViewBoxOpen]);
+
+  // Auto-focus sidebar rename input
+  useEffect(() => {
+    if (renamingSidebarViewId && sidebarRenameInputRef.current) {
+      sidebarRenameInputRef.current.focus();
+      sidebarRenameInputRef.current.select();
+    }
+  }, [renamingSidebarViewId]);
+
+  // Click-outside for sidebar rename
+  useEffect(() => {
+    if (!renamingSidebarViewId) return;
+    const handler = (event: MouseEvent) => {
+      if (sidebarRenameInputRef.current && sidebarRenameInputRef.current.contains(event.target as Node)) return;
+      commitSidebarRename();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [renamingSidebarViewId, commitSidebarRename]);
 
   return (
     <div
@@ -408,8 +442,9 @@ export function ViewsSidebar({
           .map((view) => (
           <li
             key={view.id}
-            className={`${styles.viewsSidebarViewItem} ${view.id === activeViewId ? styles.viewsSidebarViewItemActive : ''}`}
-            onClick={() => setActiveViewId(view.id)}
+            className={`${styles.viewsSidebarViewItem} ${view.id === activeViewId ? styles.viewsSidebarViewItemActive : ''} ${view.id === renamingSidebarViewId ? styles.viewsSidebarViewItemRenaming : ''}`}
+            onClick={() => { if (renamingSidebarViewId !== view.id) setActiveViewId(view.id); }}
+            onDoubleClick={() => startSidebarRename(view.id)}
           >
             <div className={styles.viewsSidebarViewItemRow}>
               {/* Grid Feature icon (shown by default, hidden on hover) */}
@@ -438,10 +473,26 @@ export function ViewsSidebar({
                 )}
               </svg>
 
-              {/* View name text */}
-              <span className={styles.viewsSidebarViewItemText}>{view.name}</span>
+              {/* View name text OR inline rename input */}
+              {renamingSidebarViewId === view.id ? (
+                <input
+                  ref={sidebarRenameInputRef}
+                  type="text"
+                  className={styles.viewsSidebarViewItemRenameInput}
+                  value={sidebarRenameValue}
+                  onChange={(e) => setSidebarRenameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); commitSidebarRename(); }
+                    if (e.key === 'Escape') { e.preventDefault(); cancelSidebarRename(); }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <span className={styles.viewsSidebarViewItemText}>{view.name}</span>
+              )}
 
-              {/* Actions (shown on hover) */}
+              {/* Actions (shown on hover, hidden when renaming) */}
               <div className={styles.viewsSidebarViewItemActions}>
                 {/* Overflow (three dots) icon */}
                 <svg
@@ -513,15 +564,8 @@ export function ViewsSidebar({
             <li
               className={styles.viewItemContextMenuItem}
               onClick={() => {
-                const viewToRename = views.find(v => v.id === contextMenuViewId);
-                if (viewToRename) {
-                  setActiveViewId(viewToRename.id);
-                  setRenameViewValue(viewToRename.name);
-                  setIsRenamingView(true);
-                  setIsViewDropdownOpen(false);
-                  setIsCreateNewDropdownOpen(false);
-                  setContextMenuViewId(null);
-                  setContextMenuPosition(null);
+                if (contextMenuViewId) {
+                  startSidebarRename(contextMenuViewId);
                 }
               }}
             >

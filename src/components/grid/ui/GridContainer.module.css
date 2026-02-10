@@ -77,6 +77,12 @@
   cursor: pointer;
 }
 
+/* The first header cell adjacent to the serial column has no visible left border
+   so the serial column merges seamlessly with the first data column. */
+.gridHeaderRowNum + .gridHeaderCell {
+  border-left-color: transparent;
+}
+
 /* --- Column header cell --- */
 /* Total: 180 × 32 (box-sizing: border-box)
    Content area: 179 × 30 (after 1px left border, 1px bottom border, 1px top padding) */
@@ -95,10 +101,14 @@
   position: relative;
 }
 
+.gridHeaderCell:hover {
+  background: #F8F8F8;
+}
+
 /* Inner media container: 179 × 30 (matches content area).
    Stays top-left when outer grows; shrinks with outer when outer shrinks. */
 .gridHeaderCellMedia {
-  width: 179px;
+  flex: 1;
   max-width: 100%;
   height: 30px;
   display: flex;
@@ -106,6 +116,35 @@
   flex-shrink: 1;
   min-width: 0;
   box-sizing: border-box;
+}
+
+/* Chevron dropdown icon — appears on hover, right side of header cell */
+.gridHeaderCellChevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 7px;
+  margin-top: -1px;
+  flex-shrink: 0;
+  color: #616670;
+  opacity: 0;
+  cursor: pointer;
+  align-self: center;
+}
+
+.gridHeaderCellChevron svg {
+  width: 16px;
+  height: 16px;
+}
+
+.gridHeaderCell:hover .gridHeaderCellChevron {
+  opacity: 1;
+}
+
+.gridHeaderCellChevron:hover {
+  color: #1D1F25;
 }
 
 /* Resize handle on right edge of each header cell */
@@ -285,26 +324,41 @@
   background: #F7F8FC;
   box-sizing: border-box;
   z-index: 1;
+  /* Hide native vertical scrollbar — replaced by custom overlay thumb */
+  scrollbar-width: none; /* Firefox */
 }
-/* Vertical scrollbar — visible, slightly thick, inset gap */
 .gridContentScroller::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* === CUSTOM VERTICAL SCROLLBAR (JS-driven overlay, matches Airtable) === */
+.customVScrollTrack {
+  position: absolute;
+  right: 0;
   width: 14px;
-  height: 0; /* hides native horizontal scrollbar — driven by custom hScrollbar */
-  background: #FFFFFF;
+  z-index: 6;
+  pointer-events: none;
+  /* Match horizontal scrollbar's padding: 3px border on each side via track inset */
+  padding-top: 3px;
+  padding-bottom: 3px;
+  box-sizing: border-box;
 }
-.gridContentScroller::-webkit-scrollbar-track {
-  background: #FFFFFF;
-}
-.gridContentScroller::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.25);
+.customVScrollThumb {
+  position: absolute;
+  right: 2px;
+  width: 10px;
+  min-height: 30px;
   border-radius: 7px;
-  border: 3px solid transparent;
-  background-clip: padding-box;
+  background-color: rgba(0, 0, 0, 0.28);
+  box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px inset;
+  pointer-events: auto;
+  cursor: default;
+  opacity: 0;
+  transition: opacity 0.3s linear;
+  box-sizing: border-box;
 }
-.gridContentScroller::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.4);
-  border: 3px solid transparent;
-  background-clip: padding-box;
+.customVScrollThumb:hover {
+  background-color: rgba(0, 0, 0, 0.38);
 }
 /* Inner wrapper — min-width set via inline style to match header scroll extent */
 .gridContentScrollerInner {
@@ -325,32 +379,42 @@
   background: #F8F8F8;
 }
 
-/* === FULL-WIDTH HORIZONTAL SCROLLBAR (below footer) === */
+/* === FULL-WIDTH HORIZONTAL SCROLLBAR (overlays bottom of footer) === */
 .gridHorizontalScrollbar {
-  height: 12px;
-  min-height: 12px;
-  flex-shrink: 0;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 16px;
+  z-index: 5; /* above footer, below selection overlay (6) */
   overflow-x: auto;
   overflow-y: hidden;
-  background: #fbfcfe;
+  background: transparent;
   box-sizing: border-box;
+  pointer-events: auto;
 }
+/* Horizontal scrollbar — transparent track, padded thumb
+   Airtable: 10px thumb, 2px margin from edges, white 1px inset shadow */
 .gridHorizontalScrollbar::-webkit-scrollbar {
-  height: 14px;
+  height: 16px;
+  background: transparent;
 }
 .gridHorizontalScrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .gridHorizontalScrollbar::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 7px;
-  border: 3px solid transparent;
+  background-color: rgba(0, 0, 0, 0.28);
   background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px inset;
 }
 .gridHorizontalScrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.4);
-  border: 3px solid transparent;
+  background-color: rgba(0, 0, 0, 0.38);
   background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px inset;
 }
 /* Inner spacer — width set via inline style */
 .gridHorizontalScrollbarInner {
@@ -451,10 +515,30 @@
   background: #F8F8F8;
 }
 
+/* Delete animation — smooth slide-up collapse */
+.gridRowDeleting {
+  overflow: hidden;
+  max-height: 32px;
+  opacity: 1;
+  animation: rowSlideUp 200ms ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes rowSlideUp {
+  0% {
+    max-height: 32px;
+    opacity: 1;
+  }
+  100% {
+    max-height: 0;
+    opacity: 0;
+  }
+}
+
 /* --- Serial number cell (leftmost, 83px wide) --- */
 .gridRowNumCell {
   width: 83px;
-  height: 33px;
+  height: 32px;
   flex-shrink: 0;
   border-bottom: 1px solid rgb(221, 225, 227);
   box-sizing: border-box;
@@ -487,9 +571,14 @@
   user-select: none;
 }
 
+/* The first data cell adjacent to the serial number cell has no visible left border. */
+.gridRowNumCell + .gridDataCell {
+  border-left-color: transparent;
+}
+
 /* --- Data cell (each column cell, 180x32 border-box with 1px left + 1px bottom border) --- */
 .gridDataCell {
-  height: 33px;
+  height: 32px;
   flex-shrink: 0;
   border-left: 1px solid rgb(221, 225, 227);
   border-bottom: 1px solid rgb(221, 225, 227);
@@ -568,48 +657,36 @@
   overflow: hidden;
 }
 
-/* --- Text cell inner (left-aligned by default) --- */
+/* --- Text cell inner (always left-aligned) --- */
 .gridCellText {
   width: 100%;
   height: 19.5px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
+  line-height: 19.5px;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
-  line-height: 18px;
   color: rgb(29, 31, 37);
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
-/* First data column: right-aligned */
-.gridCellTextFirst {
-  justify-content: flex-end;
-}
-
-/* --- Number cell inner (directly in content wrapper, right-aligned in first col) --- */
+/* --- Number cell inner (always right-aligned) --- */
 .gridCellNumber {
   width: 100%;
   height: 19.5px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
+  line-height: 19.5px;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
-  line-height: 18px;
   color: rgb(29, 31, 37);
+  text-align: right;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* First data column: right-aligned */
-.gridCellNumberFirst {
-  justify-content: flex-end;
+  min-width: 0;
 }
 
 /* --- Inline cell editor --- */
@@ -626,6 +703,15 @@
   line-height: 18px;
   color: rgb(29, 31, 37);
   box-sizing: border-box;
+}
+
+/* Right-aligned editor for number columns.
+   Content shifts up 1px to compensate for the editing overlay's
+   bottom border thickening inward (upward) on NUMBER cells. */
+.gridCellEditorNumber {
+  text-align: right;
+  padding-top: 5px;
+  padding-bottom: 7px;
 }
 
 /* --- Blue snap preview line (shown during freeze drag at target boundary) --- */
@@ -1156,4 +1242,310 @@
 
 .scrollableGrid::-webkit-scrollbar-thumb:hover {
   background: #ccc;
+}
+
+/* =============================================
+   COLUMN HEADER DROPDOWN MENU
+   ============================================= */
+
+/* Header cell active state (menu open) — keep hover bg + chevron visible */
+.gridHeaderCellMenuOpen {
+  background: #F8F8F8;
+}
+.gridHeaderCellMenuOpen .gridHeaderCellChevron {
+  opacity: 1;
+}
+
+/* Inner menu list — just content, no positioning (wrapper div handles that) */
+.colHeaderMenu {
+  box-sizing: border-box;
+  padding: 12px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  list-style: none;
+  margin: 0;
+}
+
+/* Line item */
+.colHeaderMenuItem {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 8px;
+  border-radius: 3px;
+  box-sizing: border-box;
+  cursor: pointer;
+  list-style: none;
+  margin: 0;
+  color: rgb(29, 31, 37);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+}
+.colHeaderMenuItem:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Icon within line item */
+.colHeaderMenuItemIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  color: rgb(29, 31, 37);
+}
+
+/* Text within line item */
+.colHeaderMenuItemText {
+  display: block;
+  margin-left: 8px;
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  user-select: none;
+  color: rgb(29, 31, 37);
+}
+
+/* Separator line */
+.colHeaderMenuSeparator {
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.05);
+  margin: 8px;
+  list-style: none;
+}
+
+/* Delete item icon — red */
+.colHeaderMenuDeleteIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  color: rgb(177, 15, 65);
+}
+
+/* Delete item text — red */
+.colHeaderMenuDeleteText {
+  display: block;
+  margin-left: 8px;
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  user-select: none;
+  color: rgb(177, 15, 65);
+}
+
+/* Disabled state (for hide/delete when single field) */
+.colHeaderMenuItemDisabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Content wrapper for items with badge (e.g., Edit field permissions) */
+.colHeaderMenuItemContent {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  margin-left: 8px;
+}
+
+.colHeaderMenuItemContent .colHeaderMenuItemText {
+  margin-left: 0;
+  width: auto;
+  flex: 0 1 auto;
+}
+
+/* Team badge */
+.colHeaderMenuTeamBadge {
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 18px;
+  padding: 0 8px;
+  margin-left: auto;
+  background-color: rgb(196, 236, 255);
+  border-radius: 9999px;
+  color: rgb(15, 104, 162);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+}
+
+.colHeaderMenuBadgeIcon {
+  display: block;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  margin-right: 4px;
+  color: rgb(15, 104, 162);
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+/* =============================================
+   RECORD CELL CONTEXT MENU
+   ============================================= */
+
+.recordContextMenu {
+  box-sizing: border-box;
+  padding: 12px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  list-style: none;
+  margin: 0;
+  width: 240px;
+}
+
+/* Line item */
+.recordContextMenuItem {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 8px;
+  border-radius: 3px;
+  box-sizing: border-box;
+  cursor: pointer;
+  list-style: none;
+  margin: 0;
+  color: rgb(29, 31, 37);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  width: 216px;
+}
+.recordContextMenuItem:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Icon within line item */
+.recordContextMenuItemIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  color: rgb(29, 31, 37);
+}
+
+/* Omni icon — override individual path fills to match text color */
+.recordContextMenuOmniIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-right: 8px;
+  overflow: hidden;
+  color: #1D1F25;
+}
+.recordContextMenuOmniIcon path {
+  fill: #1D1F25;
+}
+
+/* Text within line item */
+.recordContextMenuItemText {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  margin-left: 4px;
+  margin-bottom: 0;
+  margin-right: 0;
+  margin-top: 0;
+  padding: 0;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 18px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  color: rgb(29, 31, 37);
+}
+
+/* Separator line */
+.recordContextMenuSeparator {
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.05);
+  margin: 8px;
+  list-style: none;
+  padding: 0;
+  width: 200px;
+}
+
+/* Delete item icon — red */
+.recordContextMenuDeleteIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  color: rgb(177, 15, 65);
+}
+
+/* Delete item text — red */
+.recordContextMenuDeleteText {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  margin-left: 4px;
+  margin-bottom: 0;
+  margin-right: 0;
+  margin-top: 0;
+  padding: 0;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 18px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  color: rgb(177, 15, 65);
 }

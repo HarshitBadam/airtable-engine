@@ -1,4 +1,4 @@
-import { memo } from "react";
+import React, { memo } from "react";
 import styles from "./GridContainer.module.css";
 import { useGridStore } from "~/components/grid/grid-store";
 
@@ -14,10 +14,13 @@ export interface GridRowProps {
   frozenColumns: GridColumnDef[];
   scrollableColumns: GridColumnDef[];
   freezeWidth: number;
+  noFrozenColumns: boolean;
   getColWidth: (colId: string) => number;
   getCellValue: (cells: unknown, colId: string) => string;
   commit: (args: { rowId: string; columnId: string; columnType: "TEXT" | "NUMBER" }) => void;
   cancel: () => void;
+  onCellContextMenu?: (e: React.MouseEvent, rowId: string, columnId: string) => void;
+  isDeleting?: boolean;
 }
 
 /**
@@ -30,10 +33,13 @@ export const GridRow = memo(function GridRow({
   frozenColumns,
   scrollableColumns,
   freezeWidth,
+  noFrozenColumns,
   getColWidth,
   getCellValue,
   commit,
   cancel,
+  onCellContextMenu,
+  isDeleting,
 }: GridRowProps) {
   // Subscribe to only this row's state — other rows won't re-render
   const activeColId = useGridStore(
@@ -50,7 +56,7 @@ export const GridRow = memo(function GridRow({
   const setEditorValue = useGridStore((s) => s.setEditorValue);
 
   return (
-    <div className={styles.gridRow}>
+    <div className={`${styles.gridRow}${isDeleting ? ` ${styles.gridRowDeleting}` : ''}`}>
       {/* Frozen group (serial number + frozen columns) — sticks to left */}
       <div className={styles.gridRowFrozenGroup} style={{ width: freezeWidth }}>
         <div className={styles.gridRowNumCell}>
@@ -58,11 +64,11 @@ export const GridRow = memo(function GridRow({
             <div className={styles.gridRowNumInner}>{rowIndex + 1}</div>
           </div>
         </div>
-        {frozenColumns.map((col, colIdx) => {
+        {frozenColumns.map((col) => {
           const value = getCellValue(row.cells, col.id);
           const isEditing = editingColId === col.id;
           const isActive = activeColId === col.id;
-          const isFirstDataCol = colIdx === 0;
+          const isNumber = col.type === "NUMBER";
           return (
             <div
               key={col.id}
@@ -70,10 +76,11 @@ export const GridRow = memo(function GridRow({
               style={{ width: getColWidth(col.id) }}
               onClick={() => setActiveCell({ rowId: row.id, columnId: col.id })}
               onDoubleClick={() => startEditing({ rowId: row.id, columnId: col.id }, value)}
+              onContextMenu={(e) => onCellContextMenu?.(e, row.id, col.id)}
             >
               {isEditing ? (
                 <input
-                  className={styles.gridCellEditor}
+                  className={`${styles.gridCellEditor}${isNumber ? ` ${styles.gridCellEditorNumber}` : ""}`}
                   value={editorValue}
                   autoFocus
                   onChange={(e) => setEditorValue(e.target.value)}
@@ -85,15 +92,9 @@ export const GridRow = memo(function GridRow({
                 />
               ) : value ? (
                 <div className={styles.gridCellContent}>
-                  {col.type === "TEXT" ? (
-                    <div className={`${styles.gridCellText}${isFirstDataCol ? ` ${styles.gridCellTextFirst}` : ""}`}>
-                      {value}
-                    </div>
-                  ) : (
-                    <div className={`${styles.gridCellNumber}${isFirstDataCol ? ` ${styles.gridCellNumberFirst}` : ""}`}>
-                      {value}
-                    </div>
-                  )}
+                  <div className={isNumber ? styles.gridCellNumber : styles.gridCellText}>
+                    {value}
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -106,19 +107,23 @@ export const GridRow = memo(function GridRow({
         const value = getCellValue(row.cells, col.id);
         const isEditing = editingColId === col.id;
         const isActive = activeColId === col.id;
-        const isFirstDataCol = frozenColumns.length === 0 && colIdx === 0;
+        const isNumber = col.type === "NUMBER";
         const isLastCol = colIdx === scrollableColumns.length - 1;
         return (
           <div
             key={col.id}
             className={`${styles.gridDataCell}${isActive ? ` ${styles.gridDataCellActive}` : ""}`}
-            style={{ width: getColWidth(col.id) + (isLastCol ? 1 : 0) }}
+            style={{
+              width: getColWidth(col.id) + (isLastCol ? 1 : 0),
+              ...(noFrozenColumns && colIdx === 0 ? { borderLeftColor: 'transparent' } : {}),
+            }}
             onClick={() => setActiveCell({ rowId: row.id, columnId: col.id })}
             onDoubleClick={() => startEditing({ rowId: row.id, columnId: col.id }, value)}
+            onContextMenu={(e) => onCellContextMenu?.(e, row.id, col.id)}
           >
             {isEditing ? (
               <input
-                className={styles.gridCellEditor}
+                className={`${styles.gridCellEditor}${isNumber ? ` ${styles.gridCellEditorNumber}` : ""}`}
                 value={editorValue}
                 autoFocus
                 onChange={(e) => setEditorValue(e.target.value)}
@@ -130,15 +135,9 @@ export const GridRow = memo(function GridRow({
               />
             ) : value ? (
               <div className={styles.gridCellContent}>
-                {col.type === "TEXT" ? (
-                  <div className={`${styles.gridCellText}${isFirstDataCol ? ` ${styles.gridCellTextFirst}` : ""}`}>
-                    {value}
-                  </div>
-                ) : (
-                  <div className={`${styles.gridCellNumber}${isFirstDataCol ? ` ${styles.gridCellNumberFirst}` : ""}`}>
-                    {value}
-                  </div>
-                )}
+                <div className={isNumber ? styles.gridCellNumber : styles.gridCellText}>
+                  {value}
+                </div>
               </div>
             ) : null}
           </div>

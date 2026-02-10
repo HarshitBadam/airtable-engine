@@ -2,8 +2,8 @@
    GridWorkspace - Airtable-like Table UI Shell
    ============================================ */
 
-/* === LAYOUT TOKENS === */
-:root {
+/* === ROOT CONTAINER (includes layout tokens as CSS vars) === */
+.workspace {
   /* Rail (narrow sidebar) */
   --grid-rail-width: 56px;
   
@@ -59,10 +59,7 @@
   /* Transitions */
   --grid-transition-fast: 150ms cubic-bezier(0.2, 0.1, 0.2, 1);
   --grid-transition-base: 200ms cubic-bezier(0.2, 0.1, 0.2, 1);
-}
 
-/* === ROOT CONTAINER === */
-.workspace {
   display: flex;
   flex-direction: row;
   height: 100vh;

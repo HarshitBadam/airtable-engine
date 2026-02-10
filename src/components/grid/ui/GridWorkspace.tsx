@@ -4,6 +4,9 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { signOut, useSession } from "next-auth/react";
 import { skipToken } from "@tanstack/react-query";
+import type { InfiniteData } from "@tanstack/react-query";
+import type { inferProcedureOutput } from "@trpc/server";
+import type { AppRouter } from "~/server/api/root";
 import styles from "./GridWorkspace.module.css";
 import { api } from "~/trpc/react";
 import { getBaseColor, getBaseBorderColor, getBaseTextColor, getBaseToolbarColor } from "~/components/bases/useBases";
@@ -65,11 +68,18 @@ import { ViewsSidebar } from "./ViewsSidebar";
 import { GridContainer } from "./GridContainer";
 
 // ============================================
+// TYPE ALIASES (for optimistic cache updates)
+// ============================================
+type RowInfinitePage = inferProcedureOutput<AppRouter["row"]["infinite"]>;
+type RowInfiniteCursor = RowInfinitePage["nextCursor"];
+type RowInfiniteData = InfiniteData<RowInfinitePage, RowInfiniteCursor>;
+
+// ============================================
 // GRID DIMENSION CONSTANTS
 // ============================================
 const ROW_NUM_WIDTH = 83;   // 44px cell + 39px margin-right
 const COLUMN_WIDTH = 180;   // each column header total width (border-box)
-const DATA_ROW_HEIGHT = 33; // matches CSS .gridRowNumCell/.gridDataCell height
+const DATA_ROW_HEIGHT = 32; // matches CSS .gridRowNumCell/.gridDataCell height
 const OVERSCAN_COUNT = 15;  // extra rows rendered above/below viewport
 
 // GridRow & types imported from GridRow.tsx
@@ -432,7 +442,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     const ac = activeCellRef.current;
     const ec = editingCellRef.current;
-    if (!ac || ec) {
+
+    // Use editing cell if present, otherwise active cell
+    const targetCell = ec ?? ac;
+    if (!targetCell) {
       overlay.style.display = "none";
       return;
     }
@@ -441,8 +454,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     const rws = rowsRef.current;
     const frozenCount = frozenColumnCountRef.current;
 
-    const colIdx = cols.findIndex((c) => c.id === ac.columnId);
-    const rowIdx = rws.findIndex((r) => r.id === ac.rowId);
+    const colIdx = cols.findIndex((c) => c.id === targetCell.columnId);
+    const rowIdx = rws.findIndex((r) => r.id === targetCell.rowId);
     if (colIdx === -1 || rowIdx === -1) {
       overlay.style.display = "none";
       return;
@@ -456,7 +469,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     const scrollTop = scroller.scrollTop;
     const headerH = rowHeightRef.current;
     const widths = columnWidthsRef.current;
-    const colWidth = widths[ac.columnId] ?? COLUMN_WIDTH;
+    const colWidth = widths[targetCell.columnId] ?? COLUMN_WIDTH;
     const isFrozen = colIdx < frozenCount;
 
     // Cell X in viewport coords (relative to .gridBody)
@@ -471,12 +484,61 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     // Cell Y relative to .gridBody
     const cellY = headerH + rowIdx * DATA_ROW_HEIGHT - scrollTop;
 
-    // Overlay extends 1px outside cell on all sides → 2px border centered on grid lines
+    // Fill handle — first child of overlay
+    const handle = overlay.firstElementChild as HTMLElement | null;
+
     overlay.style.display = "block";
-    overlay.style.top = `${cellY - 2}px`;
-    overlay.style.left = `${cellX - 1}px`;
-    overlay.style.width = `${colWidth + 2}px`;
-    overlay.style.height = `${DATA_ROW_HEIGHT + 3}px`;
+
+    let overlayTop: number;
+    let overlayHeight: number;
+
+    if (ec) {
+      // --- Editing mode: hide fill handle, 3px border, expand outward ---
+      if (handle) handle.style.display = "none";
+      overlay.style.borderWidth = "3px";
+
+      const col = cols[colIdx];
+      const isNumber = col?.type === "NUMBER";
+
+      if (isNumber) {
+        // NUMBER: top/left/right outward, bottom flush with cell bottom
+        // so the 3px border eats inward (upward).
+        overlayTop = cellY - 3;
+        overlay.style.left = `${cellX - 3}px`;
+        overlay.style.width = `${colWidth + 6}px`;
+        overlayHeight = DATA_ROW_HEIGHT + 3;
+      } else {
+        // TEXT: all sides outward including bottom (downward).
+        overlayTop = cellY - 3;
+        overlay.style.left = `${cellX - 3}px`;
+        overlay.style.width = `${colWidth + 6}px`;
+        overlayHeight = DATA_ROW_HEIGHT + 6;
+      }
+    } else {
+      // --- Active (non-editing) mode: show fill handle, 2px border ---
+      if (handle) handle.style.display = "";
+      overlay.style.borderWidth = "2px";
+
+      overlayTop = cellY - 2;
+      overlay.style.left = `${cellX - 1}px`;
+      overlay.style.width = `${colWidth + 2}px`;
+      overlayHeight = DATA_ROW_HEIGHT + 3;
+    }
+
+    overlay.style.top = `${overlayTop}px`;
+    overlay.style.height = `${overlayHeight}px`;
+
+    // Clip overlay so it doesn't paint above the column headers.
+    // Allow the border to extend slightly above the header (Airtable behavior
+    // for the first row) — only clip when the cell body itself is behind the header.
+    // Use negative insets for bottom/right so the fill handle is never clipped.
+    const borderW = ec ? 3 : 2;
+    if (overlayTop + borderW < headerH) {
+      const clipTop = headerH - overlayTop;
+      overlay.style.clipPath = `inset(${clipTop}px -10px -10px 0)`;
+    } else {
+      overlay.style.clipPath = "";
+    }
   }, []);
 
   /** Scroll horizontally/vertically so a cell is fully visible. */
@@ -986,10 +1048,380 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const [contextMenuViewId, setContextMenuViewId] = useState<string | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
-  // Rename view state
+  // Rename view state (GridBar inline rename)
   const [isRenamingView, setIsRenamingView] = useState(false);
   const [renameViewValue, setRenameViewValue] = useState('');
   const renameViewInputRef = useRef<HTMLInputElement>(null);
+
+  // Sidebar inline rename state
+  const [renamingSidebarViewId, setRenamingSidebarViewId] = useState<string | null>(null);
+  const [sidebarRenameValue, setSidebarRenameValue] = useState('');
+
+  // === ROW MUTATIONS ===
+  const addRowMut = api.row.addMany.useMutation();
+
+  // Ref to track the ID of a just-inserted row so the auto-edit effect can find it
+  const newRowEditIdRef = useRef<string | null>(null);
+  // Maps temp optimistic IDs to real server IDs after mutation succeeds
+  const tempToRealIdRef = useRef<{ tempId: string; realId: string } | null>(null);
+
+  // Insert row — optimistic: inject a placeholder row into cache immediately
+  const insertRowMut = api.row.insertAt.useMutation({
+    onMutate: async (vars) => {
+      await utils.row.infinite.cancel(rowQueryInput);
+      const prev = utils.row.infinite.getInfiniteData(rowQueryInput);
+
+      const tempId = `__temp_${Date.now()}`;
+
+      // Build a placeholder row matching the shape from row.infinite
+      const tempRow = {
+        id: tempId,
+        rowIndex: vars.atIndex,
+        cells: {},
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
+        if (!old) return old;
+
+        let inserted = false;
+        return {
+          ...old,
+          pages: old.pages.map((page, pageIdx) => {
+            const newItems: typeof page.items = [];
+
+            for (const r of page.items) {
+              // Insert the temp row right before the first row at or above atIndex
+              if (!inserted && r.rowIndex >= vars.atIndex) {
+                newItems.push(tempRow as typeof r);
+                inserted = true;
+              }
+              // Shift existing rows at or above atIndex up by 1
+              newItems.push(
+                r.rowIndex >= vars.atIndex
+                  ? { ...r, rowIndex: r.rowIndex + 1 }
+                  : r,
+              );
+            }
+
+            // If not inserted yet (all rows have lower indices), append at end
+            if (!inserted && pageIdx === old.pages.length - 1) {
+              newItems.push(tempRow as typeof page.items[0]);
+              inserted = true;
+            }
+
+            return {
+              ...page,
+              items: newItems,
+              totalCount: pageIdx === 0 ? page.totalCount + 1 : page.totalCount,
+            };
+          }),
+        };
+      });
+
+      // Immediately schedule auto-edit for the temp row
+      newRowEditIdRef.current = tempId;
+
+      return { prev, tempId };
+    },
+    onError: (_e, _v, ctx) => {
+      newRowEditIdRef.current = null;
+      if (ctx?.prev) {
+        utils.row.infinite.setInfiniteData(rowQueryInput, ctx.prev);
+      }
+    },
+    onSuccess: (data, _vars, ctx) => {
+      // Map temp → real ID so the auto-edit effect (and any active editing state) uses the real ID
+      if (ctx?.tempId) {
+        tempToRealIdRef.current = { tempId: ctx.tempId, realId: data.id };
+      }
+      // Re-sync with server for accurate data
+      void utils.row.infinite.invalidate(rowQueryInput);
+    },
+  });
+
+  // Duplicate row — optimistic: clone the row right below the source
+  const duplicateRowMut = api.row.duplicateAt.useMutation({
+    onMutate: async (vars) => {
+      await utils.row.infinite.cancel(rowQueryInput);
+      const prev = utils.row.infinite.getInfiniteData(rowQueryInput);
+
+      // Find the source row in cache so we can clone its cells
+      let sourceRow: RowInfinitePage["items"][number] | undefined;
+      if (prev) {
+        for (const page of prev.pages) {
+          sourceRow = page.items.find((r) => r.id === vars.rowId);
+          if (sourceRow) break;
+        }
+      }
+
+      const atIndex = sourceRow ? sourceRow.rowIndex + 1 : 0;
+      const tempId = `__temp_dup_${Date.now()}`;
+      const tempRow = {
+        id: tempId,
+        rowIndex: atIndex,
+        cells: sourceRow ? sourceRow.cells : {},
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
+        if (!old) return old;
+        let inserted = false;
+        return {
+          ...old,
+          pages: old.pages.map((page, pageIdx) => {
+            const newItems: typeof page.items = [];
+            for (const r of page.items) {
+              newItems.push(
+                r.rowIndex >= atIndex
+                  ? { ...r, rowIndex: r.rowIndex + 1 }
+                  : r,
+              );
+              // Insert the duplicate right after the source row
+              if (!inserted && r.id === vars.rowId) {
+                newItems.push(tempRow as typeof r);
+                inserted = true;
+              }
+            }
+            if (!inserted && pageIdx === old.pages.length - 1) {
+              newItems.push(tempRow as typeof page.items[0]);
+              inserted = true;
+            }
+            return {
+              ...page,
+              items: newItems,
+              totalCount: pageIdx === 0 ? page.totalCount + 1 : page.totalCount,
+            };
+          }),
+        };
+      });
+
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) {
+        utils.row.infinite.setInfiniteData(rowQueryInput, ctx.prev);
+      }
+    },
+    onSuccess: () => {
+      void utils.row.infinite.invalidate(rowQueryInput);
+    },
+  });
+
+  // Set of row IDs currently animating out (slide-up before removal)
+  const [deletingRowIds, setDeletingRowIds] = useState<Set<string>>(new Set());
+
+  // Delete row — animated: mark as deleting → animate → remove from cache
+  const deleteRowMut = api.row.delete.useMutation({
+    onSuccess: () => {
+      // Re-sync with server to get accurate data after animation + removal
+      void utils.row.infinite.invalidate(rowQueryInput);
+    },
+    onError: (_e, vars) => {
+      // If the server fails, un-mark the row so it reappears
+      setDeletingRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(vars.rowId);
+        return next;
+      });
+    },
+  });
+
+  // === COLUMN MUTATIONS ===
+  // Delete column — optimistic: remove from column list + strip from row cells immediately
+  const deleteColumnMut = api.column.delete.useMutation({
+    onMutate: async (vars) => {
+      // Cancel both queries
+      await Promise.all([
+        utils.column.list.cancel({ tableId }),
+        utils.row.infinite.cancel(rowQueryInput),
+      ]);
+
+      const prevCols = utils.column.list.getData({ tableId });
+      const prevRows = utils.row.infinite.getInfiniteData(rowQueryInput);
+
+      // Remove column from column list cache
+      utils.column.list.setData({ tableId }, (old) => {
+        if (!old) return old;
+        return old.filter((c) => c.id !== vars.columnId);
+      });
+
+      // Strip the column key from all rows' cells
+      utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            items: page.items.map((r) => {
+              const cells = r.cells as Record<string, unknown> | null;
+              if (!cells || !(vars.columnId in cells)) return r;
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { [vars.columnId]: _removed, ...rest } = cells;
+              return { ...r, cells: rest };
+            }),
+          })),
+        };
+      });
+
+      return { prevCols, prevRows };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prevCols) {
+        utils.column.list.setData({ tableId }, ctx.prevCols);
+      }
+      if (ctx?.prevRows) {
+        utils.row.infinite.setInfiniteData(rowQueryInput, ctx.prevRows);
+      }
+    },
+    onSuccess: () => {
+      // Re-sync with server
+      void utils.column.list.invalidate({ tableId });
+      void utils.row.infinite.invalidate(rowQueryInput);
+    },
+  });
+
+  // Stores the rowIndex of the newly created row so we can identify it after refetch
+  const newRowTargetIndexRef = useRef<number | null>(null);
+
+  const handleAddRow = useCallback(() => {
+    if (!isValidTable) return;
+    addRowMut.mutate({ tableId, count: 1 }, {
+      onSuccess: (data) => {
+        // data.startRowIndex is the rowIndex of the newly inserted row
+        newRowTargetIndexRef.current = data.startRowIndex;
+        void utils.row.infinite.invalidate({ tableId });
+      },
+    });
+  }, [isValidTable, tableId, addRowMut, utils]);
+
+  // When rows update after adding (+ button), find the new row by rowIndex and start editing
+  useEffect(() => {
+    if (newRowTargetIndexRef.current === null) return;
+    if (rows.length === 0 || columns.length === 0) return;
+
+    const targetIdx = newRowTargetIndexRef.current;
+    const newRow = (rows as Array<{ id: string; rowIndex: number; cells: unknown }>).find(
+      (r) => r.rowIndex === targetIdx,
+    );
+    if (!newRow) return; // Row hasn't appeared yet — wait for next rows update
+
+    newRowTargetIndexRef.current = null;
+
+    const firstCol = columns[0];
+    if (firstCol) {
+      const scroller = gridScrollerRef.current;
+      if (scroller) {
+        scroller.scrollTop = scroller.scrollHeight;
+      }
+      requestAnimationFrame(() => {
+        setActiveCell({ rowId: newRow.id, columnId: firstCol.id });
+        startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
+      });
+    }
+  }, [rows, columns, setActiveCell, startEditing]);
+
+  // When rows update after insert above/below, find the new row by ID and start editing.
+  // Also swaps temp → real ID when the server data arrives.
+  useEffect(() => {
+    if (!newRowEditIdRef.current) return;
+    if (rows.length === 0 || columns.length === 0) return;
+
+    let targetId = newRowEditIdRef.current;
+
+    // If the server has responded with a real ID mapping, apply it
+    const mapping = tempToRealIdRef.current;
+    if (mapping && targetId === mapping.tempId) {
+      targetId = mapping.realId;
+    }
+
+    const typedRows = rows as Array<{ id: string; rowIndex: number; cells: unknown }>;
+    let newRow = typedRows.find((r) => r.id === targetId);
+
+    // Also try the temp ID in case the optimistic row is still in cache
+    if (!newRow && targetId !== newRowEditIdRef.current) {
+      newRow = typedRows.find((r) => r.id === newRowEditIdRef.current);
+    }
+
+    if (!newRow) return; // Row hasn't appeared yet
+
+    newRowEditIdRef.current = null;
+    tempToRealIdRef.current = null;
+
+    const firstCol = columns[0];
+    if (firstCol) {
+      requestAnimationFrame(() => {
+        setActiveCell({ rowId: newRow.id, columnId: firstCol.id });
+        startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
+      });
+    }
+  }, [rows, columns, setActiveCell, startEditing]);
+
+  // === INSERT RECORD ABOVE (optimistic — row appears instantly) ===
+  const handleInsertRecordAbove = useCallback((rowId: string) => {
+    if (!isValidTable) return;
+    const row = (rows as Array<{ id: string; rowIndex: number; cells: unknown }>).find(r => r.id === rowId);
+    if (!row) return;
+    insertRowMut.mutate({ tableId, atIndex: row.rowIndex });
+  }, [isValidTable, tableId, rows, insertRowMut]);
+
+  // === INSERT RECORD BELOW (optimistic — row appears instantly) ===
+  const handleInsertRecordBelow = useCallback((rowId: string) => {
+    if (!isValidTable) return;
+    const row = (rows as Array<{ id: string; rowIndex: number; cells: unknown }>).find(r => r.id === rowId);
+    if (!row) return;
+    insertRowMut.mutate({ tableId, atIndex: row.rowIndex + 1 });
+  }, [isValidTable, tableId, rows, insertRowMut]);
+
+  // === DUPLICATE RECORD (optimistic — clone appears instantly below) ===
+  const handleDuplicateRecord = useCallback((rowId: string) => {
+    if (!isValidTable) return;
+    duplicateRowMut.mutate({ tableId, rowId });
+  }, [isValidTable, tableId, duplicateRowMut]);
+
+  // === DELETE RECORD (optimistic — row disappears instantly) ===
+  // Animation duration for row deletion slide-up (ms)
+  const DELETE_ANIM_MS = 200;
+
+  const handleDeleteRecord = useCallback((rowId: string) => {
+    if (!isValidTable) return;
+    if (activeCell?.rowId === rowId) clearSelection();
+
+    // 1) Mark the row as "deleting" → triggers CSS slide-up animation
+    setDeletingRowIds((prev) => new Set(prev).add(rowId));
+
+    // 2) After animation completes, remove from cache and fire the server mutation
+    setTimeout(() => {
+      // Remove from cache optimistically
+      utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page, i) => ({
+            ...page,
+            items: page.items.filter((r) => r.id !== rowId),
+            totalCount: i === 0 ? Math.max(0, page.totalCount - 1) : page.totalCount,
+          })),
+        };
+      });
+      setDeletingRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rowId);
+        return next;
+      });
+      // Fire the actual server deletion
+      deleteRowMut.mutate({ tableId, rowId });
+    }, DELETE_ANIM_MS);
+  }, [isValidTable, tableId, activeCell, clearSelection, deleteRowMut, utils, rowQueryInput]);
+
+  // === DELETE FIELD (optimistic — column disappears instantly) ===
+  const handleDeleteField = useCallback((columnId: string) => {
+    if (!isValidTable) return;
+    if (activeCell?.columnId === columnId) clearSelection();
+    deleteColumnMut.mutate({ tableId, columnId });
+  }, [isValidTable, tableId, activeCell, clearSelection, deleteColumnMut]);
 
   // Check scroll progress for proportional reveal
   const checkScrollProgress = () => {
@@ -1374,6 +1806,33 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     setIsRenamingView(false);
   };
 
+  // === SIDEBAR INLINE RENAME HELPERS ===
+  const startSidebarRename = useCallback((viewId: string) => {
+    const view = views.find(v => v.id === viewId);
+    if (view) {
+      setRenamingSidebarViewId(viewId);
+      setSidebarRenameValue(view.name);
+      setContextMenuViewId(null);
+      setContextMenuPosition(null);
+      setIsCreateNewDropdownOpen(false);
+    }
+  }, [views]);
+
+  const commitSidebarRename = useCallback(() => {
+    const trimmed = sidebarRenameValue.trim();
+    if (trimmed && renamingSidebarViewId) {
+      const view = views.find(v => v.id === renamingSidebarViewId);
+      if (view && trimmed !== view.name) {
+        renameViewMut.mutate({ viewId: renamingSidebarViewId, name: trimmed });
+      }
+    }
+    setRenamingSidebarViewId(null);
+  }, [sidebarRenameValue, renamingSidebarViewId, views, renameViewMut]);
+
+  const cancelSidebarRename = useCallback(() => {
+    setRenamingSidebarViewId(null);
+  }, []);
+
   // === RENDER ===
   return (
     <div className={styles.workspace}>
@@ -1499,6 +1958,12 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               setIsRenamingView={setIsRenamingView}
               setIsViewDropdownOpen={setIsViewDropdownOpen}
               deleteViewMut={deleteViewMut}
+              renamingSidebarViewId={renamingSidebarViewId}
+              sidebarRenameValue={sidebarRenameValue}
+              setSidebarRenameValue={setSidebarRenameValue}
+              startSidebarRename={startSidebarRename}
+              commitSidebarRename={commitSidebarRename}
+              cancelSidebarRename={cancelSidebarRename}
             />
 
             <GridContainer
@@ -1529,6 +1994,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               handleResizeStart={handleResizeStart}
               handleFreezeDragStart={handleFreezeDragStart}
               handleFreezeLineMouseMove={handleFreezeLineMouseMove}
+              onAddRow={handleAddRow}
+              onInsertRecordAbove={handleInsertRecordAbove}
+              onInsertRecordBelow={handleInsertRecordBelow}
+              onDuplicateRecord={handleDuplicateRecord}
+              onDeleteRecord={handleDeleteRecord}
+              onDeleteField={handleDeleteField}
+              deletingRowIds={deletingRowIds}
             />
           </div>
         </div>

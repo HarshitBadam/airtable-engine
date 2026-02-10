@@ -419,6 +419,162 @@ export const rowRouter = createTRPCRouter({
       });
     }),
 
+  /**
+   * Insert a single empty row at a specific rowIndex position.
+   * Shifts existing rows at or after `atIndex` up by 1.
+   */
+  insertAt: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        atIndex: z.number().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true },
+      });
+      if (!table) throw new Error("Table not found");
+
+      return ctx.db.$transaction(async (tx) => {
+        // Shift all rows at or after the target index up by 1.
+        // Two-pass negation trick to avoid unique constraint violations
+        // on (tableId, rowIndex): first negate, then restore with +1.
+        await tx.$executeRawUnsafe(`
+          UPDATE "Row"
+          SET "rowIndex" = -("rowIndex" + 1)
+          WHERE "tableId" = $1 AND "rowIndex" >= $2
+        `, input.tableId, input.atIndex);
+
+        await tx.$executeRawUnsafe(`
+          UPDATE "Row"
+          SET "rowIndex" = -"rowIndex", "updatedAt" = now()
+          WHERE "tableId" = $1 AND "rowIndex" < 0
+        `, input.tableId);
+
+        // Insert the new empty row at the target index
+        const newRow = await tx.row.create({
+          data: {
+            tableId: input.tableId,
+            rowIndex: input.atIndex,
+            cells: {},
+            searchText: "",
+          },
+          select: { id: true, rowIndex: true, cells: true, createdAt: true, updatedAt: true },
+        });
+
+        // Update table counters
+        await tx.table.update({
+          where: { id: input.tableId },
+          data: {
+            nextRowIndex: { increment: 1 },
+            rowCount: { increment: 1 },
+          },
+        });
+
+        return newRow;
+      });
+    }),
+
+  /**
+   * Duplicate a row: copy its cells and insert the clone right below it.
+   * Shifts subsequent rows up by 1 (same two-pass trick as insertAt).
+   */
+  duplicateAt: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        rowId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true },
+      });
+      if (!table) throw new Error("Table not found");
+
+      const sourceRow = await ctx.db.row.findFirst({
+        where: { id: input.rowId, tableId: input.tableId },
+        select: { rowIndex: true, cells: true, searchText: true },
+      });
+      if (!sourceRow) throw new Error("Row not found");
+
+      const atIndex = sourceRow.rowIndex + 1;
+
+      return ctx.db.$transaction(async (tx) => {
+        // Shift rows at or after atIndex (same two-pass negation trick)
+        await tx.$executeRawUnsafe(`
+          UPDATE "Row"
+          SET "rowIndex" = -("rowIndex" + 1)
+          WHERE "tableId" = $1 AND "rowIndex" >= $2
+        `, input.tableId, atIndex);
+
+        await tx.$executeRawUnsafe(`
+          UPDATE "Row"
+          SET "rowIndex" = -"rowIndex", "updatedAt" = now()
+          WHERE "tableId" = $1 AND "rowIndex" < 0
+        `, input.tableId);
+
+        // Insert the duplicated row with the same cells
+        const newRow = await tx.row.create({
+          data: {
+            tableId: input.tableId,
+            rowIndex: atIndex,
+            cells: sourceRow.cells ?? {},
+            searchText: sourceRow.searchText ?? "",
+          },
+          select: { id: true, rowIndex: true, cells: true, createdAt: true, updatedAt: true },
+        });
+
+        await tx.table.update({
+          where: { id: input.tableId },
+          data: {
+            nextRowIndex: { increment: 1 },
+            rowCount: { increment: 1 },
+          },
+        });
+
+        return newRow;
+      });
+    }),
+
+  /**
+   * Delete a single row by ID.
+   */
+  delete: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        rowId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true },
+      });
+      if (!table) throw new Error("Table not found");
+
+      const row = await ctx.db.row.findFirst({
+        where: { id: input.rowId, tableId: input.tableId },
+        select: { id: true },
+      });
+      if (!row) throw new Error("Row not found");
+
+      return ctx.db.$transaction(async (tx) => {
+        await tx.row.delete({ where: { id: input.rowId } });
+
+        await tx.table.update({
+          where: { id: input.tableId },
+          data: { rowCount: { decrement: 1 } },
+        });
+
+        return { id: input.rowId };
+      });
+    }),
+
   updateCell: protectedProcedure
     .input(
       z.object({

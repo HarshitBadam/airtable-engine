@@ -57,7 +57,16 @@ export function GridBar({
   deleteViewMut,
 }: GridBarProps) {
   return (
-    <div className={styles.gridBar}>
+    <div
+      className={styles.gridBar}
+      onContextMenu={(e) => {
+        // Don't hijack right-click on buttons
+        if ((e.target as HTMLElement).closest('button')) return;
+        e.preventDefault();
+        setIsViewDropdownOpen(true);
+        setIsCreateNewDropdownOpen(false);
+      }}
+    >
       {/* Left section */}
       <div className={styles.gridBarLeft}>
         {/* List icon button (toggles views sidebar) */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import styles from "./Rail.module.css";
 import {
@@ -27,6 +28,8 @@ import {
 } from "~/components/home/Icons";
 
 export function Rail() {
+  const router = useRouter();
+
   // Account dropdown state (co-located)
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
@@ -58,7 +61,7 @@ export function Rail() {
     <nav className={styles.rail}>
       {/* Rail Top - Logo and second icon */}
       <div className={styles.railTop}>
-        <button className={styles.railLogo}>
+        <button className={styles.railLogo} onClick={() => router.push("/dashboard")}>
           <AirtableLogoMonochrome className={styles.logoIcon} />
           <IconBackArrow className={styles.backArrowIcon} />
           <span className={styles.railTooltip}>Back to home</span>
