@@ -1,0 +1,379 @@
+/* =============================================
+   HIDE FIELDS PANEL — Dropdown from "Hide fields" button
+   ============================================= */
+
+/* Main container — fixed 320px width, variable height */
+.hideFieldsPanel {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  margin: 0;
+  min-width: 320px;
+  padding: 0;
+  overflow: hidden; /* prevents child margin collapse */
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 320px;
+  background-color: #fff;
+  border-radius: 3px;
+  box-shadow:
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+}
+
+/* Inner content wrapper */
+.panelContent {
+  padding: 0 1px 8px 1px;
+}
+
+/* === SEARCH REGION === */
+.searchRegion {
+  align-items: center;
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 36px;
+  line-height: 18px;
+  margin: 9px 16px 0 16px;
+  padding: 0;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 288px;
+}
+
+/* "Find a field" input */
+.searchInput {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  box-shadow: none;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: text;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 12px;
+  font-weight: 400;
+  height: 34px;
+  line-height: 18px;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  outline: none;
+  overflow: clip;
+  padding: 8px 0;
+  resize: none;
+  text-align: start;
+  white-space: nowrap;
+  width: 272px;
+}
+
+.searchInput::placeholder {
+  color: #757575;
+}
+
+/* Question mark icon */
+.searchHelpIcon {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  line-height: 18px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  width: 16px;
+}
+
+/* === LINE ITEMS CONTAINER (scrollable) === */
+.fieldList {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  margin: 4px 0 0 0;
+  max-height: 421px;
+  min-height: 100px;
+  overflow-x: auto;
+  overflow-y: auto;
+  padding: 8px 16px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 320px;
+  position: relative;
+  /* Custom scrollbar — translucent, no opaque track */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+}
+
+.fieldList::-webkit-scrollbar {
+  width: 10px;
+  background: transparent;
+}
+
+.fieldList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fieldList::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.28);
+  border-radius: 7px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.fieldList::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.38);
+}
+
+/* === LINE ITEM (each field row) === */
+.fieldItem {
+  display: flex;
+  align-items: center;
+  height: 18px;
+  margin: 0;
+  padding: 3px 0;
+  width: 288px;
+  box-sizing: content-box;
+  user-select: none;
+  margin-bottom: 2px;
+}
+
+/* Left container (toggle + icon + name) — hover target */
+.fieldItemLeft {
+  align-items: center;
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  padding: 0 4px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 272px;
+}
+
+.fieldItemLeft:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* === TOGGLE PILL === */
+.togglePill {
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  height: 8px;
+  width: 12.8px;
+  padding: 2px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.085s ease-in;
+}
+
+.togglePillOn {
+  background-color: rgb(4, 138, 14);
+  justify-content: flex-end;
+}
+
+.togglePillOff {
+  background-color: rgba(0, 0, 0, 0.1);
+  justify-content: flex-start;
+}
+
+/* Toggle pill inner circle */
+.togglePillCircle {
+  background-color: rgb(255, 255, 255);
+  border-radius: 50%;
+  box-sizing: border-box;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 4px;
+  width: 4px;
+}
+
+/* === TYPE ICON (A or #) === */
+.fieldTypeIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  line-height: 18px;
+  margin-left: 16px;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  width: 16px;
+}
+
+/* === FIELD NAME === */
+.fieldName {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  margin: 0;
+  max-width: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+
+/* === DRAG HANDLE (6 dots) === */
+.dragHandle {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: grab;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  line-height: 18px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  width: 16px;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+/* === DRAG STATE — lifted item === */
+.fieldItemDragging {
+  position: fixed;
+  z-index: 100000;
+  pointer-events: none;
+  background: #fff;
+  border-radius: 0;
+  box-shadow:
+    rgba(0, 0, 0, 0.18) 0px 0px 8px 2px,
+    rgba(0, 0, 0, 0.14) 0px 0px 20px 4px;
+  display: flex;
+  align-items: center;
+  height: 18px;
+  width: 288px;
+  padding: 3px 0;
+  box-sizing: content-box;
+  opacity: 1;
+}
+
+/* Greyed-out placeholder at drop target position */
+.fieldItemPlaceholder {
+  display: flex;
+  align-items: center;
+  height: 18px;
+  margin: 0;
+  padding: 3px 0;
+  width: 288px;
+  box-sizing: content-box;
+  opacity: 0.35;
+  pointer-events: none;
+  margin-bottom: 2px;
+}
+
+/* Transition for items that shift up/down during drag */
+.fieldItemShifting {
+  transition: transform 0.15s ease;
+}
+
+/* === BOTTOM BUTTONS CONTAINER === */
+.buttonsRow {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 500;
+  height: 26px;
+  line-height: 18px;
+  margin: 7px -8px 0 -8px;
+  padding: 0 16px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 336px;
+}
+
+/* Hide all / Show all buttons */
+.actionButton {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+  border: none;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 500;
+  height: 26px;
+  line-height: 18px;
+  margin: 0 8px;
+  opacity: 0.75;
+  padding: 4px 0;
+  text-align: center;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 136px;
+}
+
+.actionButton:hover {
+  opacity: 1;
+}

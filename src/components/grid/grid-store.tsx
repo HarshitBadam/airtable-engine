@@ -21,6 +21,7 @@ type GridState = {
   filters: Filter[];
   sort: Sort | null;
   hiddenColumnIds: string[];
+  columnOrderIds: string[];
 
   activeCell: CellKey | null;
   editingCell: CellKey | null;
@@ -34,6 +35,7 @@ type GridState = {
 
   toggleHiddenColumn: (columnId: string) => void;
   setHiddenColumnIds: (ids: string[]) => void;
+  setColumnOrderIds: (ids: string[]) => void;
 
   setActiveCell: (cell: CellKey | null) => void;
   clearSelection: () => void;
@@ -45,12 +47,13 @@ type GridState = {
   markSaved: () => void;
 };
 
-function fingerprintFromParts(s: Pick<GridState, "search" | "filters" | "sort" | "hiddenColumnIds">) {
+function fingerprintFromParts(s: Pick<GridState, "search" | "filters" | "sort" | "hiddenColumnIds" | "columnOrderIds">) {
   return configFingerprint({
     search: s.search,
     filters: s.filters,
     sort: s.sort,
     hiddenColumnIds: s.hiddenColumnIds,
+    columnOrderIds: s.columnOrderIds,
   });
 }
 
@@ -70,6 +73,7 @@ export function createGridStore(tableId: string) {
     filters: [],
     sort: null,
     hiddenColumnIds: [],
+    columnOrderIds: [],
 
     activeCell: null,
     editingCell: null,
@@ -88,6 +92,7 @@ export function createGridStore(tableId: string) {
         filters: cfg.filters,
         sort: cfg.sort,
         hiddenColumnIds: cfg.hiddenColumnIds,
+        columnOrderIds: cfg.columnOrderIds,
 
         activeCell: null,
         editingCell: null,
@@ -140,6 +145,13 @@ export function createGridStore(tableId: string) {
         ...s,
         hiddenColumnIds,
         fingerprint: fingerprintFromParts({ ...s, hiddenColumnIds }),
+      })),
+
+    setColumnOrderIds: (columnOrderIds) =>
+      set((s) => ({
+        ...s,
+        columnOrderIds,
+        fingerprint: fingerprintFromParts({ ...s, columnOrderIds }),
       })),
 
     setActiveCell: (activeCell) => set((s) => ({ ...s, activeCell })),

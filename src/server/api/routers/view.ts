@@ -6,6 +6,7 @@ const viewConfigSchema = z.object({
   filters: z.array(z.any()), // we’ll tighten in Push 9/10
   sort: z.any().nullable(),
   hiddenColumnIds: z.array(z.string()),
+  columnOrderIds: z.array(z.string()).default([]),
 });
 
 export const viewRouter = createTRPCRouter({

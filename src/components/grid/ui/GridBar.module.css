@@ -39,10 +39,12 @@
   padding-left: 0px;
   padding-right: 0px;
   padding-top: 0px;
+  position: relative;
   row-gap: 8px;
   unicode-bidi: isolate;
   user-select: none;
   width: 100%;
+  z-index: 10;
 }
 
 /* Left section of the grid bar */
@@ -497,9 +499,24 @@
   transform: translateX(-48px);
 }
 
-/* Hide fields button - positioned 56px to the left */
-.gridBarHideFieldsButton {
+/* Hide fields wrapper — relative anchor for the dropdown panel */
+.gridBarHideFieldsWrapper {
+  position: relative;
   transform: translateX(-56px);
+}
+
+/* Hide fields button */
+.gridBarHideFieldsButton {
+  /* no extra transform — wrapper handles it */
+}
+
+/* Hide Fields Panel anchor — absolutely positioned below button */
+.hideFieldsPanelAnchor {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 99999;
+  transform: translate(8px, 4px);
 }
 
 /* Custom tooltip styles */
@@ -566,6 +583,36 @@
 
 .gridBarToolButton:hover {
   background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Active state when panel is open */
+.gridBarToolButtonActive {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: rgb(29, 31, 37);
+}
+
+.gridBarToolButtonActive .gridBarToolIcon,
+.gridBarToolButtonActive .gridBarToolText {
+  color: rgb(29, 31, 37);
+}
+
+/* State when fields are actually hidden (X hidden fields) */
+.gridBarHideFieldsButtonHasHidden {
+  background-color: #C4ECFF;
+  border: 1px solid transparent;
+  /* keep height consistent — border is inside the box */
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.gridBarHideFieldsButtonHasHidden:hover {
+  background-color: #C4ECFF;
+  border-color: #B0D4E5;
+}
+
+.gridBarHideFieldsButtonHasHidden .gridBarToolIcon,
+.gridBarHideFieldsButtonHasHidden .gridBarToolText {
+  color: rgb(29, 31, 37);
 }
 
 /* Tool button icon */

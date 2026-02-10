@@ -21,6 +21,7 @@ export const viewConfigSchema = z.object({
   filters: z.array(filterSchema),
   sort: sortSchema.nullable(),
   hiddenColumnIds: z.array(z.string()),
+  columnOrderIds: z.array(z.string()).default([]),
 });
 
 export type Filter = z.infer<typeof filterSchema>;
@@ -32,6 +33,7 @@ export const defaultViewConfig: ViewConfig = {
   filters: [],
   sort: null,
   hiddenColumnIds: [],
+  columnOrderIds: [],
 };
 
 export function normalizeViewConfig(raw: unknown): ViewConfig {
@@ -57,6 +59,7 @@ export function configFingerprint(c: ViewConfig): string {
       filters,
       sort: c.sort,
       hiddenColumnIds: hidden,
+      columnOrderIds: c.columnOrderIds,
     });
   }
   

@@ -13,6 +13,7 @@ export function useViewActions(tableId: string) {
   const filters = useGridStore((s) => s.filters);
   const sort = useGridStore((s) => s.sort);
   const hiddenColumnIds = useGridStore((s) => s.hiddenColumnIds);
+  const columnOrderIds = useGridStore((s) => s.columnOrderIds);
 
   const isDirty = saved !== cur;
 
@@ -28,7 +29,7 @@ export function useViewActions(tableId: string) {
     isDirty,
     save: () => {
       if (!activeViewId) return;
-      update.mutate({ viewId: activeViewId, config: { search, filters, sort, hiddenColumnIds } });
+      update.mutate({ viewId: activeViewId, config: { search, filters, sort, hiddenColumnIds, columnOrderIds } });
     },
     saving: update.isPending,
   };

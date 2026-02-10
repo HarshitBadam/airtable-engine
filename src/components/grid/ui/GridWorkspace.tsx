@@ -386,6 +386,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   rowsRef.current = rows;
   const { commit, cancel } = useCellEditing(tableId, rowQueryInput);
   const hiddenColumnIds = useGridStore((s) => s.hiddenColumnIds);
+  const toggleHiddenColumn = useGridStore((s) => s.toggleHiddenColumn);
+  const setHiddenColumnIds = useGridStore((s) => s.setHiddenColumnIds);
+  const columnOrderIds = useGridStore((s) => s.columnOrderIds);
+  const setColumnOrderIds = useGridStore((s) => s.setColumnOrderIds);
 
   // Stable refs for callbacks passed to memoized GridRow (avoids breaking memo on every render)
   const commitRef = useRef(commit);
@@ -402,10 +406,39 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const rowsQRef = useRef(rowsQ);
   rowsQRef.current = rowsQ;
 
-  // Visible columns (excluding hidden)
+  // All columns ordered by view-level columnOrderIds (for HideFieldsPanel)
+  const orderedColumns = useMemo(() => {
+    if (columnOrderIds.length === 0) return columns;
+    const byId = new Map(columns.map((c) => [c.id, c]));
+    return columnOrderIds
+      .map((id) => byId.get(id))
+      .filter((c): c is NonNullable<typeof c> => c != null);
+  }, [columns, columnOrderIds]);
+
+  // Visible columns: ordered then hidden filtered out (used by the grid)
   const visibleColumns = useMemo(
-    () => columns.filter((c) => !hiddenColumnIds.includes(c.id)),
-    [columns, hiddenColumnIds],
+    () => orderedColumns.filter((c) => !hiddenColumnIds.includes(c.id)),
+    [orderedColumns, hiddenColumnIds],
+  );
+
+  // Hide-all / Show-all callbacks for the Hide Fields panel
+  const handleHideAllColumns = useCallback(() => {
+    setHiddenColumnIds(orderedColumns.map((c) => c.id));
+  }, [orderedColumns, setHiddenColumnIds]);
+
+  const handleShowAllColumns = useCallback(() => {
+    setHiddenColumnIds([]);
+  }, [setHiddenColumnIds]);
+
+  // Reorder columns callback for the Hide Fields panel drag-and-drop
+  const handleReorderColumns = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      const ids = orderedColumns.map((c) => c.id);
+      const [moved] = ids.splice(fromIndex, 1);
+      ids.splice(toIndex, 0, moved!);
+      setColumnOrderIds(ids);
+    },
+    [orderedColumns, setColumnOrderIds],
   );
 
   // Helper to get cell value as string
@@ -596,7 +629,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key)) {
         e.preventDefault();
         const rowIdx = rows.findIndex((r) => r.id === rowId);
-        const colIdx = columns.findIndex((c) => c.id === columnId);
+        const colIdx = visibleColumns.findIndex((c) => c.id === columnId);
         if (rowIdx === -1 || colIdx === -1) return;
 
         let newRowIdx = rowIdx;
@@ -606,18 +639,18 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           case "ArrowUp": newRowIdx = Math.max(0, rowIdx - 1); break;
           case "ArrowDown": newRowIdx = Math.min(rows.length - 1, rowIdx + 1); break;
           case "ArrowLeft": newColIdx = Math.max(0, colIdx - 1); break;
-          case "ArrowRight": newColIdx = Math.min(columns.length - 1, colIdx + 1); break;
+          case "ArrowRight": newColIdx = Math.min(visibleColumns.length - 1, colIdx + 1); break;
           case "Tab":
             if (e.shiftKey) {
               newColIdx = Math.max(0, colIdx - 1);
             } else {
-              newColIdx = Math.min(columns.length - 1, colIdx + 1);
+              newColIdx = Math.min(visibleColumns.length - 1, colIdx + 1);
             }
             break;
         }
 
         const newRow = rows[newRowIdx];
-        const newCol = columns[newColIdx];
+        const newCol = visibleColumns[newColIdx];
         if (newRow && newCol) {
           setActiveCell({ rowId: newRow.id, columnId: newCol.id });
           scrollCellIntoView(newColIdx, newRowIdx);
@@ -627,7 +660,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       if (e.key === "Enter") {
         e.preventDefault();
         const row = rows.find((r) => r.id === rowId);
-        const col = columns.find((c) => c.id === columnId);
+        const col = visibleColumns.find((c) => c.id === columnId);
         if (row && col) {
           const value = getCellValue(row.cells, col.id);
           startEditing({ rowId, columnId }, value);
@@ -641,7 +674,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [activeCell, editingCell, rows, columns, setActiveCell, startEditing, clearSelection, getCellValue, scrollCellIntoView]);
+  }, [activeCell, editingCell, rows, visibleColumns, setActiveCell, startEditing, clearSelection, getCellValue, scrollCellIntoView]);
 
   // Hook overlay to scroll events
   useEffect(() => {
@@ -659,44 +692,44 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // Re-position overlay when activeCell, editingCell, column widths, or freeze config change
   useEffect(() => {
     updateSelectionOverlay();
-  }, [activeCell, editingCell, columnWidths, frozenColCount, columns, rows, updateSelectionOverlay]);
+  }, [activeCell, editingCell, columnWidths, frozenColCount, visibleColumns, rows, updateSelectionOverlay]);
 
   // Compute freeze snap positions (one per column boundary, using actual widths)
   // Freeze bar can go from right edge of row-num col to the left edge of the
   // last column or the 4th data column — whichever comes first.
   const snapPositions = useMemo(() => {
     const positions = [ROW_NUM_WIDTH]; // snap 0: right edge of serial # col
-    const maxFrozen = Math.min(4, Math.max(0, columns.length - 1));
+    const maxFrozen = Math.min(4, Math.max(0, visibleColumns.length - 1));
     let x = ROW_NUM_WIDTH;
     for (let i = 0; i < maxFrozen; i++) {
-      x += columnWidths[columns[i]!.id] ?? COLUMN_WIDTH;
+      x += columnWidths[visibleColumns[i]!.id] ?? COLUMN_WIDTH;
       positions.push(x);
     }
     return positions;
-  }, [columns, columnWidths]);
+  }, [visibleColumns, columnWidths]);
 
   // Derive freeze width from frozenColCount + actual column widths
-  const frozenColumnCount = Math.min(frozenColCount, columns.length);
+  const frozenColumnCount = Math.min(frozenColCount, visibleColumns.length);
   frozenColumnCountRef.current = frozenColumnCount;
   const freezeWidth = useMemo(() => {
     let w = ROW_NUM_WIDTH;
-    for (let i = 0; i < frozenColumnCount && i < columns.length; i++) {
-      w += columnWidths[columns[i]!.id] ?? COLUMN_WIDTH;
+    for (let i = 0; i < frozenColumnCount && i < visibleColumns.length; i++) {
+      w += columnWidths[visibleColumns[i]!.id] ?? COLUMN_WIDTH;
     }
     return w;
-  }, [frozenColumnCount, columns, columnWidths]);
+  }, [frozenColumnCount, visibleColumns, columnWidths]);
   freezeWidthRef.current = freezeWidth;
-  const frozenColumns = useMemo(() => columns.slice(0, frozenColumnCount), [columns, frozenColumnCount]);
-  const scrollableColumns = useMemo(() => columns.slice(frozenColumnCount), [columns, frozenColumnCount]);
+  const frozenColumns = useMemo(() => visibleColumns.slice(0, frozenColumnCount), [visibleColumns, frozenColumnCount]);
+  const scrollableColumns = useMemo(() => visibleColumns.slice(frozenColumnCount), [visibleColumns, frozenColumnCount]);
 
   // Total width of all scrollable column headers (for add-row slab sizing)
   const scrollableColumnsWidth = useMemo(() => {
     let w = 0;
-    for (let i = frozenColumnCount; i < columns.length; i++) {
-      w += columnWidths[columns[i]!.id] ?? COLUMN_WIDTH;
+    for (let i = frozenColumnCount; i < visibleColumns.length; i++) {
+      w += columnWidths[visibleColumns[i]!.id] ?? COLUMN_WIDTH;
     }
     return w;
-  }, [frozenColumnCount, columns, columnWidths]);
+  }, [frozenColumnCount, visibleColumns, columnWidths]);
 
   // === FREEZE DIVIDER DRAG HANDLERS ===
   // Move pill via direct DOM manipulation (no re-render) for buttery-smooth tracking
@@ -1300,7 +1333,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // When rows update after adding (+ button), find the new row by rowIndex and start editing
   useEffect(() => {
     if (newRowTargetIndexRef.current === null) return;
-    if (rows.length === 0 || columns.length === 0) return;
+    if (rows.length === 0 || visibleColumns.length === 0) return;
 
     const targetIdx = newRowTargetIndexRef.current;
     const newRow = (rows as Array<{ id: string; rowIndex: number; cells: unknown }>).find(
@@ -1310,7 +1343,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     newRowTargetIndexRef.current = null;
 
-    const firstCol = columns[0];
+    const firstCol = visibleColumns[0];
     if (firstCol) {
       const scroller = gridScrollerRef.current;
       if (scroller) {
@@ -1321,13 +1354,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
       });
     }
-  }, [rows, columns, setActiveCell, startEditing]);
+  }, [rows, visibleColumns, setActiveCell, startEditing]);
 
   // When rows update after insert above/below, find the new row by ID and start editing.
   // Also swaps temp → real ID when the server data arrives.
   useEffect(() => {
     if (!newRowEditIdRef.current) return;
-    if (rows.length === 0 || columns.length === 0) return;
+    if (rows.length === 0 || visibleColumns.length === 0) return;
 
     let targetId = newRowEditIdRef.current;
 
@@ -1350,14 +1383,14 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     newRowEditIdRef.current = null;
     tempToRealIdRef.current = null;
 
-    const firstCol = columns[0];
+    const firstCol = visibleColumns[0];
     if (firstCol) {
       requestAnimationFrame(() => {
         setActiveCell({ rowId: newRow.id, columnId: firstCol.id });
         startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
       });
     }
-  }, [rows, columns, setActiveCell, startEditing]);
+  }, [rows, visibleColumns, setActiveCell, startEditing]);
 
   // === INSERT RECORD ABOVE (optimistic — row appears instantly) ===
   const handleInsertRecordAbove = useCallback((rowId: string) => {
@@ -1925,6 +1958,12 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             activeViewId={activeViewId}
             canDeleteView={canDeleteView}
             deleteViewMut={deleteViewMut}
+            columns={orderedColumns}
+            hiddenColumnIds={hiddenColumnIds}
+            onToggleColumn={toggleHiddenColumn}
+            onHideAll={handleHideAllColumns}
+            onShowAll={handleShowAllColumns}
+            onReorderColumns={handleReorderColumns}
           />
 
           {/* === GRID AREA (views sidebar + grid content) === */}
