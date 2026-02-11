@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './ViewsSidebar.module.css';
+import { useGridStore } from '~/components/grid/grid-store';
 
 interface ViewsSidebarProps {
   // Sidebar state
@@ -28,7 +29,7 @@ interface ViewsSidebarProps {
   createViewName: string;
   setCreateViewName: React.Dispatch<React.SetStateAction<string>>;
   computeNextViewName: () => string;
-  createViewMut: { isPending: boolean; mutate: (args: { tableId: string; name: string; config: { search: string; filters: never[]; sort: null; hiddenColumnIds: never[] } }) => void };
+  createViewMut: { isPending: boolean; mutate: (args: { tableId: string; name: string; config: { search: string; filters: unknown[]; sorts?: unknown[]; hiddenColumnIds: string[]; columnOrderIds?: string[] } }) => void };
   tableId: string;
 
   // Context menu
@@ -90,6 +91,16 @@ export function ViewsSidebar({
   commitSidebarRename,
   cancelSidebarRename,
 }: ViewsSidebarProps) {
+  // Read parent view state from the grid store for inheritance
+  const parentColumnOrderIds = useGridStore((s) => s.columnOrderIds);
+  const parentHiddenColumnIds = useGridStore((s) => s.hiddenColumnIds);
+  const parentSavedSorts = useGridStore((s) => s.savedSorts);
+  const parentSorts = useGridStore((s) => s.sorts);
+  const parentAutoSort = useGridStore((s) => s.autoSort);
+
+  // New views inherit saved sorts (autoSort=false) or no sorts (autoSort=true, since temp sorts aren't inherited)
+  const inheritedSorts = parentAutoSort ? parentSavedSorts : parentSorts;
+
   // refs
   const viewsSidebarRef = useRef<HTMLDivElement>(null);
   const createNewButtonRef = useRef<HTMLButtonElement>(null);
@@ -403,7 +414,13 @@ export function ViewsSidebar({
                     createViewMut.mutate({
                       tableId,
                       name: createViewName.trim(),
-                      config: { search: '', filters: [], sort: null, hiddenColumnIds: [] },
+                      config: {
+                        search: '',
+                        filters: [],
+                        sorts: inheritedSorts,
+                        hiddenColumnIds: parentHiddenColumnIds,
+                        columnOrderIds: parentColumnOrderIds,
+                      },
                     });
                   }
                 }}

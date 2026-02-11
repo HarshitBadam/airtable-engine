@@ -385,6 +385,20 @@
   shape-rendering: geometricPrecision;
 }
 
+/* Find bar wrapper — relative anchor for the dropdown panel */
+.findBarWrapper {
+  position: relative;
+}
+
+/* Find bar anchor — flush below grid bar, tucked under it */
+.findBarAnchor {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 99999;
+  transform: translateY(11px);
+}
+
 /* Tools container (inner wrapper for tools) */
 .gridBarToolsOuter {
   align-items: center;
@@ -484,9 +498,24 @@
   transform: translateX(-24px);
 }
 
-/* Sort button - positioned 32px to the left */
-.gridBarSortButton {
+/* Sort wrapper — relative anchor for the dropdown panel */
+.gridBarSortWrapper {
+  position: relative;
   transform: translateX(-32px);
+}
+
+/* Sort button */
+.gridBarSortButton {
+  /* no extra transform — wrapper handles it */
+}
+
+/* Sort Panel anchor — absolutely positioned below button */
+.sortPanelAnchor {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 99999;
+  transform: translate(8px, 4px);
 }
 
 /* Group button - positioned 40px to the left */
@@ -494,9 +523,42 @@
   transform: translateX(-40px);
 }
 
-/* Filter button - positioned 48px to the left */
-.gridBarFilterButton {
+/* Filter wrapper — relative anchor for the dropdown panel */
+.gridBarFilterWrapper {
+  position: relative;
   transform: translateX(-48px);
+}
+
+/* Filter button */
+.gridBarFilterButton {
+  /* no extra transform — wrapper handles it */
+}
+
+/* State when filter conditions are active (Filtered by X) */
+.gridBarFilterButtonActive.gridBarFilterButtonActive {
+  background-color: #D0F5D1;
+  border: 2px solid transparent;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.gridBarFilterButtonActive.gridBarFilterButtonActive:hover {
+  background-color: #D0F5D1;
+  border-color: #BADCBB;
+}
+
+.gridBarFilterButtonActive .gridBarToolIcon,
+.gridBarFilterButtonActive .gridBarToolText {
+  color: rgb(29, 31, 37);
+}
+
+/* Filter Panel anchor — absolutely positioned below button */
+.filterPanelAnchor {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 99999;
+  transform: translate(0px, 4px);
 }
 
 /* Hide fields wrapper — relative anchor for the dropdown panel */
@@ -599,10 +661,10 @@
 /* State when fields are actually hidden (X hidden fields) */
 .gridBarHideFieldsButtonHasHidden {
   background-color: #C4ECFF;
-  border: 1px solid transparent;
+  border: 2px solid transparent;
   /* keep height consistent — border is inside the box */
-  padding-top: 3px;
-  padding-bottom: 3px;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .gridBarHideFieldsButtonHasHidden:hover {
@@ -612,6 +674,25 @@
 
 .gridBarHideFieldsButtonHasHidden .gridBarToolIcon,
 .gridBarHideFieldsButtonHasHidden .gridBarToolText {
+  color: rgb(29, 31, 37);
+}
+
+/* State when sort is active (Sorted by X field(s)) */
+.gridBarSortButtonHasSort {
+  background-color: rgb(255, 224, 204);
+  border: 2px solid transparent;
+  /* keep height consistent — border is inside the box */
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.gridBarSortButtonHasSort:hover {
+  background-color: rgb(255, 224, 204);
+  border-color: #E6C9B8;
+}
+
+.gridBarSortButtonHasSort .gridBarToolIcon,
+.gridBarSortButtonHasSort .gridBarToolText {
   color: rgb(29, 31, 37);
 }
 

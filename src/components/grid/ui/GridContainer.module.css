@@ -604,6 +604,25 @@
   outline: none;
 }
 
+/* Sorted column tint — data cells get a warm orange tint */
+.gridDataCellSorted {
+  background-color: rgb(255, 242, 234);
+}
+
+/* Sorted column tint — header cells */
+.gridHeaderCellSorted {
+  background-color: #FCF8F8;
+}
+
+/* Maintain tint on row hover for sorted cells */
+.gridRow:hover .gridDataCellSorted {
+  background-color: rgb(255, 242, 234);
+}
+
+.gridHeaderCellSorted:hover {
+  background-color: #FCF8F8;
+}
+
 /* ========================================================================
    SELECTION OVERLAY — rendered as a sibling of the freeze line in .gridBody
    so it paints ABOVE the freeze bar, frozen groups, and all cells.

@@ -12,7 +12,7 @@ import { useEffect } from "react";
  * - Append any new columns not yet in the order list.
  * - Remove stale ids (columns that no longer exist).
  */
-function reconcileColumnOrder(
+export function reconcileColumnOrder(
   config: ViewConfig,
   tableColumnIds: string[],
 ): ViewConfig {

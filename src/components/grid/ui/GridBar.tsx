@@ -1,8 +1,13 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import styles from "./GridBar.module.css";
 import { HideFieldsPanel } from "./HideFieldsPanel";
 import type { HideFieldColumn } from "./HideFieldsPanel";
+import { SortPanel } from "./SortPanel";
+import type { SortFieldColumn, ActiveSort } from "./SortPanel";
+import { FindBar } from "./FindBar";
+import { FilterPanel } from "./FilterPanel";
+import { useGridStore } from "~/components/grid/grid-store";
 
 interface GridBarProps {
   // Views sidebar
@@ -42,6 +47,31 @@ interface GridBarProps {
   onHideAll: () => void;
   onShowAll: () => void;
   onReorderColumns?: (fromIndex: number, toIndex: number) => void;
+
+  // Sort
+  sortColumns: SortFieldColumn[];
+  currentSorts: ActiveSort[];
+  effectiveSortCount: number;
+  hasTemporarySorts: boolean;
+  autoSort: boolean;
+  onPickSort: (columnId: string, columnType: "TEXT" | "NUMBER") => void;
+  onAddSort: (columnId: string, columnType: "TEXT" | "NUMBER") => void;
+  onChangeSortField: (index: number, columnId: string, columnType: "TEXT" | "NUMBER") => void;
+  onChangeDirection: (index: number, direction: "asc" | "desc") => void;
+  onRemoveSort: (index: number) => void;
+  onToggleAutoSort: () => void;
+  onSaveSorts: () => void;
+  onCancelSorts: () => void;
+
+  // Filter panel
+  baseColor?: string;
+
+  // Search / Find — passed from GridWorkspace (client-side match data)
+  findMatchCount: number;
+  findCurrentIndex: number;
+  isSearchPending: boolean;
+  onPrevMatch: () => void;
+  onNextMatch: () => void;
 }
 
 export function GridBar({
@@ -70,12 +100,92 @@ export function GridBar({
   onToggleColumn,
   onHideAll,
   onShowAll,
+  sortColumns,
+  currentSorts,
+  effectiveSortCount,
+  hasTemporarySorts,
+  autoSort,
+  onPickSort,
+  onAddSort,
+  onChangeSortField,
+  onChangeDirection,
+  onRemoveSort,
+  onToggleAutoSort,
+  onSaveSorts,
+  onCancelSorts,
   onReorderColumns,
+  baseColor,
+  findMatchCount,
+  findCurrentIndex,
+  isSearchPending,
+  onPrevMatch,
+  onNextMatch,
 }: GridBarProps) {
+  // === ZUSTAND STORE — search ===
+  const search = useGridStore((s) => s.search);
+  const setSearch = useGridStore((s) => s.setSearch);
+
+  // === ZUSTAND STORE — filter conditions (for button label) ===
+  const filterConditions = useGridStore((s) => s.filterConditions) ?? [];
+
   // === HIDE FIELDS PANEL STATE ===
   const [isHideFieldsOpen, setIsHideFieldsOpen] = useState(false);
   const hideFieldsButtonRef = useRef<HTMLButtonElement>(null);
   const hideFieldsPanelRef = useRef<HTMLDivElement>(null);
+
+  // === SORT PANEL STATE ===
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortButtonRef = useRef<HTMLButtonElement>(null);
+  const sortPanelRef = useRef<HTMLDivElement>(null);
+
+  // === FIND BAR STATE ===
+  const [isFindOpen, setIsFindOpen] = useState(false);
+
+  const toggleFindBar = useCallback(() => {
+    setIsFindOpen((prev) => !prev);
+  }, []);
+
+  const closeFindBar = useCallback(() => {
+    setIsFindOpen(false);
+    setSearch("");
+  }, [setSearch]);
+
+  /** Push FindBar input changes into the Zustand store (which feeds useGridRows). */
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearch(value);
+    },
+    [setSearch],
+  );
+
+  /**
+   * Compute totalMatches for FindBar:
+   * - undefined → idle / loading (no result indicator shown)
+   * - 0        → "No results"
+   * - >0       → "X of Y" + nav arrows
+   */
+  const findBarTotalMatches = useMemo(() => {
+    if (!search.trim()) return undefined; // no active search
+    if (isSearchPending) return undefined; // waiting for debounce + query
+    return findMatchCount;
+  }, [search, isSearchPending, findMatchCount]);
+
+  const findBarMatchIndex =
+    findBarTotalMatches !== undefined && findBarTotalMatches > 0
+      ? findCurrentIndex + 1 // 1-based for display
+      : 0;
+
+  // Cmd+F / Ctrl+F keyboard shortcut to open find bar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+        e.preventDefault();
+        setIsFindOpen(true);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const toggleHideFieldsPanel = useCallback(() => {
     setIsHideFieldsOpen((prev) => !prev);
@@ -122,6 +232,150 @@ export function GridBar({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isHideFieldsOpen]);
+
+  // === SORT PANEL HANDLERS ===
+  const toggleSortPanel = useCallback(() => {
+    setIsSortOpen((prev) => !prev);
+  }, []);
+
+  // Click-outside handler for sort panel
+  useEffect(() => {
+    if (!isSortOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        sortPanelRef.current &&
+        sortPanelRef.current.contains(event.target as Node)
+      ) {
+        return;
+      }
+      if (
+        sortButtonRef.current &&
+        sortButtonRef.current.contains(event.target as Node)
+      ) {
+        return;
+      }
+      // Don't close sort panel when clicking inside a portal sub-dropdown
+      if ((event.target as HTMLElement).closest("[data-sort-subdropdown]")) {
+        return;
+      }
+      setIsSortOpen(false);
+    }
+
+    const timeoutId = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 10);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isSortOpen]);
+
+  // Escape key to close sort panel
+  useEffect(() => {
+    if (!isSortOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsSortOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isSortOpen]);
+
+  // Handle sort field pick — set sort ascending; close panel only if no sort was active
+  const handleSortPick = useCallback(
+    (columnId: string, columnType: "TEXT" | "NUMBER") => {
+      onPickSort(columnId, columnType);
+      // Don't close the panel — the active sort view will now show
+    },
+    [onPickSort],
+  );
+
+  // Handle removing a sort at index — if no sorts left, close the panel
+  const handleRemoveSort = useCallback(
+    (index: number) => {
+      onRemoveSort(index);
+      // If removing the last sort, close the panel
+      if (currentSorts.length <= 1) {
+        setIsSortOpen(false);
+      }
+    },
+    [onRemoveSort, currentSorts.length],
+  );
+
+  // === FILTER PANEL STATE ===
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
+
+  const toggleFilterPanel = useCallback(() => {
+    setIsFilterOpen((prev) => !prev);
+  }, []);
+
+  // Click-outside handler for filter panel
+  useEffect(() => {
+    if (!isFilterOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as HTMLElement;
+      if (
+        filterPanelRef.current &&
+        filterPanelRef.current.contains(target)
+      ) {
+        return;
+      }
+      if (
+        filterButtonRef.current &&
+        filterButtonRef.current.contains(target)
+      ) {
+        return;
+      }
+      // FilterPanel renders sub-dropdowns (field/operator/conjunction) as
+      // portals into document.body — don't treat those clicks as "outside".
+      if (target.closest?.("[data-filter-subdropdown]")) {
+        return;
+      }
+      setIsFilterOpen(false);
+    }
+
+    const timeoutId = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 10);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isFilterOpen]);
+
+  // Escape key to close filter panel
+  useEffect(() => {
+    if (!isFilterOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsFilterOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isFilterOpen]);
+
+  // === FILTER BUTTON LABEL ===
+  // A condition is "active" when it has a non-empty value (or is_empty/is_not_empty which need no value)
+  const activeFilterConditions = filterConditions.filter(
+    (c) => c.value.trim() !== "" || c.operator === "is_empty" || c.operator === "is_not_empty",
+  );
+  const activeFilterCount = activeFilterConditions.length;
+  const filterButtonLabel = (() => {
+    if (activeFilterCount === 0) return "Filter";
+    const firstName = columns.find((col) => col.id === activeFilterConditions[0]?.columnId)?.name ?? "field";
+    if (activeFilterCount === 1) return `Filtered by ${firstName}`;
+    const otherCount = activeFilterCount - 1;
+    return `Filtered by ${firstName} and ${otherCount} other field${otherCount > 1 ? "s" : ""}`;
+  })();
+  const isFilterActive = activeFilterCount > 0;
 
   return (
     <div
@@ -336,13 +590,35 @@ export function GridBar({
               )}
             </div>
 
-            {/* Filter button */}
-            <button type="button" className={`${styles.gridBarToolButton} ${styles.gridBarFilterButton}`}>
-              <svg className={styles.gridBarToolIcon} viewBox="0 0 16 16" fill="currentColor">
-                <path fillRule="nonzero" d="M6.5 10.5C6.36739 10.5 6.24021 10.5527 6.14645 10.6464C6.05268 10.7402 6 10.8674 6 11C6 11.1326 6.05268 11.2598 6.14645 11.3536C6.24021 11.4473 6.36739 11.5 6.5 11.5H9.5C9.63261 11.5 9.75979 11.4473 9.85355 11.3536C9.94732 11.2598 10 11.1326 10 11C10 10.8674 9.94732 10.7402 9.85355 10.6464C9.75979 10.5527 9.63261 10.5 9.5 10.5H6.5Z M1.5 4.5C1.36739 4.5 1.24021 4.55268 1.14645 4.64645C1.05268 4.74021 1 4.86739 1 5C1 5.13261 1.05268 5.25979 1.14645 5.35355C1.24021 5.44732 1.36739 5.5 1.5 5.5H14.5C14.6326 5.5 14.7598 5.44732 14.8536 5.35355C14.9473 5.25979 15 5.13261 15 5C15 4.86739 14.9473 4.74021 14.8536 4.64645C14.7598 4.55268 14.6326 4.5 14.5 4.5H1.5Z M4 7.5C3.86739 7.5 3.74021 7.55268 3.64645 7.64645C3.55268 7.74021 3.5 7.86739 3.5 8C3.5 8.13261 3.55268 8.25979 3.64645 8.35355C3.74021 8.44732 3.86739 8.5 4 8.5H12C12.1326 8.5 12.2598 8.44732 12.3536 8.35355C12.4473 8.25979 12.5 8.13261 12.5 8C12.5 7.86739 12.4473 7.74021 12.3536 7.64645C12.2598 7.55268 12.1326 7.5 12 7.5H4Z" />
-              </svg>
-              <span className={styles.gridBarToolText}>Filter</span>
-            </button>
+            {/* Filter button + panel wrapper */}
+            <div className={styles.gridBarFilterWrapper}>
+              <button
+                ref={filterButtonRef}
+                type="button"
+                className={[
+                  styles.gridBarToolButton,
+                  styles.gridBarFilterButton,
+                  isFilterOpen ? styles.gridBarToolButtonActive : '',
+                  isFilterActive ? styles.gridBarFilterButtonActive : '',
+                ].filter(Boolean).join(' ')}
+                onClick={toggleFilterPanel}
+              >
+                <svg className={styles.gridBarToolIcon} viewBox="0 0 16 16" fill="currentColor">
+                  <path fillRule="nonzero" d="M6.5 10.5C6.36739 10.5 6.24021 10.5527 6.14645 10.6464C6.05268 10.7402 6 10.8674 6 11C6 11.1326 6.05268 11.2598 6.14645 11.3536C6.24021 11.4473 6.36739 11.5 6.5 11.5H9.5C9.63261 11.5 9.75979 11.4473 9.85355 11.3536C9.94732 11.2598 10 11.1326 10 11C10 10.8674 9.94732 10.7402 9.85355 10.6464C9.75979 10.5527 9.63261 10.5 9.5 10.5H6.5Z M1.5 4.5C1.36739 4.5 1.24021 4.55268 1.14645 4.64645C1.05268 4.74021 1 4.86739 1 5C1 5.13261 1.05268 5.25979 1.14645 5.35355C1.24021 5.44732 1.36739 5.5 1.5 5.5H14.5C14.6326 5.5 14.7598 5.44732 14.8536 5.35355C14.9473 5.25979 15 5.13261 15 5C15 4.86739 14.9473 4.74021 14.8536 4.64645C14.7598 4.55268 14.6326 4.5 14.5 4.5H1.5Z M4 7.5C3.86739 7.5 3.74021 7.55268 3.64645 7.64645C3.55268 7.74021 3.5 7.86739 3.5 8C3.5 8.13261 3.55268 8.25979 3.64645 8.35355C3.74021 8.44732 3.86739 8.5 4 8.5H12C12.1326 8.5 12.2598 8.44732 12.3536 8.35355C12.4473 8.25979 12.5 8.13261 12.5 8C12.5 7.86739 12.4473 7.74021 12.3536 7.64645C12.2598 7.55268 12.1326 7.5 12 7.5H4Z" />
+                </svg>
+                <span className={styles.gridBarToolText}>{filterButtonLabel}</span>
+              </button>
+
+              {/* Filter Panel — positioned absolutely below the button */}
+              {isFilterOpen && (
+                <div
+                  ref={filterPanelRef}
+                  className={styles.filterPanelAnchor}
+                >
+                  <FilterPanel baseColor={baseColor} columns={columns} />
+                </div>
+              )}
+            </div>
 
             {/* Group button */}
             <button type="button" className={`${styles.gridBarToolButton} ${styles.gridBarGroupButton}`}>
@@ -352,13 +628,51 @@ export function GridBar({
               <span className={styles.gridBarToolText}>Group</span>
             </button>
 
-            {/* Sort button */}
-            <button type="button" className={`${styles.gridBarToolButton} ${styles.gridBarSortButton}`}>
-              <svg className={styles.gridBarToolIcon} viewBox="0 0 16 16" fill="currentColor">
-                <path fillRule="nonzero" d="M4.99999 2.5C4.86738 2.5 4.7402 2.55268 4.64643 2.64645C4.55266 2.74021 4.49999 2.86739 4.49999 3V11.793L3.3535 10.6465C3.25974 10.5527 3.13258 10.5001 2.99999 10.5001C2.8674 10.5001 2.74023 10.5527 2.64647 10.6465C2.55272 10.7402 2.50006 10.8674 2.50006 11C2.50006 11.1326 2.55272 11.2598 2.64647 11.3535L4.64647 13.3535C4.74022 13.4473 4.86738 13.5 4.99999 13.5C5.13259 13.5 5.25975 13.4473 5.3535 13.3535L7.3535 11.3535C7.44725 11.2598 7.49991 11.1326 7.49991 11C7.49991 10.8674 7.44725 10.7402 7.3535 10.6465C7.25974 10.5527 7.13258 10.5001 6.99999 10.5001C6.8674 10.5001 6.74024 10.5527 6.64647 10.6465L5.49999 11.793V3C5.49999 2.86739 5.44731 2.74021 5.35354 2.64645C5.25977 2.55268 5.13259 2.5 4.99999 2.5Z M11 2.5C10.8674 2.50003 10.7402 2.55272 10.6465 2.64648L8.64647 4.64648C8.55272 4.74025 8.50006 4.86741 8.50006 5C8.50006 5.13259 8.55272 5.25975 8.64647 5.35352C8.74024 5.44726 8.8674 5.49992 8.99999 5.49992C9.13258 5.49992 9.25974 5.44726 9.3535 5.35352L10.5 4.20703V13C10.5 13.1326 10.5527 13.2598 10.6464 13.3536C10.7402 13.4473 10.8674 13.5 11 13.5C11.1326 13.5 11.2598 13.4473 11.3535 13.3536C11.4473 13.2598 11.5 13.1326 11.5 13V4.20703L12.6465 5.35352C12.7402 5.44726 12.8674 5.49992 13 5.49992C13.1326 5.49992 13.2597 5.44726 13.3535 5.35352C13.4472 5.25975 13.4999 5.13259 13.4999 5C13.4999 4.86741 13.4472 4.74025 13.3535 4.64648L11.3535 2.64648C11.3487 2.64437 11.3438 2.64234 11.3389 2.64038C11.2478 2.55235 11.1266 2.50218 11 2.5Z" />
-              </svg>
-              <span className={styles.gridBarToolText}>Sort</span>
-            </button>
+            {/* Sort button + panel wrapper */}
+            <div className={styles.gridBarSortWrapper}>
+              <button
+                ref={sortButtonRef}
+                type="button"
+                className={[
+                  styles.gridBarToolButton,
+                  styles.gridBarSortButton,
+                  isSortOpen ? styles.gridBarToolButtonActive : '',
+                  hasTemporarySorts ? styles.gridBarSortButtonHasSort : '',
+                ].filter(Boolean).join(' ')}
+                onClick={toggleSortPanel}
+              >
+                <svg className={styles.gridBarToolIcon} viewBox="0 0 16 16" fill="currentColor">
+                  <path fillRule="nonzero" d="M4.99999 2.5C4.86738 2.5 4.7402 2.55268 4.64643 2.64645C4.55266 2.74021 4.49999 2.86739 4.49999 3V11.793L3.3535 10.6465C3.25974 10.5527 3.13258 10.5001 2.99999 10.5001C2.8674 10.5001 2.74023 10.5527 2.64647 10.6465C2.55272 10.7402 2.50006 10.8674 2.50006 11C2.50006 11.1326 2.55272 11.2598 2.64647 11.3535L4.64647 13.3535C4.74022 13.4473 4.86738 13.5 4.99999 13.5C5.13259 13.5 5.25975 13.4473 5.3535 13.3535L7.3535 11.3535C7.44725 11.2598 7.49991 11.1326 7.49991 11C7.49991 10.8674 7.44725 10.7402 7.3535 10.6465C7.25974 10.5527 7.13258 10.5001 6.99999 10.5001C6.8674 10.5001 6.74024 10.5527 6.64647 10.6465L5.49999 11.793V3C5.49999 2.86739 5.44731 2.74021 5.35354 2.64645C5.25977 2.55268 5.13259 2.5 4.99999 2.5Z M11 2.5C10.8674 2.50003 10.7402 2.55272 10.6465 2.64648L8.64647 4.64648C8.55272 4.74025 8.50006 4.86741 8.50006 5C8.50006 5.13259 8.55272 5.25975 8.64647 5.35352C8.74024 5.44726 8.8674 5.49992 8.99999 5.49992C9.13258 5.49992 9.25974 5.44726 9.3535 5.35352L10.5 4.20703V13C10.5 13.1326 10.5527 13.2598 10.6464 13.3536C10.7402 13.4473 10.8674 13.5 11 13.5C11.1326 13.5 11.2598 13.4473 11.3535 13.3536C11.4473 13.2598 11.5 13.1326 11.5 13V4.20703L12.6465 5.35352C12.7402 5.44726 12.8674 5.49992 13 5.49992C13.1326 5.49992 13.2597 5.44726 13.3535 5.35352C13.4472 5.25975 13.4999 5.13259 13.4999 5C13.4999 4.86741 13.4472 4.74025 13.3535 4.64648L11.3535 2.64648C11.3487 2.64437 11.3438 2.64234 11.3389 2.64038C11.2478 2.55235 11.1266 2.50218 11 2.5Z" />
+                </svg>
+                <span className={styles.gridBarToolText}>
+                  {effectiveSortCount > 0
+                    ? `Sorted by ${effectiveSortCount} field${effectiveSortCount === 1 ? '' : 's'}`
+                    : 'Sort'}
+                </span>
+              </button>
+
+              {/* Sort Panel — positioned absolutely below the button */}
+              {isSortOpen && (
+                <div
+                  ref={sortPanelRef}
+                  className={styles.sortPanelAnchor}
+                >
+                  <SortPanel
+                    columns={sortColumns}
+                    currentSorts={currentSorts}
+                    autoSort={autoSort}
+                    onPickSort={handleSortPick}
+                    onAddSort={onAddSort}
+                    onChangeSortField={onChangeSortField}
+                    onChangeDirection={onChangeDirection}
+                    onRemoveSort={handleRemoveSort}
+                    onToggleAutoSort={onToggleAutoSort}
+                    onSaveSorts={onSaveSorts}
+                    onCancelSorts={onCancelSorts}
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Color button */}
             <button type="button" className={`${styles.gridBarToolButton} ${styles.gridBarColorButton}`}>
@@ -391,14 +705,33 @@ export function GridBar({
           </div>
         </div>
 
-        {/* Search button with custom tooltip */}
-        <div className={styles.tooltipWrapper}>
-          <button type="button" className={styles.gridBarSearchButton}>
-            <svg className={styles.gridBarSearchIcon} viewBox="0 0 16 16" fill="currentColor">
-              <path fillRule="nonzero" d="M7.25 1.5C4.08028 1.5 1.5 4.08028 1.5 7.25C1.5 10.4197 4.08028 13 7.25 13C8.65529 13 9.94315 12.4911 10.9432 11.6503L13.6465 14.3534C13.7402 14.4471 13.8674 14.4998 14 14.4998C14.1326 14.4998 14.2598 14.4471 14.3535 14.3534C14.4473 14.2596 14.4999 14.1325 14.4999 13.9999C14.4999 13.8673 14.4473 13.7401 14.3535 13.6464L11.6504 10.9431C12.4912 9.94305 13 8.65523 13 7.25C13 4.08028 10.4197 1.5 7.25 1.5ZM7.25 2.5C9.87928 2.5 12 4.62072 12 7.25C12 8.56227 11.4715 9.74761 10.6154 10.6061C10.6132 10.607 10.611 10.6079 10.6089 10.6088C10.608 10.611 10.6071 10.6132 10.6062 10.6154C9.74772 11.4715 8.5623 12 7.25 12C4.62072 12 2.5 9.87928 2.5 7.25C2.5 4.62072 4.62072 2.5 7.25 2.5Z" />
-            </svg>
-          </button>
-          <span className={styles.tooltip}><span className={styles.tooltipText}>Find in view</span><span className={styles.tooltipShortcut}><span className={styles.tooltipShortcutKey}>⌘</span><span className={styles.tooltipShortcutKey}>F</span></span></span>
+        {/* Search button with custom tooltip + Find bar dropdown */}
+        <div className={styles.findBarWrapper}>
+          <div className={styles.tooltipWrapper}>
+            <button type="button" className={styles.gridBarSearchButton} onClick={toggleFindBar}>
+              <svg className={styles.gridBarSearchIcon} viewBox="0 0 16 16" fill="currentColor">
+                <path fillRule="nonzero" d="M7.25 1.5C4.08028 1.5 1.5 4.08028 1.5 7.25C1.5 10.4197 4.08028 13 7.25 13C8.65529 13 9.94315 12.4911 10.9432 11.6503L13.6465 14.3534C13.7402 14.4471 13.8674 14.4998 14 14.4998C14.1326 14.4998 14.2598 14.4471 14.3535 14.3534C14.4473 14.2596 14.4999 14.1325 14.4999 13.9999C14.4999 13.8673 14.4473 13.7401 14.3535 13.6464L11.6504 10.9431C12.4912 9.94305 13 8.65523 13 7.25C13 4.08028 10.4197 1.5 7.25 1.5ZM7.25 2.5C9.87928 2.5 12 4.62072 12 7.25C12 8.56227 11.4715 9.74761 10.6154 10.6061C10.6132 10.607 10.611 10.6079 10.6089 10.6088C10.608 10.611 10.6071 10.6132 10.6062 10.6154C9.74772 11.4715 8.5623 12 7.25 12C4.62072 12 2.5 9.87928 2.5 7.25C2.5 4.62072 4.62072 2.5 7.25 2.5Z" />
+              </svg>
+            </button>
+            {!isFindOpen && (
+              <span className={styles.tooltip}><span className={styles.tooltipText}>Find in view</span><span className={styles.tooltipShortcut}><span className={styles.tooltipShortcutKey}>⌘</span><span className={styles.tooltipShortcutKey}>F</span></span></span>
+            )}
+          </div>
+
+          {/* Find bar dropdown — positioned below the search button */}
+          {isFindOpen && (
+            <div className={styles.findBarAnchor}>
+              <FindBar
+                onClose={closeFindBar}
+                defaultValue={search}
+                onSearchChange={handleSearchChange}
+                matchIndex={findBarMatchIndex}
+                totalMatches={findBarTotalMatches}
+                onPrevMatch={onPrevMatch}
+                onNextMatch={onNextMatch}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

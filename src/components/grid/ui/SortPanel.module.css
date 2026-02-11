@@ -1,0 +1,869 @@
+/* =============================================
+   SORT PANEL — Dropdown from "Sort" button
+   ============================================= */
+
+/* Main container */
+.sortPanel {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  margin: 0;
+  padding: 12px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 320px;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+}
+
+/* === HEADER ROW ("Sort by" + ?) === */
+.sortHeader {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 19.5px;
+  justify-content: space-between;
+  line-height: 18px;
+  margin: 0 8px;
+  padding: 0;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 280px;
+}
+
+.sortHeaderText {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  height: 19.5px;
+  line-height: 19.5px;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+
+.sortHeaderIcon {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  line-height: 18px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  width: 16px;
+}
+
+/* === SEPARATOR LINE === */
+.sortSeparator {
+  border-left: 1px inset rgba(0, 0, 0, 0.1);
+  border-right: 1px inset rgba(0, 0, 0, 0.1);
+  border-top: 1px inset rgba(0, 0, 0, 0.1);
+  border-bottom: none;
+  box-sizing: border-box;
+  color: rgb(128, 128, 128);
+  display: block;
+  height: 1px;
+  margin: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 280px;
+}
+
+/* === SEARCH CONTAINER === */
+.sortSearchContainer {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 34px;
+  line-height: 18px;
+  margin: 0;
+  padding: 4px 8px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 296px;
+}
+
+.sortSearchIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  line-height: 18px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  width: 16px;
+}
+
+/* Search icon turns blue when input is focused */
+.sortSearchContainerFocused .sortSearchIcon {
+  color: #156FE2;
+}
+
+.sortSearchInput {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  box-shadow: none;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: text;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 26px;
+  line-height: 18px;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  outline: none;
+  overflow: clip;
+  padding: 4px 4px 4px 12px;
+  resize: none;
+  text-align: start;
+  white-space: nowrap;
+  width: 264px;
+}
+
+.sortSearchInput::placeholder {
+  color: #757575;
+}
+
+/* === FIELD LIST ITEMS === */
+.sortFieldItem {
+  align-items: center;
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 26px;
+  line-height: 18px;
+  margin: 0;
+  padding: 4px 8px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 296px;
+}
+
+.sortFieldItem:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.sortFieldTypeIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  line-height: 18px;
+  margin-right: 12px;
+  opacity: 0.75;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  width: 16px;
+}
+
+.sortFieldName {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* =============================================
+   ACTIVE SORT STATE — when sort is applied
+   ============================================= */
+
+/* Outer wrapper — no padding, holds main + footer */
+.sortActivePanel {
+  box-sizing: border-box;
+  width: 452px;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+  overflow: hidden;
+}
+
+/* Main content area */
+.sortActiveMain {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  margin: 0;
+  padding: 12px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 452px;
+}
+
+/* Header in active state — wider */
+.sortActiveHeader {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 19.5px;
+  justify-content: space-between;
+  line-height: 18px;
+  margin: 0 8px;
+  padding: 0;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 412px;
+}
+
+/* Separator in active state — wider */
+.sortActiveSeparator {
+  border-left: 1px inset rgba(0, 0, 0, 0.1);
+  border-right: 1px inset rgba(0, 0, 0, 0.1);
+  border-top: 1px inset rgba(0, 0, 0, 0.1);
+  border-bottom: none;
+  box-sizing: border-box;
+  color: rgb(128, 128, 128);
+  display: block;
+  height: 1px;
+  margin: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 412px;
+}
+
+/* === SORT LINE ITEM === */
+.sortLineItemOuter {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-basis: auto;
+  flex-direction: column;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-size: 13px;
+  font-weight: 400;
+  height: 44px;
+  line-height: 18px;
+  list-style-type: disc;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  padding: 8px 0 0 0;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 428px;
+}
+
+.sortLineItemInner {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  height: 36px;
+  line-height: 18px;
+  list-style-type: disc;
+  margin: 0;
+  opacity: 1;
+  padding: 0 0 8px 0;
+  white-space: nowrap;
+  transition: transform 0s linear;
+  unicode-bidi: isolate;
+  width: 428px;
+}
+
+.sortLineItemRow {
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  gap: 12px;
+  height: 28px;
+  justify-content: flex-start;
+  line-height: 18px;
+  list-style-type: disc;
+  margin: 0 8px;
+  padding: 0;
+  position: relative;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 412px;
+}
+
+/* Field name dropdown */
+.sortFieldDropdown {
+  align-items: center;
+  background-color: rgb(255, 255, 255);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 28px;
+  line-height: 18px;
+  margin: 0;
+  opacity: 1;
+  padding: 0 8px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 240px;
+}
+
+.sortFieldDropdownName {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  max-width: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 202px;
+}
+
+.sortDropdownChevron {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  line-height: 18px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  width: 16px;
+}
+
+/* Direction dropdown */
+.sortDirectionDropdown {
+  align-items: center;
+  background-color: rgb(255, 255, 255);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 400;
+  height: 28px;
+  line-height: 18px;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  padding: 0 8px;
+  text-align: left;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 120px;
+}
+
+.sortDirectionText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: inline;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sortDirectionChevron {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  line-height: 18px;
+  margin-left: 4px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  text-align: left;
+  white-space: nowrap;
+  width: 16px;
+}
+
+/* X remove button */
+.sortRemoveButton {
+  align-items: center;
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 28px;
+  justify-content: center;
+  line-height: 18px;
+  margin: 0;
+  opacity: 0.5;
+  padding: 0;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 28px;
+}
+
+.sortRemoveButton:hover {
+  opacity: 0.75;
+}
+
+.sortRemoveIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  line-height: 18px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  width: 16px;
+}
+
+/* === ADD ANOTHER SORT ROW === */
+.sortAddRow {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  line-height: 18px;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  position: relative;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 428px;
+}
+
+.sortAddRowButton {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 500;
+  height: 19.5px;
+  line-height: 18px;
+  margin: 0 0 0 8px;
+  padding: 0;
+  text-align: right;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+
+.sortAddRowIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-weight: 500;
+  height: 16px;
+  line-height: 18px;
+  margin-right: 12px;
+  opacity: 0.75;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  text-align: right;
+  white-space: nowrap;
+  width: 16px;
+}
+
+.sortAddRowText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  height: 19.5px;
+  line-height: 19.5px;
+  margin: 0;
+  padding: 0;
+  text-align: right;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+
+/* =============================================
+   FOOTER BAR (toggle + Cancel/Sort)
+   ============================================= */
+
+.sortFooter {
+  align-items: center;
+  background-color: rgb(242, 244, 248);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 44px;
+  justify-content: space-between;
+  line-height: 18px;
+  margin: 0;
+  min-height: 44px;
+  padding: 0 4px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 452px;
+}
+
+/* Left: toggle + text */
+.sortFooterLeft {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 34px;
+  line-height: 18px;
+  margin: 0;
+  outline: none;
+  padding: 8px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+
+/* Toggle pill */
+.sortTogglePill {
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  height: 12px;
+  width: 19.2px;
+  padding: 2px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.085s ease-in;
+  margin: 0 8px;
+}
+
+.sortTogglePillOn {
+  background-color: rgb(4, 138, 14);
+  justify-content: flex-end;
+}
+
+.sortTogglePillOff {
+  background-color: rgba(0, 0, 0, 0.1);
+  justify-content: flex-start;
+}
+
+.sortTogglePillCircle {
+  background-color: rgb(255, 255, 255);
+  border-radius: 50%;
+  box-sizing: border-box;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 8px;
+  width: 8px;
+}
+
+.sortFooterToggleText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Right: Cancel + Sort buttons (only when auto-sort is OFF) */
+.sortFooterRight {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 28px;
+  line-height: 18px;
+  margin: 8px;
+  padding: 0;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+
+.sortCancelButton {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 26px;
+  line-height: 18px;
+  margin: 0 4px 0 0;
+  opacity: 0.75;
+  padding: 4px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  background: none;
+  border: none;
+}
+
+.sortCancelButton:hover {
+  opacity: 1;
+}
+
+.sortApplyButton {
+  align-items: center;
+  appearance: auto;
+  background-color: rgb(22, 110, 225);
+  border: none;
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(255, 255, 255);
+  cursor: pointer;
+  display: flex;
+  fill: rgb(255, 255, 255);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  height: 28px;
+  justify-content: center;
+  line-height: 22px;
+  margin: 0;
+  max-width: 100%;
+  padding: 0 8px;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sortApplyButton:hover {
+  background-color: rgb(18, 96, 197);
+}
+
+/* =============================================
+   SUB-DROPDOWNS (field picker, direction, add sort)
+   ============================================= */
+
+/* Shared base for portal-rendered sub-dropdowns */
+.sortSubDropdown {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+  overflow: hidden;
+  min-width: 69px;
+}
+
+/* Field picker dropdown (from field name click) */
+.sortFieldPickerDropdown {
+  width: 240px;
+}
+
+/* Add sort field picker dropdown (from "+ Add another sort") */
+.sortAddSortPickerDropdown {
+  width: 428px;
+}
+
+/* Search container inside sub-dropdowns */
+.sortSubSearchContainer {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 34px;
+  line-height: 18px;
+  margin: 0;
+  padding: 4px 8px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+
+/* Blue icon when search is focused */
+.sortSubSearchContainerFocused .sortSearchIcon {
+  color: #156FE2;
+}
+
+/* Field item inside sub-dropdowns */
+.sortSubFieldItem {
+  align-items: center;
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 26px;
+  line-height: 18px;
+  margin: 0;
+  padding: 4px 8px;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+
+.sortSubFieldItem:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* === DIRECTION DROPDOWN === */
+
+.sortDirectionDropdownMenu {
+  width: 120px;
+}
+
+.sortDirectionDropdownItem {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 36px;
+  line-height: 18px;
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  margin: 0;
+  padding: 9px 20px 6px 6px;
+  text-decoration-color: rgb(29, 31, 37);
+  text-decoration-line: none;
+  text-decoration-style: solid;
+  text-decoration-thickness: auto;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  width: 120px;
+}
+
+.sortDirectionDropdownItem:hover {
+  background: rgba(0, 0, 0, 0.05);
+}

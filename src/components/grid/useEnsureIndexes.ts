@@ -13,18 +13,21 @@ import { useGridStore } from "./grid-store";
  * - Fire-and-forget: does not block UI
  */
 export function useEnsureIndexes(tableId: string) {
-  const sort = useGridStore((s) => s.sort);
+  // Only ensure indexes for sorts that are actually applied to the query
+  const effectiveSorts = useGridStore((s) => s.autoSort ? s.sorts : s.savedSorts);
 
   const ensure = api.column.ensureIndexes.useMutation();
   const ensured = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!sort) return;
+    if (effectiveSorts.length === 0) return;
 
-    const columnId = sort.columnId;
-    if (ensured.current.has(columnId)) return;
+    for (const sort of effectiveSorts) {
+      const columnId = sort.columnId;
+      if (ensured.current.has(columnId)) continue;
 
-    ensured.current.add(columnId);
-    ensure.mutate({ tableId, columnId });
-  }, [sort, tableId, ensure]);
+      ensured.current.add(columnId);
+      ensure.mutate({ tableId, columnId });
+    }
+  }, [effectiveSorts, tableId, ensure]);
 }

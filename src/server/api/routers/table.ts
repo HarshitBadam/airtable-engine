@@ -36,8 +36,10 @@ export const tableRouter = createTRPCRouter({
       const defaultViewConfig: ViewConfig = {
         search: "",
         filters: [],
-        sort: null,
+        filterConjunction: "and",
+        sorts: [],
         hiddenColumnIds: [],
+        columnOrderIds: [],
       };
 
       const result = await ctx.db.$transaction(async (tx) => {
@@ -101,7 +103,7 @@ export const tableRouter = createTRPCRouter({
             tableId: table.id,
             rowIndex: i + 1,
             cells: cells as unknown as object,
-            searchText: Object.values(cells).join(" "),
+            searchText: Object.values(cells).map(String).join("\u001F"),
           };
         });
 

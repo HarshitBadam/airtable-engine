@@ -29,6 +29,7 @@ import { useGridRows } from "~/components/grid/useGridRows";
 import { useCellEditing } from "~/components/grid/useCellEditing";
 import { useGridStore } from "~/components/grid/grid-store";
 import { normalizeViewConfig } from "~/shared/grid";
+import { reconcileColumnOrder } from "~/components/grid/useGridMeta";
 
 import {
   AirtableLogoMonochrome,
@@ -382,9 +383,16 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   columnsRef.current = columns;
 
   // === ROW DATA ===
-  const { rows, totalCount, q: rowsQ, input: rowQueryInput } = useGridRows(tableId);
+  const { rows, totalCount, q: rowsQ, input: rowQueryInput, debouncedSearch } = useGridRows(tableId);
   rowsRef.current = rows;
   const { commit, cancel } = useCellEditing(tableId, rowQueryInput);
+
+  // Search state for FindBar wiring
+  const search = useGridStore((s) => s.search);
+  const setFindCurrentMatch = useGridStore((s) => s.setFindCurrentMatch);
+  /** true while debounce timer is pending OR the network query is in-flight */
+  const isSearchPending = search !== debouncedSearch || rowsQ.isFetching;
+
   const hiddenColumnIds = useGridStore((s) => s.hiddenColumnIds);
   const toggleHiddenColumn = useGridStore((s) => s.toggleHiddenColumn);
   const setHiddenColumnIds = useGridStore((s) => s.setHiddenColumnIds);
@@ -421,6 +429,100 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     [orderedColumns, hiddenColumnIds],
   );
 
+  // ================================================================
+  // FIND-IN-VIEW: client-side match list + navigation
+  // ================================================================
+  type FindMatch = { rowId: string; columnId: string };
+
+  const activeSearchTerm = debouncedSearch.trim();
+
+  /** Sentinel rowId used for header-cell matches (column names). */
+  const HEADER_ROW_ID = "__header__";
+
+  /** Flat ordered list of matching cells: header row first, then data rows top→bottom, columns left→right. */
+  const findMatches: FindMatch[] = useMemo(() => {
+    if (!activeSearchTerm) return [];
+    const termLower = activeSearchTerm.toLowerCase();
+    const result: FindMatch[] = [];
+
+    // Header row — match against column names
+    for (const col of visibleColumns) {
+      if (col.name.toLowerCase().includes(termLower)) {
+        result.push({ rowId: HEADER_ROW_ID, columnId: col.id });
+      }
+    }
+
+    // Data rows
+    for (const row of rows) {
+      const cells = (row.cells ?? {}) as Record<string, unknown>;
+      for (const col of visibleColumns) {
+        const val = cells[col.id];
+        if (val != null && String(val).toLowerCase().includes(termLower)) {
+          result.push({ rowId: row.id, columnId: col.id });
+        }
+      }
+    }
+    return result;
+  }, [rows, visibleColumns, activeSearchTerm]);
+
+  /** 0-based index into findMatches for the "current" highlighted match. */
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  // Reset to first match when the search term changes
+  useEffect(() => {
+    setCurrentMatchIndex(0);
+  }, [activeSearchTerm]);
+
+  // Clamp index if it goes out of bounds (e.g. rows unloaded while navigating)
+  useEffect(() => {
+    if (findMatches.length > 0) {
+      setCurrentMatchIndex((prev) => (prev >= findMatches.length ? 0 : prev));
+    }
+  }, [findMatches.length]);
+
+  // Track the last match cell we synced / scrolled to, so we skip duplicate work
+  // when the effect re-fires due to referential (but not semantic) dependency changes.
+  const prevMatchKeyRef = useRef<string | null>(null);
+
+  // Sync the current match into the Zustand store + scroll into view.
+  // The ref guard ensures we only perform side-effects when the *actual* match cell changes,
+  // preventing spurious scrolls on unrelated re-renders.
+  useEffect(() => {
+    const match = findMatches[currentMatchIndex] ?? null;
+    const matchKey = match ? `${match.rowId}:${match.columnId}` : null;
+
+    if (matchKey === prevMatchKeyRef.current) return;
+    prevMatchKeyRef.current = matchKey;
+
+    // Update store (for per-row GridRow highlighting)
+    setFindCurrentMatch(match);
+
+    // Scroll into view
+    if (match) {
+      const colIdx = visibleColumns.findIndex((c) => c.id === match.columnId);
+      if (match.rowId === HEADER_ROW_ID) {
+        // Header is sticky — just scroll the column into view horizontally (rowIdx 0)
+        if (colIdx !== -1) scrollCellIntoView(colIdx, 0);
+      } else {
+        const rowIdx = rows.findIndex((r) => r.id === match.rowId);
+        if (rowIdx !== -1 && colIdx !== -1) {
+          scrollCellIntoView(colIdx, rowIdx);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMatchIndex, findMatches, rows, visibleColumns, setFindCurrentMatch]);
+
+  const handleNextMatch = useCallback(() => {
+    if (findMatches.length === 0) return;
+    setCurrentMatchIndex((prev) => (prev + 1) % findMatches.length);
+  }, [findMatches.length]);
+
+  const handlePrevMatch = useCallback(() => {
+    if (findMatches.length === 0) return;
+    setCurrentMatchIndex((prev) => (prev - 1 + findMatches.length) % findMatches.length);
+  }, [findMatches.length]);
+
   // Hide-all / Show-all callbacks for the Hide Fields panel
   const handleHideAllColumns = useCallback(() => {
     setHiddenColumnIds(orderedColumns.map((c) => c.id));
@@ -440,6 +542,247 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     },
     [orderedColumns, setColumnOrderIds],
   );
+
+  // Sort state from store (array of Sort objects)
+  const currentSorts = useGridStore((s) => s.sorts);
+  const setSorts = useGridStore((s) => s.setSorts);
+
+  // Handle picking the first sort field from the FieldPicker (no active sort yet)
+  const handlePickSort = useCallback(
+    (columnId: string, columnType: "TEXT" | "NUMBER") => {
+      setSorts([{ columnId, direction: "asc", type: columnType }]);
+    },
+    [setSorts],
+  );
+
+  // Handle adding another sort
+  const handleAddSort = useCallback(
+    (columnId: string, columnType: "TEXT" | "NUMBER") => {
+      setSorts([...currentSorts, { columnId, direction: "asc", type: columnType }]);
+    },
+    [currentSorts, setSorts],
+  );
+
+  // Handle changing the field of a sort at a given index
+  const handleChangeSortField = useCallback(
+    (index: number, columnId: string, columnType: "TEXT" | "NUMBER") => {
+      const next = currentSorts.map((s, i) =>
+        i === index ? { columnId, direction: s.direction, type: columnType } : s,
+      );
+      setSorts(next);
+    },
+    [currentSorts, setSorts],
+  );
+
+  // Handle changing sort direction at a given index
+  const handleChangeDirection = useCallback(
+    (index: number, direction: "asc" | "desc") => {
+      const next = currentSorts.map((s, i) =>
+        i === index ? { ...s, direction } : s,
+      );
+      setSorts(next);
+    },
+    [currentSorts, setSorts],
+  );
+
+  // Handle removing a sort at a given index
+  const handleRemoveSort = useCallback(
+    (index: number) => {
+      setSorts(currentSorts.filter((_, i) => i !== index));
+    },
+    [currentSorts, setSorts],
+  );
+
+  // === AUTO-SORT + VIEW-LEVEL SORT PERSISTENCE ===
+  const autoSort = useGridStore((s) => s.autoSort);
+  const setAutoSort = useGridStore((s) => s.setAutoSort);
+  const savedSorts = useGridStore((s) => s.savedSorts);
+  const revertSorts = useGridStore((s) => s.revertSorts);
+
+  // Effective sorts: autoSort=true → live preview of current sorts
+  //                  autoSort=false → only persisted (saved) sorts
+  const effectiveSortCount = autoSort ? currentSorts.length : savedSorts.length;
+  // Whether there are active sorts (for orange badge styling on the Sort button)
+  const hasTemporarySorts = currentSorts.length > 0;
+  const markSortsSaved = useGridStore((s) => s.markSortsSaved);
+  const markSaved = useGridStore((s) => s.markSaved);
+  const searchForSave = useGridStore((s) => s.search);
+  const filtersForSave = useGridStore((s) => s.filters);
+  const filterConjunctionForSave = useGridStore((s) => s.filterConjunction);
+  const markFiltersSaved = useGridStore((s) => s.markFiltersSaved);
+
+  const handleToggleAutoSort = useCallback(() => {
+    setAutoSort(!autoSort);
+  }, [autoSort, setAutoSort]);
+
+  // Save sorts to view config (autoSort=false "Sort" button)
+  const viewSortSaveMut = api.view.update.useMutation({
+    onSuccess: async () => {
+      markSortsSaved();
+      markSaved();
+      await utils.view.list.invalidate({ tableId });
+    },
+  });
+
+  const activeViewIdFromStore = useGridStore((s) => s.activeViewId);
+
+  const handleSaveSorts = useCallback(() => {
+    if (!activeViewIdFromStore) return;
+    viewSortSaveMut.mutate({
+      viewId: activeViewIdFromStore,
+      config: { search: searchForSave, filters: filtersForSave, filterConjunction: filterConjunctionForSave, sorts: currentSorts, hiddenColumnIds, columnOrderIds },
+    });
+  }, [activeViewIdFromStore, searchForSave, filtersForSave, filterConjunctionForSave, currentSorts, hiddenColumnIds, columnOrderIds, viewSortSaveMut]);
+
+  // Cancel sorts: revert to savedSorts (autoSort=false "Cancel" button)
+  const handleCancelSorts = useCallback(() => {
+    revertSorts();
+  }, [revertSorts]);
+
+  // === AUTO-SAVE LAYOUT CHANGES (column order + visibility) ===
+  // In Airtable, column reorder and hide/show changes are persisted immediately.
+  // We debounce-save whenever columnOrderIds or hiddenColumnIds change.
+  const layoutAutoSaveMut = api.view.update.useMutation({
+    onSuccess: () => {
+      markSaved();
+      void utils.view.list.invalidate({ tableId });
+    },
+  });
+
+  // Ref keeps the latest full config so the debounced save never uses stale values
+  const latestConfigRef = useRef({
+    search: searchForSave,
+    filters: filtersForSave,
+    filterConjunction: filterConjunctionForSave,
+    sorts: currentSorts,
+    hiddenColumnIds,
+    columnOrderIds,
+  });
+  latestConfigRef.current = {
+    search: searchForSave,
+    filters: filtersForSave,
+    filterConjunction: filterConjunctionForSave,
+    sorts: currentSorts,
+    hiddenColumnIds,
+    columnOrderIds,
+  };
+
+  // Per-view baseline to distinguish "view loaded" from "user changed layout"
+  const layoutBaselineRef = useRef<string>("");
+  const layoutTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    if (!activeViewIdFromStore) return;
+
+    const layoutKey = `${activeViewIdFromStore}|${columnOrderIds.join(",")}|${hiddenColumnIds.join(",")}`;
+
+    // On view switch (or first render), record the baseline and skip
+    if (!layoutBaselineRef.current.startsWith(activeViewIdFromStore + "|")) {
+      layoutBaselineRef.current = layoutKey;
+      return;
+    }
+
+    // If layout hasn't actually changed, skip
+    if (layoutKey === layoutBaselineRef.current) return;
+
+    // Debounce: wait for rapid drag-and-drop sequences to settle
+    clearTimeout(layoutTimerRef.current);
+    layoutTimerRef.current = setTimeout(() => {
+      if (!activeViewIdFromStore) return;
+      layoutBaselineRef.current = layoutKey;
+      layoutAutoSaveMut.mutate({
+        viewId: activeViewIdFromStore,
+        config: latestConfigRef.current,
+      });
+    }, 400);
+
+    return () => clearTimeout(layoutTimerRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnOrderIds, hiddenColumnIds, activeViewIdFromStore]);
+
+  // === AUTO-SAVE FILTER CHANGES ===
+  // Filters are "temporary" (reversible) but persist across sessions — auto-save
+  // whenever the user changes filter conditions, debounced to avoid rapid-fire saves.
+  const filterAutoSaveMut = api.view.update.useMutation({
+    onSuccess: () => {
+      markFiltersSaved();
+      void utils.view.list.invalidate({ tableId });
+    },
+  });
+
+  const filterBaselineRef = useRef<string>("");
+  const filterTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Serialise current filters + conjunction into a stable key for change detection
+  const filterKey = `${activeViewIdFromStore}|${JSON.stringify(filtersForSave)}|${filterConjunctionForSave}`;
+
+  useEffect(() => {
+    if (!activeViewIdFromStore) return;
+
+    // On view switch (or first render), record the baseline and skip
+    if (!filterBaselineRef.current.startsWith(activeViewIdFromStore + "|")) {
+      filterBaselineRef.current = filterKey;
+      return;
+    }
+
+    // If filters haven't actually changed, skip
+    if (filterKey === filterBaselineRef.current) return;
+
+    // Debounce: wait for the user to finish building their filter
+    clearTimeout(filterTimerRef.current);
+    filterTimerRef.current = setTimeout(() => {
+      if (!activeViewIdFromStore) return;
+      filterBaselineRef.current = filterKey;
+      filterAutoSaveMut.mutate({
+        viewId: activeViewIdFromStore,
+        config: latestConfigRef.current,
+      });
+    }, 600);
+
+    return () => clearTimeout(filterTimerRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey, activeViewIdFromStore]);
+
+  // === AUTO-SAVE SORT CHANGES ===
+  // Sorts (like filters) are reversible but persist across sessions.
+  const sortAutoSaveMut = api.view.update.useMutation({
+    onSuccess: () => {
+      markSortsSaved();
+      void utils.view.list.invalidate({ tableId });
+    },
+  });
+
+  const sortBaselineRef = useRef<string>("");
+  const sortTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const sortKey = `${activeViewIdFromStore}|${JSON.stringify(currentSorts)}`;
+
+  useEffect(() => {
+    if (!activeViewIdFromStore) return;
+
+    // On view switch (or first render), record the baseline and skip
+    if (!sortBaselineRef.current.startsWith(activeViewIdFromStore + "|")) {
+      sortBaselineRef.current = sortKey;
+      return;
+    }
+
+    // If sorts haven't actually changed, skip
+    if (sortKey === sortBaselineRef.current) return;
+
+    // Debounce: wait for the user to finish adjusting sorts
+    clearTimeout(sortTimerRef.current);
+    sortTimerRef.current = setTimeout(() => {
+      if (!activeViewIdFromStore) return;
+      sortBaselineRef.current = sortKey;
+      sortAutoSaveMut.mutate({
+        viewId: activeViewIdFromStore,
+        config: latestConfigRef.current,
+      });
+    }, 600);
+
+    return () => clearTimeout(sortTimerRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortKey, activeViewIdFromStore]);
 
   // Helper to get cell value as string
   const getCellValue = useCallback(
@@ -1007,16 +1350,24 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const activeViewName = activeView?.name ?? 'Grid view';
   const canDeleteView = views.length > 1;
 
-  // Initialize grid store from first view config
-  const storeInitialized = useGridStore((s) => s.initialized);
+  // Initialize / switch grid store when active view changes
+  const storeActiveViewId = useGridStore((s) => s.activeViewId);
   const initializeFromView = useGridStore((s) => s.initializeFromView);
 
   useEffect(() => {
-    if (storeInitialized) return;
-    const firstView = views[0];
-    if (!firstView) return;
-    initializeFromView(firstView.id, normalizeViewConfig(firstView.config));
-  }, [storeInitialized, views, initializeFromView]);
+    if (!activeViewId || views.length === 0) return;
+    // Only reinitialize if the store is tracking a different view (or not yet initialized)
+    if (storeActiveViewId === activeViewId) return;
+    const view = views.find(v => v.id === activeViewId);
+    if (!view) return;
+    const config = normalizeViewConfig(view.config);
+    // Reconcile column order with actual table columns (handles added/removed columns)
+    const tableColumnIds = columns.map((c) => c.id);
+    const reconciledConfig = tableColumnIds.length > 0
+      ? reconcileColumnOrder(config, tableColumnIds)
+      : config;
+    initializeFromView(activeViewId, reconciledConfig);
+  }, [activeViewId, views, columns, storeActiveViewId, initializeFromView]);
 
   // Compute default name for next grid view
   const computeNextViewName = () => {
@@ -1964,6 +2315,25 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             onHideAll={handleHideAllColumns}
             onShowAll={handleShowAllColumns}
             onReorderColumns={handleReorderColumns}
+            baseColor={baseColor}
+            sortColumns={orderedColumns}
+            currentSorts={currentSorts}
+            effectiveSortCount={effectiveSortCount}
+            hasTemporarySorts={hasTemporarySorts}
+            onPickSort={handlePickSort}
+            onAddSort={handleAddSort}
+            onChangeSortField={handleChangeSortField}
+            onChangeDirection={handleChangeDirection}
+            onRemoveSort={handleRemoveSort}
+            autoSort={autoSort}
+            onToggleAutoSort={handleToggleAutoSort}
+            onSaveSorts={handleSaveSorts}
+            onCancelSorts={handleCancelSorts}
+            findMatchCount={findMatches.length}
+            findCurrentIndex={currentMatchIndex}
+            isSearchPending={isSearchPending}
+            onPrevMatch={handlePrevMatch}
+            onNextMatch={handleNextMatch}
           />
 
           {/* === GRID AREA (views sidebar + grid content) === */}
@@ -2040,6 +2410,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               onDeleteRecord={handleDeleteRecord}
               onDeleteField={handleDeleteField}
               deletingRowIds={deletingRowIds}
+              searchTerm={activeSearchTerm}
             />
           </div>
         </div>

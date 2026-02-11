@@ -27,7 +27,7 @@ export function useCellEditing(tableId: string, rowQueryInput: RowInfiniteInput)
 
   const search = useGridStore((s) => s.search);
   const filters = useGridStore((s) => s.filters);
-  const sort = useGridStore((s) => s.sort);
+  const sorts = useGridStore((s) => s.sorts);
 
   const utils = api.useUtils();
 
@@ -75,7 +75,7 @@ export function useCellEditing(tableId: string, rowQueryInput: RowInfiniteInput)
     },
 
     onSuccess: async () => {
-      const affectsMembership = !!search.trim() || filters.length > 0 || !!sort;
+      const affectsMembership = !!search.trim() || filters.length > 0 || sorts.length > 0;
       if (affectsMembership) {
         await utils.row.infinite.invalidate(rowQueryInput);
       }

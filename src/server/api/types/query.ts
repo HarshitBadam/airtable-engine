@@ -13,6 +13,6 @@ export type Sort =
 export type ViewQuery = {
   search?: string;
   filters?: Filter[];
-  sort?: Sort | null;
+  sorts?: Sort[];
   hiddenColumnIds?: string[];
 };

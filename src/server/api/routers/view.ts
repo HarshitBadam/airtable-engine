@@ -3,8 +3,9 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 const viewConfigSchema = z.object({
   search: z.string(),
-  filters: z.array(z.any()), // we’ll tighten in Push 9/10
-  sort: z.any().nullable(),
+  filters: z.array(z.any()),
+  filterConjunction: z.enum(["and", "or"]).default("and"),
+  sorts: z.array(z.any()).default([]),
   hiddenColumnIds: z.array(z.string()),
   columnOrderIds: z.array(z.string()).default([]),
 });

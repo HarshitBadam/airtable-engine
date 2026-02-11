@@ -34,8 +34,10 @@ export const baseRouter = createTRPCRouter({
       const defaultViewConfig: ViewConfig = {
         search: "",
         filters: [],
-        sort: null,
+        filterConjunction: "and",
+        sorts: [],
         hiddenColumnIds: [],
+        columnOrderIds: [],
       };
 
       return ctx.db.$transaction(async (tx) => {

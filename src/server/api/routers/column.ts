@@ -116,12 +116,13 @@ export const columnRouter = createTRPCRouter({
             });
           }
 
-          // Also clean sort if it references this column
-          const sort = config.sort as Record<string, unknown> | null;
-          if (sort && sort.columnId === input.columnId) {
+          // Also clean sorts that reference this column
+          const sorts = Array.isArray(config.sorts) ? config.sorts as Record<string, unknown>[] : [];
+          const newSorts = sorts.filter((s) => s.columnId !== input.columnId);
+          if (newSorts.length !== sorts.length) {
             await tx.view.update({
               where: { id: view.id },
-              data: { config: { ...config, sort: null } as unknown as object },
+              data: { config: { ...config, sorts: newSorts } as unknown as object },
             });
           }
 
@@ -165,12 +166,16 @@ export const columnRouter = createTRPCRouter({
       const baseName = `r_${input.tableId.slice(0, 8)}_${input.columnId.slice(0, 8)}`;
 
       if (col.type === "TEXT") {
+        // Composite btree index matching ORDER BY shape:
+        //   (NULLIF(cells->>'colId',''), rowIndex)
+        // Allows Postgres to satisfy ORDER BY + LIMIT from the index.
         await ctx.db.$executeRawUnsafe(`
           CREATE INDEX IF NOT EXISTS "${baseName}_t_b"
-          ON "Row" ((cells->>'${colId}'))
+          ON "Row" ((NULLIF(cells->>'${colId}','')), "rowIndex")
           WHERE "tableId" = '${tableId}';
         `);
 
+        // Trigram index for ILIKE contains/search queries
         await ctx.db.$executeRawUnsafe(`
           CREATE INDEX IF NOT EXISTS "${baseName}_t_g"
           ON "Row"
@@ -178,9 +183,11 @@ export const columnRouter = createTRPCRouter({
           WHERE "tableId" = '${tableId}';
         `);
       } else {
+        // Composite btree index matching ORDER BY shape:
+        //   (NULLIF(cells->>'colId','')::double precision, rowIndex)
         await ctx.db.$executeRawUnsafe(`
           CREATE INDEX IF NOT EXISTS "${baseName}_n_b"
-          ON "Row" ((NULLIF(cells->>'${colId}','')::double precision))
+          ON "Row" ((NULLIF(cells->>'${colId}','')::double precision), "rowIndex")
           WHERE "tableId" = '${tableId}';
         `);
       }
