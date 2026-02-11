@@ -1,0 +1,992 @@
+/* =============================================
+   FIELD CONFIG PANEL — Configuration after selecting a field type
+   ============================================= */
+
+@keyframes opacityFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* === Outer config container (replaces picker content) === */
+.configContainer {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  width: 400px;
+  margin: 0;
+  padding: 0;
+}
+
+/* =============================================================
+   TOP SECTION: Field name input + Type selector (88px)
+   ============================================================= */
+.configTop {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: 88px;
+  width: 400px;
+  padding: 8px 16px;
+  margin: 0;
+}
+
+/* Field name input */
+.configNameInput {
+  appearance: auto;
+  background-color: rgb(255, 255, 255);
+  border: none;
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: text;
+  display: inline-block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  line-height: 18px;
+  margin: 0;
+  outline: none;
+  overflow: clip;
+  padding: 4px 8px;
+  resize: none;
+  text-align: start;
+  width: 368px;
+}
+
+.configNameInput::placeholder {
+  color: rgb(97, 102, 112);
+}
+
+.configNameInput:focus {
+  box-shadow:
+    0 0 0 2px rgb(22, 110, 225);
+}
+
+/* Field type selector button */
+.configTypeSelector {
+  align-items: center;
+  background-color: rgb(255, 255, 255);
+  border: none;
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  line-height: 18px;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 8px;
+  transition: all 0.085s ease-in;
+  width: 368px;
+}
+
+.configTypeSelector:hover {
+  background-color: rgb(246, 248, 252);
+}
+
+/* Field type icon (left, e.g. "A" for single line text) */
+.configTypeSelectorIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  overflow: hidden;
+}
+
+.configTypeSelectorIcon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  shape-rendering: geometricPrecision;
+}
+
+/* Field type text (center, truncates) */
+.configTypeSelectorText {
+  display: block;
+  color: rgb(29, 31, 37);
+  fill: rgb(29, 31, 37);
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0;
+  padding: 0;
+}
+
+/* Down chevron (right) */
+.configTypeSelectorChevron {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  opacity: 0.75;
+  overflow: hidden;
+}
+
+.configTypeSelectorChevron svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+/* =============================================================
+   MIDDLE SECTION: Description + Default value (text — 100px)
+   ============================================================= */
+.configMiddle {
+  animation-duration: 0.4s;
+  animation-name: opacityFadeIn;
+  box-sizing: border-box;
+  display: block;
+  height: 100px;
+  width: 400px;
+  margin: 0;
+  padding: 0 0 4px 0;
+  transition: all 0.25s ease-in;
+}
+
+.configMiddleInner {
+  box-sizing: border-box;
+  display: block;
+  height: 96px;
+  width: 400px;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+/* =============================================================
+   SCROLLABLE CONTAINER (for Number type — flex column layout)
+   ============================================================= */
+.configContainerScrollable {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  width: 400px;
+  max-height: 559px;
+  margin: 0;
+  padding: 0;
+}
+
+/* Scrollable middle section (Number type) */
+.configMiddleScrollable {
+  animation-duration: 0.4s;
+  animation-name: opacityFadeIn;
+  box-sizing: border-box;
+  display: block;
+  width: 400px;
+  margin: 0;
+  padding: 0 0 4px 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: all 0.25s ease-in;
+}
+
+/* Custom thin vertical scrollbar */
+.configMiddleScrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.configMiddleScrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.configMiddleScrollable::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+.configMiddleScrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Description text */
+.configDescription {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  margin: 4px 0 16px 0;
+  max-width: 512px;
+  opacity: 0.75;
+  padding: 0 16px;
+  width: 400px;
+}
+
+/* Default value section wrapper */
+.configDefaultSection {
+  box-sizing: border-box;
+  display: block;
+  height: 62px;
+  width: 400px;
+  margin: 0;
+  padding: 0 16px 4px 16px;
+}
+
+/* =============================================================
+   NUMBER FIELD — Formatting section
+   ============================================================= */
+
+/* Wrapper: centers formatting content (356px) inside 400px panel */
+.numFormattingWrapper {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  width: 400px;
+  margin: 0;
+  padding: 0 22px 16px 22px;
+}
+
+/* "Formatting" heading */
+.numFormattingHeader {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 16.25px;
+  line-height: 18px;
+  margin: 0 0 8px 0;
+  padding: 0;
+  width: 356px;
+}
+
+/* --- Dropdown block (label + select button) --- */
+.numDropdownBlock {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: default;
+  display: block;
+  float: none;
+  font-size: 13px;
+  font-weight: 400;
+  height: 56.5px;
+  line-height: 18px;
+  margin-bottom: 16px;
+  padding-top: 0;
+  text-align: left;
+  width: 356px;
+}
+
+/* Dropdown label (e.g. "Presets", "Decimal places") */
+.numDropdownLabel {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: default;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 16.5px;
+  line-height: 18px;
+  margin: 0 0 8px 0;
+  padding: 0;
+  text-align: left;
+  width: 356px;
+}
+
+/* Dropdown select button */
+.numDropdown {
+  align-items: center;
+  appearance: auto;
+  background-color: rgb(255, 255, 255);
+  border: none;
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(0, 0, 0);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  line-height: normal;
+  margin: 0;
+  padding: 0 8px;
+  text-align: left;
+  width: 356px;
+}
+
+/* Dropdown text (left, truncated) */
+.numDropdownText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  fill: rgb(29, 31, 37);
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 400;
+  height: 19.5px;
+  line-height: 19.5px;
+  margin: 0;
+  max-width: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 318px;
+}
+
+/* Dropdown chevron (right) */
+.numDropdownChevron {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  flex: 0 0 auto;
+  font-size: 13px;
+  height: 16px;
+  margin-left: 4;
+  margin-right: -2px;
+  overflow: hidden;
+  width: 16px;
+}
+
+.numDropdownChevron svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  shape-rendering: geometricPrecision;
+}
+
+/* =============================================================
+   NUMBER FIELD — Toggle row (pill + label)
+   ============================================================= */
+
+.numToggleRow {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  margin: 0 0 16px 0;
+  padding: 0;
+  width: 356px;
+}
+
+/* Toggle pill (outer capsule) */
+.togglePill {
+  box-sizing: border-box;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 12px;
+  width: 19.2px;
+  padding: 2px;
+  transition: all 0.085s ease-in;
+}
+
+/* Toggle pill circle (white dot) */
+.togglePillCircle {
+  background-color: rgb(255, 255, 255);
+  border-radius: 50%;
+  box-sizing: border-box;
+  display: block;
+  flex: 0 0 auto;
+  height: 8px;
+  width: 8px;
+}
+
+/* Toggle label text */
+.numToggleLabel {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  margin: 0 0 0 8px;
+  padding: 0;
+}
+
+/* =============================================================
+   NUMBER FIELD — Example text
+   ============================================================= */
+
+.numExample {
+  box-sizing: border-box;
+  color: #616670;
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  margin: 0;
+  padding: 8px 0 0 0;
+  width: 356px;
+}
+
+/* "Default" label */
+.configDefaultLabel {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: default;
+  display: block;
+  fill: rgb(29, 31, 37);
+  font-size: 11px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  margin: 0;
+  opacity: 0.75;
+  padding: 0;
+  text-align: left;
+  width: 368px;
+}
+
+/* Default value input */
+.configDefaultInput {
+  appearance: none;
+  background-color: rgb(255, 255, 255);
+  border: 2px solid rgba(0, 0, 0, 0);
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: text;
+  display: inline-block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  line-height: 18px;
+  margin: 8px 0 0 0;
+  outline: none;
+  overflow: clip;
+  padding: 8px;
+  resize: none;
+  text-align: start;
+  width: 368px;
+}
+
+.configDefaultInput::placeholder {
+  color: rgb(97, 102, 112);
+}
+
+.configDefaultInput:focus {
+  border-color: rgb(22, 110, 225);
+}
+
+/* =============================================================
+   ACTIONS BAR: + Add description | Cancel | Create field (56px)
+   ============================================================= */
+.configActions {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  flex-shrink: 0;
+  height: 56px;
+  justify-content: space-between;
+  width: 400px;
+  margin: 0;
+  padding: 8px 16px 16px 16px;
+}
+
+.configActionsRight {
+  display: flex;
+  align-items: center;
+}
+
+/* + Add description button */
+.configAddDescBtn {
+  align-items: center;
+  appearance: none;
+  background-color: rgba(0, 0, 0, 0);
+  border: none;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  justify-content: center;
+  line-height: 22px;
+  margin: 0;
+  max-width: 100%;
+  padding: 0 12px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.configAddDescBtn:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.configAddDescBtnIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.configAddDescBtnIcon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.configAddDescBtnText {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  height: 22px;
+  line-height: 22px;
+  max-width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: matrix(1, 0, 0, 1, 0, -0.5);
+  user-select: none;
+}
+
+/* Cancel button */
+.configCancelBtn {
+  align-items: center;
+  appearance: none;
+  background-color: rgba(0, 0, 0, 0);
+  border: none;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 32px;
+  justify-content: center;
+  line-height: 22px;
+  margin: 0;
+  max-width: 100%;
+  padding: 0 12px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.configCancelBtn:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.configCancelBtnText {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 22px;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Create field button (blue) */
+.configCreateBtn {
+  align-items: center;
+  appearance: none;
+  background-color: rgb(22, 110, 225);
+  border: none;
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(255, 255, 255);
+  cursor: pointer;
+  display: inline-flex;
+  fill: rgb(255, 255, 255);
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  height: 32px;
+  justify-content: center;
+  line-height: 22px;
+  margin: 0 0 0 8px;
+  max-width: 100%;
+  padding: 0 12px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.configCreateBtn:hover {
+  background-color: rgb(18, 95, 196);
+}
+
+.configCreateBtnText {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 22px;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* =============================================================
+   FOOTER: Automate with agent + Convert (48px)
+   ============================================================= */
+.configFooter {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  flex-shrink: 0;
+  height: 48px;
+  justify-content: space-between;
+  width: 392px;
+  margin: 0 auto;
+  padding: 12px;
+}
+
+/* Automate section (left side of footer) */
+.configAutomateSection {
+  align-items: center;
+  box-sizing: border-box;
+  column-gap: 4px;
+  display: flex;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  row-gap: 4px;
+}
+
+.configAutomateIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  overflow: hidden;
+  color: #068A0D;
+}
+
+.configAutomateIcon svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.configAutomateText {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  height: 19.5px;
+  line-height: 19.5px;
+}
+
+.configInfoIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  overflow: hidden;
+  color: rgb(29, 31, 37);
+}
+
+.configInfoIcon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+/* Convert button */
+.configConvertBtn {
+  align-items: center;
+  appearance: none;
+  background-color: rgb(255, 255, 255);
+  border: none;
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  height: 24px;
+  justify-content: center;
+  line-height: 20px;
+  margin: 0;
+  max-width: 100%;
+  padding: 0 8px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.configConvertBtn:hover {
+  background-color: rgb(246, 248, 252);
+}
+
+.configConvertBtnText {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 20px;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* =============================================================
+   NUMBER DROPDOWN — Active (open) state for trigger
+   ============================================================= */
+
+.numDropdownActive {
+  box-shadow: 0 0 0 2px rgb(22, 110, 225) !important;
+}
+
+/* Clear / X button (inside trigger, for Large number abbreviation) */
+.numDropdownClearBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0;
+  margin: 0;
+  color: rgb(97, 102, 112);
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.numDropdownClearBtn:hover {
+  opacity: 0.8;
+}
+
+.numDropdownClearBtn svg {
+  display: block;
+  margin: 0;
+}
+
+/* =============================================================
+   NUMBER DROPDOWN — Popup (rendered via portal)
+   ============================================================= */
+
+.numDropdownPopup {
+  background-color: rgb(255, 255, 255);
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.1) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.1) 0px 4px 11px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  margin-top: 2px;
+}
+
+/* "Find..." search input inside popup */
+.numDropdownSearch {
+  appearance: none;
+  background-color: rgba(0, 0, 0, 0);
+  border: none;
+  box-shadow: none;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: text;
+  display: flex;
+  flex: 0 0 auto;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 36px;
+  line-height: 18px;
+  margin: 0;
+  outline: none;
+  overflow: clip;
+  padding: 8px 20px 4px 20px;
+  resize: none;
+  text-align: start;
+  width: 100%;
+}
+
+.numDropdownSearch::placeholder {
+  color: rgb(97, 102, 112);
+}
+
+/* Scrollable items list inside popup */
+.numDropdownItemsList {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  max-height: 244px;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  padding: 0 12px 12px 12px;
+  position: relative;
+  width: 100%;
+}
+
+/* Custom scrollbar for items list */
+.numDropdownItemsList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.numDropdownItemsList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.numDropdownItemsList::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+.numDropdownItemsList::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Individual dropdown item (line item) */
+.numDropdownItem {
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0);
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 36px;
+  line-height: 18px;
+  list-style: none;
+  margin: 0;
+  min-height: 36px;
+  padding: 8px;
+  width: 100%;
+}
+
+.numDropdownItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.numDropdownItemSelected {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Left text in dropdown item */
+.numDropdownItemLabel {
+  box-sizing: border-box;
+  color: #1D1F25;
+  display: block;
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Right text in dropdown item (e.g. "1.0", "K") */
+.numDropdownItemValue {
+  box-sizing: border-box;
+  color: #88898C;
+  display: block;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  margin-left: 8px;
+  white-space: nowrap;
+}

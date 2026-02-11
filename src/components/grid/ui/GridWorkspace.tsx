@@ -30,6 +30,7 @@ import { useCellEditing } from "~/components/grid/useCellEditing";
 import { useGridStore } from "~/components/grid/grid-store";
 import { normalizeViewConfig } from "~/shared/grid";
 import { reconcileColumnOrder } from "~/components/grid/useGridMeta";
+import type { NumberFormatConfig } from "~/shared/numberUtils";
 
 import {
   AirtableLogoMonochrome,
@@ -150,6 +151,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const freezeDragStartIdx = useRef(0);
   const selectionOverlayRef = useRef<HTMLDivElement>(null);
   const columnsRef = useRef<GridColumnDef[]>([]);
+  const visibleColumnsRef = useRef<GridColumnDef[]>([]);
   const rowsRef = useRef<{ id: string; cells: unknown }[]>([]);
   const frozenColumnCountRef = useRef(0);
   const freezeWidthRef = useRef(0);
@@ -403,7 +405,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const commitRef = useRef(commit);
   commitRef.current = commit;
   const stableCommit = useCallback(
-    (args: { rowId: string; columnId: string; columnType: "TEXT" | "NUMBER" }) => commitRef.current(args),
+    (args: { rowId: string; columnId: string; columnType: "TEXT" | "NUMBER"; numberConfig?: unknown }) => commitRef.current(args),
     [],
   );
   const cancelRef = useRef(cancel);
@@ -428,6 +430,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     () => orderedColumns.filter((c) => !hiddenColumnIds.includes(c.id)),
     [orderedColumns, hiddenColumnIds],
   );
+  visibleColumnsRef.current = visibleColumns;
 
   // ================================================================
   // FIND-IN-VIEW: client-side match list + navigation
@@ -649,12 +652,15 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     },
   });
 
-  // Ref keeps the latest full config so the debounced save never uses stale values
+  // Ref keeps the latest full config so the debounced save never uses stale values.
+  // When autoSort is on, sorts are temporary — persist the savedSorts baseline
+  // so other auto-save effects (layout, filters) don't accidentally save temp sorts.
+  const sortsForConfig = autoSort ? savedSorts : currentSorts;
   const latestConfigRef = useRef({
     search: searchForSave,
     filters: filtersForSave,
     filterConjunction: filterConjunctionForSave,
-    sorts: currentSorts,
+    sorts: sortsForConfig,
     hiddenColumnIds,
     columnOrderIds,
   });
@@ -662,7 +668,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     search: searchForSave,
     filters: filtersForSave,
     filterConjunction: filterConjunctionForSave,
-    sorts: currentSorts,
+    sorts: sortsForConfig,
     hiddenColumnIds,
     columnOrderIds,
   };
@@ -760,6 +766,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   useEffect(() => {
     if (!activeViewIdFromStore) return;
 
+    // When autoSort is on, sorts are temporary — don't persist them.
+    // Only auto-save when autoSort is off (sorts are meant to be persisted).
+    if (autoSort) {
+      sortBaselineRef.current = sortKey;
+      return;
+    }
+
     // On view switch (or first render), record the baseline and skip
     if (!sortBaselineRef.current.startsWith(activeViewIdFromStore + "|")) {
       sortBaselineRef.current = sortKey;
@@ -782,7 +795,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     return () => clearTimeout(sortTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortKey, activeViewIdFromStore]);
+  }, [sortKey, activeViewIdFromStore, autoSort]);
 
   // Helper to get cell value as string
   const getCellValue = useCallback(
@@ -826,7 +839,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       return;
     }
 
-    const cols = columnsRef.current;
+    // Use visibleColumns (view-ordered, hidden-filtered) so overlay position
+    // matches the actual rendered grid layout — NOT the raw DB-ordered column list.
+    const cols = visibleColumnsRef.current;
     const rws = rowsRef.current;
     const frozenCount = frozenColumnCountRef.current;
 
@@ -923,7 +938,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     const hScroll = hScrollRef.current;
     if (!scroller) return;
 
-    const cols = columnsRef.current;
+    const cols = visibleColumnsRef.current;
     const widths = columnWidthsRef.current;
     const frozenCount = frozenColumnCountRef.current;
     const fw = freezeWidthRef.current;
@@ -1380,9 +1395,18 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // Create view mutation
   const createViewMut = api.view.create.useMutation({
     onSuccess: (newView) => {
-      void utils.view.list.invalidate({ tableId });
+      // Optimistically add the new view to the cache so the guard effect
+      // (which snaps to views[0] when activeViewId isn't found) doesn't
+      // reset us before the invalidation resolves.
+      utils.view.list.setData({ tableId }, (old) => {
+        if (!old) return [newView];
+        if (old.some((v) => v.id === newView.id)) return old;
+        return [...old, newView];
+      });
       setActiveViewId(newView.id);
       setIsCreateViewBoxOpen(false);
+      // Then refetch to get the authoritative server state
+      void utils.view.list.invalidate({ tableId });
     },
   });
 
@@ -1614,7 +1638,180 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   });
 
   // === COLUMN MUTATIONS ===
-  // Delete column — optimistic: remove from column list + strip from row cells immediately
+
+  // Refs for latest Zustand state (avoids stale closures in mutation callbacks)
+  const columnOrderIdsRef = useRef(columnOrderIds);
+  columnOrderIdsRef.current = columnOrderIds;
+  const hiddenColumnIdsRef = useRef(hiddenColumnIds);
+  hiddenColumnIdsRef.current = hiddenColumnIds;
+  const currentSortsRef = useRef(currentSorts);
+  currentSortsRef.current = currentSorts;
+  const filtersRef = useRef(filtersForSave);
+  filtersRef.current = filtersForSave;
+
+  const setFilters = useGridStore((s) => s.setFilters);
+
+  // Counter for generating unique temp IDs for optimistic column creation
+  const tempColCounter = useRef(0);
+
+  // Create column — optimistic: add a placeholder column INSTANTLY, then reconcile with server
+  const createColumnMut = api.column.create.useMutation({
+    onMutate: async (vars) => {
+      // Generate a deterministic temporary ID
+      const tempId = `__temp_col_${++tempColCounter.current}_${Date.now()}`;
+
+      // Cancel in-flight queries so our optimistic data isn't overwritten
+      await utils.column.list.cancel({ tableId });
+
+      // Snapshot previous state for rollback
+      const prevCols = utils.column.list.getData({ tableId });
+      const prevOrderIds = columnOrderIdsRef.current;
+      const prevRows = utils.row.infinite.getInfiniteData(rowQueryInput);
+
+      // Optimistically add the temp column to the column list cache
+      const tempCol = {
+        id: tempId,
+        name: vars.name,
+        type: vars.type,
+        order: 999999,
+        defaultValue: vars.defaultValue ?? null,
+        config: vars.numberConfig ? (vars.numberConfig as unknown as object) : null,
+      };
+      utils.column.list.setData({ tableId }, (old) => {
+        if (!old) return [tempCol];
+        return [...old, tempCol];
+      });
+
+      // Append the temp column to the Zustand store's columnOrderIds
+      const currentOrder = columnOrderIdsRef.current;
+      if (currentOrder.length > 0) {
+        setColumnOrderIds([...currentOrder, tempId]);
+      }
+
+      // If a default value is provided, stamp it into every cached row
+      if (vars.defaultValue && vars.defaultValue.trim() !== "") {
+        // For NUMBER columns, store the value as an actual number if possible
+        const cellValue: string | number =
+          vars.type === "NUMBER" && !isNaN(Number(vars.defaultValue))
+            ? Number(vars.defaultValue)
+            : vars.defaultValue;
+
+        utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              items: page.items.map((r) => {
+                const cells = (r.cells ?? {}) as Record<string, unknown>;
+                return { ...r, cells: { ...cells, [tempId]: cellValue } };
+              }),
+            })),
+          };
+        });
+      }
+
+      return { tempId, prevCols, prevOrderIds, prevRows };
+    },
+    onSuccess: (newCol, _vars, ctx) => {
+      if (!ctx) return;
+      const { tempId } = ctx;
+
+      // Replace the temp column with the real one in the column list cache
+      utils.column.list.setData({ tableId }, (old) => {
+        if (!old) return old;
+        return old.map((c) =>
+          c.id === tempId
+            ? { id: newCol.id, name: newCol.name, type: newCol.type, order: newCol.order, defaultValue: newCol.defaultValue, config: newCol.config }
+            : c,
+        );
+      });
+
+      // Replace the temp ID with the real ID in the Zustand store's columnOrderIds
+      const currentOrder = columnOrderIdsRef.current;
+      const idx = currentOrder.indexOf(tempId);
+      if (idx !== -1) {
+        const updated = [...currentOrder];
+        updated[idx] = newCol.id;
+        setColumnOrderIds(updated);
+      }
+
+      // Remap temp column ID → real column ID in cached row data (avoids
+      // a full refetch which would flash default values out then back in).
+      utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            rows: page.rows.map((row: { id: string; cells: unknown }) => {
+              const cells = (row.cells ?? {}) as Record<string, unknown>;
+              if (!(tempId in cells)) return row;
+              const { [tempId]: val, ...rest } = cells;
+              return { ...row, cells: { ...rest, [newCol.id]: val } };
+            }),
+          })),
+        };
+      });
+
+      // Also update the activeCell if it was referencing the temp column
+      const ac = activeCellRef.current;
+      if (ac && ac.columnId === tempId) {
+        setActiveCell({ rowId: ac.rowId, columnId: newCol.id });
+      }
+
+      // Re-fetch views so the persisted columnOrderIds are in sync
+      void utils.view.list.invalidate({ tableId });
+    },
+    onError: (_err, _vars, ctx) => {
+      if (!ctx) return;
+      // Rollback column cache
+      if (ctx.prevCols) utils.column.list.setData({ tableId }, ctx.prevCols);
+      // Rollback Zustand store
+      setColumnOrderIds(ctx.prevOrderIds);
+      // Rollback row cache
+      if (ctx.prevRows) utils.row.infinite.setInfiniteData(rowQueryInput, ctx.prevRows);
+    },
+  });
+
+  // Remove column from view — optimistic: strip from store INSTANTLY, then persist to backend
+  const removeFromViewMut = api.column.removeFromView.useMutation({
+    onMutate: (vars) => {
+      // Snapshot previous Zustand state for rollback
+      const prevOrderIds = columnOrderIdsRef.current;
+      const prevHiddenIds = hiddenColumnIdsRef.current;
+      const prevSorts = currentSortsRef.current;
+      const prevFilters = filtersRef.current;
+
+      // Immediately update Zustand store: remove from columnOrderIds & hiddenColumnIds
+      setColumnOrderIds(prevOrderIds.filter((id: string) => id !== vars.columnId));
+      setHiddenColumnIds(prevHiddenIds.filter((id: string) => id !== vars.columnId));
+
+      // Clean sorts/filters referencing this column
+      const newSorts = prevSorts.filter((s) => s.columnId !== vars.columnId);
+      if (newSorts.length !== prevSorts.length) setSorts(newSorts);
+      const newFilters = prevFilters.filter((f) => f.columnId !== vars.columnId);
+      if (newFilters.length !== prevFilters.length) setFilters(newFilters);
+
+      return { prevOrderIds, prevHiddenIds, prevSorts, prevFilters };
+    },
+    onSuccess: () => {
+      // Re-fetch views to pick up the persisted config changes
+      void utils.view.list.invalidate({ tableId });
+    },
+    onError: (_err, _vars, ctx) => {
+      if (!ctx) return;
+      // Rollback Zustand store
+      setColumnOrderIds(ctx.prevOrderIds);
+      setHiddenColumnIds(ctx.prevHiddenIds);
+      setSorts(ctx.prevSorts);
+      setFilters(ctx.prevFilters);
+    },
+  });
+
+  // Delete column (PERMANENT, table-level) — not wired to UI; kept for future admin use.
+  // The "Delete field" menu uses removeFromViewMut (view-scoped) instead.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const deleteColumnMut = api.column.delete.useMutation({
     onMutate: async (vars) => {
       // Cancel both queries
@@ -1800,12 +1997,28 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     }, DELETE_ANIM_MS);
   }, [isValidTable, tableId, activeCell, clearSelection, deleteRowMut, utils, rowQueryInput]);
 
-  // === DELETE FIELD (optimistic — column disappears instantly) ===
+  // === DELETE FIELD (view-scoped — removes column from current view only) ===
   const handleDeleteField = useCallback((columnId: string) => {
-    if (!isValidTable) return;
+    if (!isValidTable || !activeViewIdFromStore) return;
     if (activeCell?.columnId === columnId) clearSelection();
-    deleteColumnMut.mutate({ tableId, columnId });
-  }, [isValidTable, tableId, activeCell, clearSelection, deleteColumnMut]);
+    removeFromViewMut.mutate({ viewId: activeViewIdFromStore, columnId });
+  }, [isValidTable, activeViewIdFromStore, activeCell, clearSelection, removeFromViewMut]);
+
+  // === CREATE FIELD (view-scoped — adds column to table + current view's columnOrderIds) ===
+  const handleCreateField = useCallback((name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig) => {
+    if (!isValidTable) return;
+    // Map UI type label to DB column type
+    const dbType: "TEXT" | "NUMBER" = type === "Number" ? "NUMBER" : "TEXT";
+    const fieldName = name.trim() || (dbType === "NUMBER" ? "Number" : "Field");
+    createColumnMut.mutate({
+      tableId,
+      name: fieldName,
+      type: dbType,
+      defaultValue: defaultValue.trim() || undefined,
+      numberConfig: numberConfig ?? undefined,
+      viewId: activeViewIdFromStore ?? undefined,
+    });
+  }, [isValidTable, tableId, activeViewIdFromStore, createColumnMut]);
 
   // Check scroll progress for proportional reveal
   const checkScrollProgress = () => {
@@ -2409,6 +2622,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               onDuplicateRecord={handleDuplicateRecord}
               onDeleteRecord={handleDeleteRecord}
               onDeleteField={handleDeleteField}
+              onCreateField={handleCreateField}
               deletingRowIds={deletingRowIds}
               searchTerm={activeSearchTerm}
             />

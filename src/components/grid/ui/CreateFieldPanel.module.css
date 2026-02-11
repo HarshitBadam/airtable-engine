@@ -1,0 +1,352 @@
+/* =============================================
+   CREATE FIELD PANEL — Dropdown for adding new fields
+   ============================================= */
+
+/* === Main container (portal, fixed position) === */
+.createFieldPanel {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  width: 400px;
+  padding: 6px;
+  margin: 0;
+  background-color: rgb(255, 255, 255);
+  border-radius: 6px;
+  box-shadow:
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* === Sticky search header === */
+.searchHeader {
+  background-color: rgb(255, 255, 255);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 51px;
+  width: 388px;
+  margin-top: -6px;
+  padding-top: 6px;
+  padding-bottom: 0;
+  padding-left: 0;
+  padding-right: 0;
+  pointer-events: auto;
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+}
+
+/* Search box (input + icons) */
+/* Row wrapper: search box + question icon side by side */
+.searchRow {
+  display: flex;
+  align-items: center;
+  width: 388px;
+  height: 38px;
+}
+
+.searchBox {
+  background-color: #F7F8FC;
+  border: 1px solid #F7F8FC;
+  border-radius: 6px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: 38px;
+  width: 348px;
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+.searchBox:focus-within {
+  border-color: rgb(43, 126, 230);
+  background-color: #F7F8FC;
+}
+
+/* Magnifying glass icon (left) */
+.searchIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-left: 10px;
+  margin-right: 2px;
+  color: rgb(29, 31, 37);
+  cursor: default;
+  overflow: hidden;
+}
+
+/* Search input field */
+.searchInput {
+  appearance: none;
+  background-color: rgba(0, 0, 0, 0);
+  border: none;
+  box-shadow: none;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: text;
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 36px;
+  line-height: 18px;
+  margin-left: 4px;
+  margin-right: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  outline: none;
+  overflow: clip;
+  padding: 4px;
+  resize: none;
+  text-align: start;
+  width: 306px;
+  flex: 1;
+}
+
+.searchInput::placeholder {
+  color: rgb(97, 102, 112);
+}
+
+/* Question mark icon (outside search box, centered in remaining space) */
+.questionIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  height: 38px;
+  margin: 0;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+}
+
+/* === Dividers === */
+.divider {
+  border: none;
+  border-top: 1px inset rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+  display: block;
+  height: 1px;
+  margin-top: 0;
+  margin-bottom: 4px;
+  margin-left: 0;
+  margin-right: 0;
+  overflow: hidden;
+  width: 388px;
+}
+
+.dividerThin {
+  border: none;
+  border-top: 1px inset rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+  display: block;
+  height: 1px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  margin-left: 0;
+  margin-right: 0;
+  overflow: hidden;
+  width: 388px;
+}
+
+/* === Scrollable content area === */
+.scrollableContent {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 388px;
+  padding: 0;
+  margin: 0;
+}
+
+/* === Section labels === */
+.sectionLabel {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 19.5px;
+  line-height: 19.5px;
+  margin: 8px 10px;
+  padding: 0;
+}
+
+/* === Field agents grid (2 columns, 4 rows) === */
+.agentsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  width: 388px;
+  padding: 0;
+  margin: 0;
+}
+
+/* Individual agent item */
+.agentItem {
+  align-items: center;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 39.5px;
+  line-height: 18px;
+  margin: 0;
+  padding: 10px;
+  width: 194px;
+}
+
+.agentItem:hover {
+  background-color: var(--hover-bg, rgba(0, 0, 0, 0.04));
+}
+
+/* Agent item icon */
+.agentItemIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  overflow: hidden;
+}
+
+.agentItemIcon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+/* Agent item text */
+.agentItemText {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  height: 19.5px;
+  line-height: 19.5px;
+  margin-left: 8px;
+  padding: 0;
+}
+
+/* === Standard field items (single column list) === */
+.standardItem {
+  align-items: center;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  height: 34px;
+  line-height: 18px;
+  margin: 0;
+  padding: 8px 10px;
+  width: 388px;
+}
+
+.standardItem:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Standard item icon */
+.standardItemIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  overflow: hidden;
+  color: rgb(29, 31, 37);
+}
+
+.standardItemIcon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+/* Standard item text wrapper (flex row with space-between for chevron) */
+.standardItemTextWrapper {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: space-between;
+  margin-left: 8px;
+  min-height: 0;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  height: 18px;
+}
+
+/* Standard item text */
+.standardItemText {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+/* Right chevron for "Link to another record" */
+.standardItemChevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: rgb(97, 102, 112);
+  flex-shrink: 0;
+}
+
+.standardItemChevron svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Empty state */
+.emptyState {
+  color: rgb(97, 102, 112);
+  font-size: 13px;
+  line-height: 18px;
+  padding: 16px 10px;
+  text-align: center;
+}
+
+/* Disabled / greyed-out standard field items */
+.disabledItem {
+  opacity: 0.5;
+  cursor: default !important;
+  pointer-events: none;
+}
+
+/* Sticky divider (for typeSwitch shortened menu) */
+.dividerSticky {
+  position: sticky;
+  top: 45px;
+  z-index: 1;
+  background-color: rgb(255, 255, 255);
+}

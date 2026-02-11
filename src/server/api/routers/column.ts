@@ -15,7 +15,7 @@ export const columnRouter = createTRPCRouter({
       return ctx.db.column.findMany({
         where: { tableId: input.tableId },
         orderBy: { order: "asc" },
-        select: { id: true, name: true, type: true, order: true },
+        select: { id: true, name: true, type: true, order: true, defaultValue: true, config: true },
       });
     }),
 
@@ -25,6 +25,18 @@ export const columnRouter = createTRPCRouter({
         tableId: z.string(),
         name: z.string().min(1).max(80),
         type: z.enum(["TEXT", "NUMBER"]),
+        defaultValue: z.string().optional(),
+        /** Number format config (decimal places, separators, abbreviation, allow negative) */
+        numberConfig: z
+          .object({
+            decimalPlaces: z.number().int().min(0).max(8),
+            thousandsSep: z.string(),
+            showThousands: z.boolean(),
+            largeNumAbbrev: z.string().nullable(),
+            allowNegative: z.boolean(),
+          })
+          .optional(),
+        viewId: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -43,10 +55,78 @@ export const columnRouter = createTRPCRouter({
 
         const order = updated.nextColumnOrder - 1;
 
-        return tx.column.create({
-          data: { tableId: input.tableId, name: input.name, type: input.type, order },
-          select: { id: true, name: true, type: true, order: true },
+        const col = await tx.column.create({
+          data: {
+            tableId: input.tableId,
+            name: input.name,
+            type: input.type,
+            order,
+            defaultValue: input.defaultValue ?? null,
+            config: input.numberConfig ? (input.numberConfig as unknown as object) : undefined,
+          },
+          select: { id: true, name: true, type: true, order: true, defaultValue: true, config: true },
         });
+
+        // If a default value is set, stamp it into every existing row's cells JSONB
+        if (input.defaultValue && input.defaultValue.trim() !== "") {
+          const tId = input.tableId.replace(/'/g, "''");
+          const cId = col.id.replace(/'/g, "''");
+          const dv = input.defaultValue.replace(/'/g, "''");
+
+          // For NUMBER columns, store as a JSON number; otherwise store as JSON text
+          const jsonbExpr =
+            input.type === "NUMBER" && !isNaN(Number(input.defaultValue))
+              ? `to_jsonb(${Number(input.defaultValue)}::double precision)`
+              : `to_jsonb('${dv}'::text)`;
+
+          await tx.$executeRawUnsafe(`
+            UPDATE "Row"
+            SET "cells" = jsonb_set(COALESCE("cells", '{}'), '{${cId}}', ${jsonbExpr}),
+                "searchText" = (
+                  SELECT COALESCE(string_agg(value::text, ' '), '')
+                  FROM jsonb_each_text(jsonb_set(COALESCE("cells", '{}'), '{${cId}}', ${jsonbExpr}))
+                ),
+                "updatedAt" = now()
+            WHERE "tableId" = '${tId}'
+          `);
+        }
+
+        // If a viewId is provided, add the new column to that view's columnOrderIds.
+        // This makes field creation view-scoped: only the target view (and future
+        // forks of it) will include the new column.
+        if (input.viewId) {
+          const view = await tx.view.findFirst({
+            where: { id: input.viewId, tableId: input.tableId },
+            select: { id: true, config: true },
+          });
+          if (view) {
+            const config = (view.config as Record<string, unknown>) ?? {};
+            const existingOrder = Array.isArray(config.columnOrderIds)
+              ? (config.columnOrderIds as string[])
+              : [];
+
+            let newOrder: string[];
+            if (existingOrder.length === 0) {
+              // Lazy-init: populate with ALL current table columns (includes the
+              // just-created one since we're inside the same transaction).
+              const allCols = await tx.column.findMany({
+                where: { tableId: input.tableId },
+                orderBy: { order: "asc" },
+                select: { id: true },
+              });
+              newOrder = allCols.map((c) => c.id);
+            } else {
+              newOrder = [...existingOrder, col.id];
+            }
+
+            await tx.view.update({
+              where: { id: view.id },
+              data: { config: { ...config, columnOrderIds: newOrder } as unknown as object },
+            });
+          }
+        }
+
+        return col;
       });
     }),
 
@@ -107,42 +187,121 @@ export const columnRouter = createTRPCRouter({
           const config = view.config as Record<string, unknown> | null;
           if (!config) continue;
 
-          const hidden = config.hiddenColumnIds;
-          if (Array.isArray(hidden) && hidden.includes(input.columnId)) {
-            const newHidden = hidden.filter((id: string) => id !== input.columnId);
-            await tx.view.update({
-              where: { id: view.id },
-              data: { config: { ...config, hiddenColumnIds: newHidden } as unknown as object },
-            });
+          // Accumulate all changes into a single config object to avoid
+          // multiple view.update calls overwriting each other with stale data.
+          let updatedConfig = { ...config };
+          let changed = false;
+
+          // Clean columnOrderIds
+          const order = updatedConfig.columnOrderIds;
+          if (Array.isArray(order) && order.includes(input.columnId)) {
+            updatedConfig.columnOrderIds = order.filter((id: string) => id !== input.columnId);
+            changed = true;
           }
 
-          // Also clean sorts that reference this column
-          const sorts = Array.isArray(config.sorts) ? config.sorts as Record<string, unknown>[] : [];
+          // Clean hiddenColumnIds
+          const hidden = updatedConfig.hiddenColumnIds;
+          if (Array.isArray(hidden) && hidden.includes(input.columnId)) {
+            updatedConfig.hiddenColumnIds = hidden.filter((id: string) => id !== input.columnId);
+            changed = true;
+          }
+
+          // Clean sorts referencing this column
+          const sorts = Array.isArray(updatedConfig.sorts)
+            ? (updatedConfig.sorts as Record<string, unknown>[])
+            : [];
           const newSorts = sorts.filter((s) => s.columnId !== input.columnId);
           if (newSorts.length !== sorts.length) {
-            await tx.view.update({
-              where: { id: view.id },
-              data: { config: { ...config, sorts: newSorts } as unknown as object },
-            });
+            updatedConfig.sorts = newSorts;
+            changed = true;
           }
 
-          // Also clean filters if they reference this column
-          const filters = config.filters;
-          if (Array.isArray(filters)) {
-            const newFilters = filters.filter(
-              (f: Record<string, unknown>) => f.columnId !== input.columnId,
-            );
-            if (newFilters.length !== filters.length) {
-              await tx.view.update({
-                where: { id: view.id },
-                data: { config: { ...config, filters: newFilters } as unknown as object },
-              });
-            }
+          // Clean filters referencing this column
+          const filters = Array.isArray(updatedConfig.filters)
+            ? (updatedConfig.filters as Record<string, unknown>[])
+            : [];
+          const newFilters = filters.filter((f) => f.columnId !== input.columnId);
+          if (newFilters.length !== filters.length) {
+            updatedConfig.filters = newFilters;
+            changed = true;
+          }
+
+          if (changed) {
+            await tx.view.update({
+              where: { id: view.id },
+              data: { config: updatedConfig as unknown as object },
+            });
           }
         }
 
         return { id: input.columnId };
       });
+    }),
+
+  /**
+   * View-scoped "delete": remove a column from a single view's config.
+   * The column stays in the database and remains visible in other views.
+   * Cleans up columnOrderIds, hiddenColumnIds, sorts, and filters
+   * within the target view only.
+   */
+  removeFromView: protectedProcedure
+    .input(
+      z.object({
+        viewId: z.string(),
+        columnId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const view = await ctx.db.view.findFirst({
+        where: { id: input.viewId, table: { base: { ownerId: ctx.session.user.id } } },
+        select: { id: true, config: true },
+      });
+      if (!view) throw new Error("View not found");
+
+      const config = (view.config as Record<string, unknown>) ?? {};
+
+      // Remove from columnOrderIds
+      const columnOrderIds = Array.isArray(config.columnOrderIds)
+        ? (config.columnOrderIds as string[]).filter((id) => id !== input.columnId)
+        : [];
+
+      if (columnOrderIds.length === 0) {
+        throw new Error("Cannot remove the last column from the view");
+      }
+
+      // Remove from hiddenColumnIds
+      const hiddenColumnIds = Array.isArray(config.hiddenColumnIds)
+        ? (config.hiddenColumnIds as string[]).filter((id) => id !== input.columnId)
+        : [];
+
+      // Remove sorts referencing this column
+      const sorts = Array.isArray(config.sorts)
+        ? (config.sorts as Record<string, unknown>[]).filter(
+            (s) => s.columnId !== input.columnId,
+          )
+        : [];
+
+      // Remove filters referencing this column
+      const filters = Array.isArray(config.filters)
+        ? (config.filters as Record<string, unknown>[]).filter(
+            (f) => f.columnId !== input.columnId,
+          )
+        : [];
+
+      await ctx.db.view.update({
+        where: { id: input.viewId },
+        data: {
+          config: {
+            ...config,
+            columnOrderIds,
+            hiddenColumnIds,
+            sorts,
+            filters,
+          } as unknown as object,
+        },
+      });
+
+      return { removed: true, columnId: input.columnId };
     }),
 
   ensureIndexes: protectedProcedure

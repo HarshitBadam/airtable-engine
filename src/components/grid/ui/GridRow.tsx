@@ -2,6 +2,8 @@ import React, { memo } from "react";
 import styles from "./GridContainer.module.css";
 import { useGridStore } from "~/components/grid/grid-store";
 import { useShallow } from "zustand/react/shallow";
+import type { NumberFormatConfig } from "~/shared/numberUtils";
+import { formatCellValue } from "~/shared/numberUtils";
 
 // ============================================
 // SEARCH HIGHLIGHTING HELPERS
@@ -46,7 +48,13 @@ export function HighlightedText({ text, query }: { text: string; query: string }
 // TYPES
 // ============================================
 
-export type GridColumnDef = { id: string; name: string; type: string };
+export type GridColumnDef = {
+  id: string;
+  name: string;
+  type: string;
+  /** Number format config (stored as JSON in DB, cast at usage site) */
+  config?: unknown;
+};
 
 export interface GridRowProps {
   row: { id: string; cells: unknown };
@@ -57,7 +65,7 @@ export interface GridRowProps {
   noFrozenColumns: boolean;
   getColWidth: (colId: string) => number;
   getCellValue: (cells: unknown, colId: string) => string;
-  commit: (args: { rowId: string; columnId: string; columnType: "TEXT" | "NUMBER" }) => void;
+  commit: (args: { rowId: string; columnId: string; columnType: "TEXT" | "NUMBER"; numberConfig?: unknown }) => void;
   cancel: () => void;
   onCellContextMenu?: (e: React.MouseEvent, rowId: string, columnId: string) => void;
   isDeleting?: boolean;
@@ -163,16 +171,24 @@ export const GridRow = memo(function GridRow({
             value={editorValue}
             autoFocus
             onChange={(e) => setEditorValue(e.target.value)}
-            onBlur={() => commit({ rowId: row.id, columnId: col.id, columnType: col.type as "TEXT" | "NUMBER" })}
+            onBlur={() => commit({ rowId: row.id, columnId: col.id, columnType: col.type as "TEXT" | "NUMBER", numberConfig: col.config })}
             onKeyDown={(e) => {
-              if (e.key === "Enter") commit({ rowId: row.id, columnId: col.id, columnType: col.type as "TEXT" | "NUMBER" });
+              if (e.key === "Enter") commit({ rowId: row.id, columnId: col.id, columnType: col.type as "TEXT" | "NUMBER", numberConfig: col.config });
               if (e.key === "Escape") cancel();
             }}
           />
         ) : value ? (
           <div className={styles.gridCellContent}>
             <div className={isNumber ? styles.gridCellNumber : styles.gridCellText}>
-              {cellHasMatch ? <HighlightedText text={value} query={searchTerm} /> : value}
+              {(() => {
+                // For NUMBER columns, format the raw value using the column's config
+                const displayText = isNumber
+                  ? formatCellValue(value, col.type, col.config as NumberFormatConfig | null | undefined)
+                  : value;
+                return cellHasMatch
+                  ? <HighlightedText text={displayText} query={searchTerm} />
+                  : displayText;
+              })()}
             </div>
           </div>
         ) : null}

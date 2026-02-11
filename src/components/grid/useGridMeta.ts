@@ -20,12 +20,10 @@ export function reconcileColumnOrder(
     ? config.columnOrderIds
     : tableColumnIds;
 
-  // Append new columns that aren't in the order list yet
-  for (const id of tableColumnIds) {
-    if (!order.includes(id)) {
-      order = [...order, id];
-    }
-  }
+  // NOTE: We intentionally do NOT append new table columns here.
+  // Column visibility is view-scoped: new columns only appear in the
+  // view where they were created (via column.create with viewId).
+  // We only remove stale IDs (columns deleted from the table entirely).
 
   // Remove stale column ids that no longer exist in the table
   const tableIdSet = new Set(tableColumnIds);

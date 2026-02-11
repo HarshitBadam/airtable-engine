@@ -8,6 +8,8 @@ import type { AppRouter } from "~/server/api/root";
 
 import { useGridStore } from "./grid-store";
 import type { RowInfiniteInput } from "./useGridRows";
+import { parseNumberInput } from "~/shared/numberUtils";
+import type { NumberFormatConfig } from "~/shared/numberUtils";
 
 type RowInfinitePage = inferProcedureOutput<AppRouter["row"]["infinite"]>;
 type RowInfiniteCursor = RowInfinitePage["nextCursor"];
@@ -85,7 +87,13 @@ export function useCellEditing(tableId: string, rowQueryInput: RowInfiniteInput)
   return {
     editingCell,
     editorValue,
-    commit: (args: { rowId: string; columnId: string; columnType: "TEXT" | "NUMBER" }) => {
+    commit: (args: {
+      rowId: string;
+      columnId: string;
+      columnType: "TEXT" | "NUMBER";
+      /** Column's number format config (for allowNegative, etc.) — raw JSON from DB */
+      numberConfig?: unknown;
+    }) => {
       if (!editingCell) return;
 
       const raw = editorValue;
@@ -93,8 +101,12 @@ export function useCellEditing(tableId: string, rowQueryInput: RowInfiniteInput)
 
       if (args.columnType === "NUMBER") {
         if (value !== null) {
-          const n = Number(raw);
-          value = Number.isFinite(n) ? n : null;
+          // Use robust parsing: handles scientific notation (1e4), K/M/B suffixes,
+          // various thousands separators, etc. Returns null for non-numeric input.
+          const cfg = args.numberConfig as NumberFormatConfig | null | undefined;
+          const allowNeg = cfg?.allowNegative ?? true;
+          const parsed = parseNumberInput(raw, allowNeg);
+          value = parsed; // null clears the cell if input isn't numeric
         }
       }
 

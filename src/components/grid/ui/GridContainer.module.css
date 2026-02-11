@@ -17,6 +17,7 @@
   min-height: 0;
   position: relative;
   overflow: hidden;
+  background: #F7F8FC;
 }
 
 /* --- Header panes (32px tall) --- */
@@ -271,6 +272,8 @@
   padding-right: 60px;
   flex-shrink: 0;
   box-sizing: content-box;
+  background: #FBFBFD;
+  border-bottom: 1px solid #dde1e3;
 }
 
 /* --- Content panes (below header, fills remaining height) --- */

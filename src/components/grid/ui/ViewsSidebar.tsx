@@ -94,12 +94,6 @@ export function ViewsSidebar({
   // Read parent view state from the grid store for inheritance
   const parentColumnOrderIds = useGridStore((s) => s.columnOrderIds);
   const parentHiddenColumnIds = useGridStore((s) => s.hiddenColumnIds);
-  const parentSavedSorts = useGridStore((s) => s.savedSorts);
-  const parentSorts = useGridStore((s) => s.sorts);
-  const parentAutoSort = useGridStore((s) => s.autoSort);
-
-  // New views inherit saved sorts (autoSort=false) or no sorts (autoSort=true, since temp sorts aren't inherited)
-  const inheritedSorts = parentAutoSort ? parentSavedSorts : parentSorts;
 
   // refs
   const viewsSidebarRef = useRef<HTMLDivElement>(null);
@@ -417,7 +411,7 @@ export function ViewsSidebar({
                       config: {
                         search: '',
                         filters: [],
-                        sorts: inheritedSorts,
+                        sorts: [],
                         hiddenColumnIds: parentHiddenColumnIds,
                         columnOrderIds: parentColumnOrderIds,
                       },
