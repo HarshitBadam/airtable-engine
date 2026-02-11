@@ -61,9 +61,13 @@ interface GridContainerProps {
 
   // Column actions (header menu)
   onDeleteField?: (columnId: string) => void;
+  onHideField?: (columnId: string) => void;
+  onSortByField?: (columnId: string, direction: "asc" | "desc") => void;
+  onFilterByField?: (columnId: string) => void;
+  onDuplicateField?: (columnId: string) => void;
 
   // Field creation callback (from CreateFieldPanel → FieldConfigPanel)
-  onCreateField?: (name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig) => void;
+  onCreateField?: (name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig, insertPosition?: { anchorColId: string; side: "left" | "right" }) => void;
 
   // Row IDs currently animating out (slide-up delete)
   deletingRowIds?: Set<string>;
@@ -106,18 +110,19 @@ export function GridContainer({
   onDuplicateRecord,
   onDeleteRecord,
   onDeleteField,
+  onHideField,
+  onSortByField,
+  onFilterByField,
+  onDuplicateField,
   onCreateField,
   deletingRowIds,
   searchTerm,
 }: GridContainerProps) {
-  // Sorted column IDs — for tinting sorted column headers
-  // Orange tinting = temporary sort indicator ONLY.
-  // Show when autoSort is on AND sorts have been changed from the saved baseline.
-  // Saved/inherited sorts should NOT show tinting (they're the view's "normal" state).
-  // useShallow prevents infinite re-render loop from .map() creating new array refs
-  // Sorted column IDs — for tinting sorted column headers orange
+  // Sorted column IDs — for tinting sorted column headers orange.
+  // ONLY for autoSort=true (temporary/reversible sorts). autoSort=false = no orange ever.
+  // useShallow prevents infinite re-render loop from .map() creating new array refs.
   const sortedColumnIds = useGridStore(
-    useShallow((s) => s.sorts.map((sort) => sort.columnId)),
+    useShallow((s) => s.autoSort ? s.sorts.map((sort) => sort.columnId) : []),
   );
 
   // Filtered column IDs — for tinting filtered column headers green
@@ -389,6 +394,17 @@ export function GridContainer({
     ? Math.max(200, window.innerHeight - headerMenuPosition.top - 24)
     : undefined;
 
+  // Helper to find column definition by ID from frozen + scrollable columns
+  const allVisibleColumns = [...frozenColumns, ...scrollableColumns];
+  const getColumnById = useCallback(
+    (colId: string) => allVisibleColumns.find((c) => c.id === colId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [frozenColumns, scrollableColumns],
+  );
+
+  // === INSERT FIELD ANCHOR (for Insert left / Insert right) ===
+  const insertFieldAnchorRef = useRef<{ anchorColId: string; side: "left" | "right" } | null>(null);
+
   // === CREATE FIELD PANEL (+ button dropdown) ===
   const [createFieldPosition, setCreateFieldPosition] = useState<{ top: number; left: number } | null>(null);
   const addColButtonRef = useRef<HTMLDivElement>(null);
@@ -403,12 +419,43 @@ export function GridContainer({
     if (left + 400 > window.innerWidth) {
       left = rect.right - 400 - 4; // 4px inward (left)
     }
+    insertFieldAnchorRef.current = null; // Reset anchor when opening from + button
     setCreateFieldPosition({ top: rect.bottom + 2, left }); // 2px down
   }, []);
 
   const handleCloseCreateField = useCallback(() => {
     setCreateFieldPosition(null);
+    insertFieldAnchorRef.current = null;
   }, []);
+
+  // Wrapped onCreateField that passes insert position if set
+  const handleCreateFieldWrapped = useCallback(
+    (name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig) => {
+      const anchor = insertFieldAnchorRef.current;
+      onCreateField?.(name, type, defaultValue, numberConfig, anchor ?? undefined);
+      insertFieldAnchorRef.current = null;
+    },
+    [onCreateField],
+  );
+
+  // Handler for Insert left / Insert right from header menu
+  const handleInsertField = useCallback((side: "left" | "right") => {
+    if (!headerMenuColId) return;
+    // Find the header cell DOM element for positioning
+    const headerCell = document.querySelector(`[data-col-header-id="${headerMenuColId}"]`);
+    if (headerCell) {
+      const rect = headerCell.getBoundingClientRect();
+      let left = rect.left;
+      if (left + 400 > window.innerWidth) {
+        left = rect.right - 400;
+      }
+      insertFieldAnchorRef.current = { anchorColId: headerMenuColId, side };
+      setCreateFieldPosition({ top: rect.bottom + 2, left });
+    }
+    // Close the header menu
+    setHeaderMenuColId(null);
+    setHeaderMenuPosition(null);
+  }, [headerMenuColId]);
 
   return (
     <div className={styles.gridContainer} ref={gridFooterRef}>
@@ -442,6 +489,7 @@ export function GridContainer({
             return (
               <div
                 key={col.id}
+                data-col-header-id={col.id}
                 className={`${styles.gridHeaderCell}${headerMenuColId === col.id ? ` ${styles.gridHeaderCellMenuOpen}` : ''}${sortedColumnIds.includes(col.id) ? ` ${styles.gridHeaderCellSorted}` : ''}`}
                 style={{
                   width: getColWidth(col.id),
@@ -504,6 +552,7 @@ export function GridContainer({
               return (
                 <div
                   key={col.id}
+                  data-col-header-id={col.id}
                   className={`${styles.gridHeaderCell}${headerMenuColId === col.id ? ` ${styles.gridHeaderCellMenuOpen}` : ''}${sortedColumnIds.includes(col.id) ? ` ${styles.gridHeaderCellSorted}` : ''}`}
                   style={{
                     width: getColWidth(col.id),
@@ -869,7 +918,13 @@ export function GridContainer({
           <li className={styles.colHeaderMenuSeparator} />
 
           {/* Duplicate field */}
-          <li className={styles.colHeaderMenuItem}>
+          <li className={styles.colHeaderMenuItem} onClick={() => {
+            if (headerMenuColId) {
+              onDuplicateField?.(headerMenuColId);
+              setHeaderMenuColId(null);
+              setHeaderMenuPosition(null);
+            }
+          }}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M2.5 5C2.3674 5.00001 2.24023 5.0527 2.14646 5.14646C2.0527 5.24023 2.00001 5.3674 2 5.5V13.5C2.00001 13.6326 2.0527 13.7598 2.14646 13.8535C2.24023 13.9473 2.3674 14 2.5 14H10.5C10.6326 14 10.7598 13.9473 10.8535 13.8535C10.9473 13.7598 11 13.6326 11 13.5V5.5C11 5.3674 10.9473 5.24023 10.8535 5.14646C10.7598 5.0527 10.6326 5.00001 10.5 5H2.5ZM3 6H10V13H3V6Z M5.5 2C5.3674 2.00001 5.24023 2.0527 5.14646 2.14646C5.0527 2.24023 5.00001 2.3674 5 2.5V5.5C5 5.63261 5.05268 5.75979 5.14645 5.85355C5.24021 5.94732 5.36739 6 5.5 6C5.63261 6 5.75979 5.94732 5.85355 5.85355C5.94732 5.75979 6 5.63261 6 5.5V3H13V10H10.5C10.3674 10 10.2402 10.0527 10.1464 10.1464C10.0527 10.2402 10 10.3674 10 10.5C10 10.6326 10.0527 10.7598 10.1464 10.8536C10.2402 10.9473 10.3674 11 10.5 11H13.5C13.6326 11 13.7598 10.9473 13.8535 10.8535C13.9473 10.7598 14 10.6326 14 10.5V2.5C14 2.3674 13.9473 2.24023 13.8535 2.14646C13.7598 2.0527 13.6326 2.00001 13.5 2H5.5Z" />
             </svg>
@@ -877,7 +932,7 @@ export function GridContainer({
           </li>
 
           {/* Insert left */}
-          <li className={styles.colHeaderMenuItem}>
+          <li className={styles.colHeaderMenuItem} onClick={() => handleInsertField("left")}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M7 3C6.8674 3.00002 6.74024 3.05271 6.64648 3.14648L2.14648 7.64648C2.05271 7.74024 2.00002 7.8674 2 8C2.00002 8.1326 2.05271 8.25976 2.14648 8.35352L6.64648 12.8535C6.74025 12.9473 6.86741 12.9999 7 12.9999C7.13259 12.9999 7.25975 12.9473 7.35352 12.8535C7.44726 12.7598 7.49992 12.6326 7.49992 12.5C7.49992 12.3674 7.44726 12.2402 7.35352 12.1465L3.70703 8.5H13.5C13.6326 8.5 13.7598 8.44732 13.8536 8.35355C13.9473 8.25979 14 8.13261 14 8C14 7.86739 13.9473 7.74021 13.8536 7.64645C13.7598 7.55268 13.6326 7.5 13.5 7.5H3.70703L7.35352 3.85352C7.44726 3.75975 7.49992 3.63259 7.49992 3.5C7.49992 3.36741 7.44726 3.24025 7.35352 3.14648C7.25976 3.05271 7.1326 3.00002 7 3Z" />
             </svg>
@@ -885,7 +940,7 @@ export function GridContainer({
           </li>
 
           {/* Insert right */}
-          <li className={styles.colHeaderMenuItem}>
+          <li className={styles.colHeaderMenuItem} onClick={() => handleInsertField("right")}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M9 3C8.8674 3.00002 8.74024 3.05271 8.64648 3.14648C8.55274 3.24025 8.50008 3.36741 8.50008 3.5C8.50008 3.63259 8.55274 3.75975 8.64648 3.85352L12.293 7.5H2.5C2.36739 7.5 2.24021 7.55268 2.14645 7.64645C2.05268 7.74021 2 7.86739 2 8C2 8.13261 2.05268 8.25979 2.14645 8.35355C2.24021 8.44732 2.36739 8.5 2.5 8.5H12.293L8.64648 12.1465C8.55274 12.2402 8.50008 12.3674 8.50008 12.5C8.50008 12.6326 8.55274 12.7598 8.64648 12.8535C8.74025 12.9473 8.86741 12.9999 9 12.9999C9.13259 12.9999 9.25975 12.9473 9.35352 12.8535L13.8535 8.35352C13.9414 8.26249 13.9915 8.14153 13.9938 8.01501C13.9959 8.01004 13.998 8.00504 14 8C13.9985 7.98678 13.9964 7.97363 13.9938 7.96057C13.9917 7.93512 13.9877 7.90985 13.9818 7.88501C13.9757 7.85934 13.9675 7.8342 13.9574 7.80981C13.9476 7.78622 13.936 7.7634 13.9227 7.74158C13.9089 7.7191 13.8934 7.69776 13.8762 7.67773C13.8691 7.66703 13.8615 7.6566 13.8535 7.64648L9.35352 3.14648C9.25976 3.05271 9.1326 3.00002 9 3Z" />
             </svg>
@@ -951,27 +1006,45 @@ export function GridContainer({
           {/* --- Separator --- */}
           <li className={styles.colHeaderMenuSeparator} />
 
-          {/* Sort A → Z */}
-          <li className={styles.colHeaderMenuItem}>
+          {/* Sort A → Z (or 1 → 9 for NUMBER columns) */}
+          <li className={styles.colHeaderMenuItem} onClick={() => {
+            if (headerMenuColId) {
+              onSortByField?.(headerMenuColId, "asc");
+              setHeaderMenuColId(null);
+              setHeaderMenuPosition(null);
+            }
+          }}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M3 11.5C2.86739 11.5 2.74021 11.5527 2.64645 11.6464C2.55268 11.7402 2.5 11.8674 2.5 12C2.5 12.1326 2.55268 12.2598 2.64645 12.3536C2.74021 12.4473 2.86739 12.5 3 12.5H6.5C6.63261 12.5 6.75979 12.4473 6.85355 12.3536C6.94732 12.2598 7 12.1326 7 12C7 11.8674 6.94732 11.7402 6.85355 11.6464C6.75979 11.5527 6.63261 11.5 6.5 11.5H3Z M3 3.5C2.86739 3.5 2.74021 3.55268 2.64645 3.64645C2.55268 3.74021 2.5 3.86739 2.5 4C2.5 4.13261 2.55268 4.25979 2.64645 4.35355C2.74021 4.44732 2.86739 4.5 3 4.5H11.5C11.6326 4.5 11.7598 4.44732 11.8536 4.35355C11.9473 4.25979 12 4.13261 12 4C12 3.86739 11.9473 3.74021 11.8536 3.64645C11.7598 3.55268 11.6326 3.5 11.5 3.5H3Z M3 7.5C2.86739 7.5 2.74021 7.55268 2.64645 7.64645C2.55268 7.74021 2.5 7.86739 2.5 8C2.5 8.13261 2.55268 8.25979 2.64645 8.35355C2.74021 8.44732 2.86739 8.5 3 8.5H7.5C7.63261 8.5 7.75979 8.44732 7.85355 8.35355C7.94732 8.25979 8 8.13261 8 8C8 7.86739 7.94732 7.74021 7.85355 7.64645C7.75979 7.55268 7.63261 7.5 7.5 7.5H3Z M11.5 6.5C11.3674 6.5 11.2402 6.55268 11.1464 6.64645C11.0527 6.74021 11 6.86739 11 7V11.793L9.35352 10.1465C9.25975 10.0527 9.13259 10.0001 9 10.0001C8.86741 10.0001 8.74025 10.0527 8.64648 10.1465C8.55274 10.2402 8.50008 10.3674 8.50008 10.5C8.50008 10.6326 8.55274 10.7598 8.64648 10.8535L11.1465 13.3535C11.2403 13.4472 11.3674 13.4999 11.5 13.4999C11.6326 13.4999 11.7597 13.4472 11.8535 13.3535L14.3535 10.8535C14.4473 10.7598 14.4999 10.6326 14.4999 10.5C14.4999 10.3674 14.4473 10.2402 14.3535 10.1465C14.2598 10.0527 14.1326 10.0001 14 10.0001C13.8674 10.0001 13.7402 10.0527 13.6465 10.1465L12 11.793V7C12 6.86739 11.9473 6.74021 11.8536 6.64645C11.7598 6.55268 11.6326 6.5 11.5 6.5Z" />
             </svg>
-            <span className={styles.colHeaderMenuItemText}>A → Z</span>
+            <span className={styles.colHeaderMenuItemText}>{headerMenuColId && getColumnById(headerMenuColId)?.type === "NUMBER" ? "1 → 9" : "A → Z"}</span>
           </li>
 
-          {/* Sort Z → A */}
-          <li className={styles.colHeaderMenuItem}>
+          {/* Sort Z → A (or 9 → 1 for NUMBER columns) */}
+          <li className={styles.colHeaderMenuItem} onClick={() => {
+            if (headerMenuColId) {
+              onSortByField?.(headerMenuColId, "desc");
+              setHeaderMenuColId(null);
+              setHeaderMenuPosition(null);
+            }
+          }}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M3 11.5C2.86739 11.5 2.74021 11.5527 2.64645 11.6464C2.55268 11.7402 2.5 11.8674 2.5 12C2.5 12.1326 2.55268 12.2598 2.64645 12.3536C2.74021 12.4473 2.86739 12.5 3 12.5H11.5C11.6326 12.5 11.7598 12.4473 11.8536 12.3536C11.9473 12.2598 12 12.1326 12 12C12 11.8674 11.9473 11.7402 11.8536 11.6464C11.7598 11.5527 11.6326 11.5 11.5 11.5H3Z M3 3.5C2.86739 3.5 2.74021 3.55268 2.64645 3.64645C2.55268 3.74021 2.5 3.86739 2.5 4C2.5 4.13261 2.55268 4.25979 2.64645 4.35355C2.74021 4.44732 2.86739 4.5 3 4.5H6.5C6.63261 4.5 6.75979 4.44732 6.85355 4.35355C6.94732 4.25979 7 4.13261 7 4C7 3.86739 6.94732 3.74021 6.85355 3.64645C6.75979 3.55268 6.63261 3.5 6.5 3.5H3Z M3 7.5C2.86739 7.5 2.74021 7.55268 2.64645 7.64645C2.55268 7.74021 2.5 7.86739 2.5 8C2.5 8.13261 2.55268 8.25979 2.64645 8.35355C2.74021 8.44732 2.86739 8.5 3 8.5H7.5C7.63261 8.5 7.75979 8.44732 7.85355 8.35355C7.94732 8.25979 8 8.13261 8 8C8 7.86739 7.94732 7.74021 7.85355 7.64645C7.75979 7.55268 7.63261 7.5 7.5 7.5H3Z M11.5 2.5C11.3674 2.50003 11.2402 2.55272 11.1465 2.64648L8.64648 5.14648C8.55274 5.24025 8.50008 5.36741 8.50008 5.5C8.50008 5.63259 8.55274 5.75975 8.64648 5.85352C8.74025 5.94726 8.86741 5.99992 9 5.99992C9.13259 5.99992 9.25975 5.94726 9.35352 5.85352L11 4.20703V9C11 9.13261 11.0527 9.25979 11.1464 9.35355C11.2402 9.44732 11.3674 9.5 11.5 9.5C11.6326 9.5 11.7598 9.44732 11.8536 9.35355C11.9473 9.25979 12 9.13261 12 9V4.20703L13.6465 5.85352C13.7402 5.94726 13.8674 5.99992 14 5.99992C14.1326 5.99992 14.2598 5.94726 14.3535 5.85352C14.4473 5.75975 14.4999 5.63259 14.4999 5.5C14.4999 5.36741 14.4473 5.24025 14.3535 5.14648L11.8535 2.64648C11.8487 2.64437 11.8438 2.64234 11.8389 2.64038C11.7478 2.55235 11.6267 2.50218 11.5 2.5Z" />
             </svg>
-            <span className={styles.colHeaderMenuItemText}>Z → A</span>
+            <span className={styles.colHeaderMenuItemText}>{headerMenuColId && getColumnById(headerMenuColId)?.type === "NUMBER" ? "9 → 1" : "Z → A"}</span>
           </li>
 
           {/* --- Separator --- */}
           <li className={styles.colHeaderMenuSeparator} />
 
           {/* Filter by this field */}
-          <li className={styles.colHeaderMenuItem}>
+          <li className={styles.colHeaderMenuItem} onClick={() => {
+            if (headerMenuColId) {
+              onFilterByField?.(headerMenuColId);
+              setHeaderMenuColId(null);
+              setHeaderMenuPosition(null);
+            }
+          }}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M6.5 10.5C6.36739 10.5 6.24021 10.5527 6.14645 10.6464C6.05268 10.7402 6 10.8674 6 11C6 11.1326 6.05268 11.2598 6.14645 11.3536C6.24021 11.4473 6.36739 11.5 6.5 11.5H9.5C9.63261 11.5 9.75979 11.4473 9.85355 11.3536C9.94732 11.2598 10 11.1326 10 11C10 10.8674 9.94732 10.7402 9.85355 10.6464C9.75979 10.5527 9.63261 10.5 9.5 10.5H6.5Z M1.5 4.5C1.36739 4.5 1.24021 4.55268 1.14645 4.64645C1.05268 4.74021 1 4.86739 1 5C1 5.13261 1.05268 5.25979 1.14645 5.35355C1.24021 5.44732 1.36739 5.5 1.5 5.5H14.5C14.6326 5.5 14.7598 5.44732 14.8536 5.35355C14.9473 5.25979 15 5.13261 15 5C15 4.86739 14.9473 4.74021 14.8536 4.64645C14.7598 4.55268 14.6326 4.5 14.5 4.5H1.5Z M4 7.5C3.86739 7.5 3.74021 7.55268 3.64645 7.64645C3.55268 7.74021 3.5 7.86739 3.5 8C3.5 8.13261 3.55268 8.25979 3.64645 8.35355C3.74021 8.44732 3.86739 8.5 4 8.5H12C12.1326 8.5 12.2598 8.44732 12.3536 8.35355C12.4473 8.25979 12.5 8.13261 12.5 8C12.5 7.86739 12.4473 7.74021 12.3536 7.64645C12.2598 7.55268 12.1326 7.5 12 7.5H4Z" />
             </svg>
@@ -993,6 +1066,13 @@ export function GridContainer({
           <li
             className={`${styles.colHeaderMenuItem}${!canModifyField ? ` ${styles.colHeaderMenuItemDisabled}` : ''}`}
             style={canModifyField ? { cursor: 'pointer' } : { opacity: 0.5, cursor: 'default' }}
+            onClick={() => {
+              if (canModifyField && headerMenuColId) {
+                onHideField?.(headerMenuColId);
+                setHeaderMenuColId(null);
+                setHeaderMenuPosition(null);
+              }
+            }}
           >
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M8.00013 2.99999C7.53899 2.99917 7.07864 3.03701 6.62379 3.11315C6.55902 3.12398 6.49703 3.14747 6.44134 3.18226C6.38565 3.21706 6.33736 3.26248 6.29923 3.31594C6.2611 3.3694 6.23387 3.42984 6.2191 3.49382C6.20433 3.5578 6.2023 3.62407 6.21314 3.68883C6.23505 3.81961 6.30801 3.93632 6.41597 4.01331C6.52393 4.0903 6.65805 4.12125 6.78883 4.09935C7.18869 4.03242 7.59357 3.99923 7.99915 3.99999C7.99882 3.99999 7.99948 3.99999 7.99915 3.99999C12.083 3.99999 14.0065 7.16727 14.4415 7.99926C14.2327 8.39403 13.6815 9.3219 12.7042 10.196C12.6553 10.2398 12.6154 10.2928 12.587 10.352C12.5585 10.4112 12.542 10.4754 12.5383 10.5409C12.5347 10.6065 12.544 10.6721 12.5657 10.7341C12.5874 10.7961 12.6211 10.8531 12.6649 10.9021C12.7533 11.0009 12.8774 11.0606 13.0097 11.0679C13.1421 11.0753 13.272 11.0298 13.3709 10.9414C14.8157 9.64896 15.4569 8.20311 15.4569 8.20311C15.4853 8.13917 15.5 8.06997 15.5 7.99999C15.5 7.93001 15.4853 7.86081 15.4569 7.79686C15.4569 7.79686 13.2994 3.00052 8.00013 2.99999Z M8.56177 5.05248C8.4315 5.02783 8.29677 5.05593 8.18721 5.1306C8.07765 5.20527 8.00223 5.3204 7.97755 5.45067C7.96532 5.51519 7.96592 5.58148 7.97932 5.64576C7.99271 5.71004 8.01864 5.77106 8.05562 5.82532C8.09259 5.87958 8.13989 5.92603 8.19482 5.96201C8.24975 5.99799 8.31122 6.0228 8.37574 6.03502C9.25118 6.20086 9.90696 6.92166 9.98963 7.80883C9.99573 7.87421 10.0146 7.93775 10.0453 7.99582C10.076 8.05389 10.1177 8.10536 10.1683 8.14727C10.2188 8.18919 10.2771 8.22074 10.3399 8.24013C10.4026 8.25951 10.4686 8.26635 10.5339 8.26024C10.666 8.24793 10.7877 8.18368 10.8723 8.08163C10.957 7.97958 10.9976 7.84808 10.9854 7.71605C10.8617 6.38949 9.8708 5.30045 8.56177 5.05248Z M3.02381 2.0006C2.89137 1.99428 2.76183 2.04082 2.6637 2.12999C2.56557 2.21919 2.5069 2.34371 2.50058 2.47617C2.49426 2.60862 2.54082 2.73816 2.63001 2.83629L5.64234 6.14989C4.99783 6.97182 4.81667 8.0854 5.20167 9.08153C5.64782 10.2359 6.7614 10.9994 7.99891 10.9997C8.57697 11.0018 9.13723 10.8317 9.61744 10.5226L12.63 13.8363C12.7192 13.9344 12.8437 13.9931 12.9762 13.9994C13.1086 14.0057 13.2382 13.9592 13.3363 13.87C13.4344 13.7808 13.4931 13.6563 13.4994 13.5238C13.5058 13.3914 13.4592 13.2618 13.37 13.1637L6.6908 5.81652C6.69016 5.81554 6.68951 5.81456 6.68885 5.81359C6.6884 5.81338 6.68796 5.81318 6.68751 5.81298L3.37 2.16369C3.2808 2.06557 3.15627 2.0069 3.02381 2.0006ZM4.78126 3.81261C4.65529 3.7712 4.51803 3.78151 4.39966 3.8413C1.67465 5.21716 0.542853 7.79748 0.542853 7.79748C0.514536 7.86137 0.499927 7.93049 0.49997 8.00038C0.500012 8.07027 0.514704 8.13938 0.543098 8.20324C0.543098 8.20324 2.69954 12.9988 7.99805 13C9.24842 13.0098 10.4832 12.7217 11.6 12.1592C11.6586 12.1296 11.7109 12.0888 11.7537 12.0391C11.7966 11.9893 11.8293 11.9317 11.8498 11.8693C11.8704 11.8069 11.8785 11.7411 11.8736 11.6757C11.8688 11.6102 11.8511 11.5463 11.8215 11.4877C11.792 11.429 11.7512 11.3768 11.7015 11.3339C11.6517 11.291 11.594 11.2584 11.5317 11.2378C11.4693 11.2172 11.4035 11.2091 11.338 11.214C11.2726 11.2189 11.2087 11.2366 11.15 11.2661C10.1746 11.7574 9.09616 12.009 8.00403 12.0001C8.00269 12.0001 8.00135 12.0001 8.00001 12.0001C3.9214 12.0001 1.99934 8.84205 1.56104 8.00512C1.80002 7.53467 2.78966 5.77445 4.85035 4.734C4.90897 4.7044 4.96118 4.66355 5.00401 4.61377C5.04684 4.56399 5.07944 4.50626 5.09996 4.44389C5.12048 4.38151 5.12851 4.3157 5.12359 4.25021C5.11867 4.18473 5.1009 4.12086 5.0713 4.06225C5.01154 3.94387 4.90721 3.85407 4.78126 3.81261ZM6.3307 6.90709L8.92811 9.76427C8.64391 9.91434 8.32855 10.0011 8.00196 9.99987C8.00131 9.99987 8.00066 9.99987 8.00001 9.99987C7.17209 9.99993 6.43288 9.49318 6.13441 8.72094C5.89804 8.10936 5.98275 7.43768 6.3307 6.90709Z" />
@@ -1027,7 +1107,7 @@ export function GridContainer({
         <CreateFieldPanel
           position={createFieldPosition}
           onClose={handleCloseCreateField}
-          onCreateField={onCreateField}
+          onCreateField={handleCreateFieldWrapped}
         />
       )}
     </div>

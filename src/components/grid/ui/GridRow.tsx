@@ -111,9 +111,9 @@ export const GridRow = memo(function GridRow({
     (s) => (s.findCurrentMatch?.rowId === row.id ? s.findCurrentMatch.columnId : null),
   );
 
-  // Sorted column IDs — for tinting sorted columns orange
+  // Sorted column IDs — for tinting sorted columns orange (only when autoSort=true)
   const sortedColumnIds = useGridStore(
-    useShallow((s) => s.sorts.map((sort) => sort.columnId)),
+    useShallow((s) => s.autoSort ? s.sorts.map((sort) => sort.columnId) : []),
   );
 
   // Filtered column IDs — for tinting filtered columns green

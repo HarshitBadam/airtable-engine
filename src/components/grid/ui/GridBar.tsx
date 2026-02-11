@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from "react";
 import { createPortal } from "react-dom";
 import styles from "./GridBar.module.css";
 import { HideFieldsPanel } from "./HideFieldsPanel";
@@ -8,6 +8,11 @@ import type { SortFieldColumn, ActiveSort } from "./SortPanel";
 import { FindBar } from "./FindBar";
 import { FilterPanel } from "./FilterPanel";
 import { useGridStore } from "~/components/grid/grid-store";
+
+export interface GridBarHandle {
+  openFilterPanel: () => void;
+  openSortPanel: () => void;
+}
 
 interface GridBarProps {
   // Views sidebar
@@ -74,7 +79,7 @@ interface GridBarProps {
   onNextMatch: () => void;
 }
 
-export function GridBar({
+export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar({
   isViewsSidebarOpen,
   handleToggleViewsSidebar,
   handleListButtonMouseEnter,
@@ -120,7 +125,7 @@ export function GridBar({
   isSearchPending,
   onPrevMatch,
   onNextMatch,
-}: GridBarProps) {
+}: GridBarProps, ref) {
   // === ZUSTAND STORE — search ===
   const search = useGridStore((s) => s.search);
   const setSearch = useGridStore((s) => s.setSearch);
@@ -137,6 +142,17 @@ export function GridBar({
   const [isSortOpen, setIsSortOpen] = useState(false);
   const sortButtonRef = useRef<HTMLButtonElement>(null);
   const sortPanelRef = useRef<HTMLDivElement>(null);
+
+  // === FILTER PANEL STATE (declared early for imperative handle) ===
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
+
+  // === IMPERATIVE HANDLE — allows parent to open panels programmatically ===
+  useImperativeHandle(ref, () => ({
+    openFilterPanel: () => setIsFilterOpen(true),
+    openSortPanel: () => setIsSortOpen(true),
+  }), []);
 
   // === FIND BAR STATE ===
   const [isFindOpen, setIsFindOpen] = useState(false);
@@ -304,11 +320,6 @@ export function GridBar({
     },
     [onRemoveSort, currentSorts.length],
   );
-
-  // === FILTER PANEL STATE ===
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const filterButtonRef = useRef<HTMLButtonElement>(null);
-  const filterPanelRef = useRef<HTMLDivElement>(null);
 
   const toggleFilterPanel = useCallback(() => {
     setIsFilterOpen((prev) => !prev);
@@ -736,4 +747,4 @@ export function GridBar({
       </div>
     </div>
   );
-}
+});

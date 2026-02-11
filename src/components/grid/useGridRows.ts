@@ -17,9 +17,13 @@ export function useGridRows(tableId: string) {
   const filters = useGridStore((s) => s.filters);
   const filterConjunction = useGridStore((s) => s.filterConjunction);
 
-  // Effective sorts: autoSort=true → live preview of UI sorts
-  //                  autoSort=false → only persisted (saved) sorts drive the query
-  const effectiveSorts = useGridStore((s) => s.autoSort ? s.sorts : s.savedSorts);
+  // Which sorts drive the query?
+  // autoSort=true  + sorts exist → use sorts (live preview, orange indicators)
+  // autoSort=true  + sorts empty → fall back to permanentSorts (base order)
+  // autoSort=false              → always permanentSorts (entries are just staged)
+  const effectiveSorts = useGridStore((s) =>
+    (s.autoSort && s.sorts.length > 0) ? s.sorts : s.permanentSorts,
+  );
 
   const clearSelection = useGridStore((s) => s.clearSelection);
 

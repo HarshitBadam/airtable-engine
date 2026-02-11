@@ -37,6 +37,8 @@ export const columnRouter = createTRPCRouter({
           })
           .optional(),
         viewId: z.string().optional(),
+        /** When duplicating a field, the source column whose cell data should be copied */
+        sourceColumnId: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -85,6 +87,34 @@ export const columnRouter = createTRPCRouter({
                 "searchText" = (
                   SELECT COALESCE(string_agg(value::text, ' '), '')
                   FROM jsonb_each_text(jsonb_set(COALESCE("cells", '{}'), '{${cId}}', ${jsonbExpr}))
+                ),
+                "updatedAt" = now()
+            WHERE "tableId" = '${tId}'
+          `);
+        }
+
+        // If duplicating a field, copy cell data from the source column to the new one
+        if (input.sourceColumnId) {
+          const tId = input.tableId.replace(/'/g, "''");
+          const srcId = input.sourceColumnId.replace(/'/g, "''");
+          const newId = col.id.replace(/'/g, "''");
+
+          await tx.$executeRawUnsafe(`
+            UPDATE "Row"
+            SET "cells" = CASE
+                  WHEN COALESCE("cells", '{}') ? '${srcId}'
+                  THEN jsonb_set(COALESCE("cells", '{}'), '{${newId}}', COALESCE("cells", '{}')->'${srcId}')
+                  ELSE "cells"
+                END,
+                "searchText" = (
+                  SELECT COALESCE(string_agg(value::text, ' '), '')
+                  FROM jsonb_each_text(
+                    CASE
+                      WHEN COALESCE("cells", '{}') ? '${srcId}'
+                      THEN jsonb_set(COALESCE("cells", '{}'), '{${newId}}', COALESCE("cells", '{}')->'${srcId}')
+                      ELSE COALESCE("cells", '{}')
+                    END
+                  )
                 ),
                 "updatedAt" = now()
             WHERE "tableId" = '${tId}'

@@ -24,6 +24,8 @@ export const viewConfigSchema = z.object({
   filters: z.array(filterSchema),
   filterConjunction: z.enum(["and", "or"]).default("and"),
   sorts: z.array(sortSchema).default([]),
+  permanentSorts: z.array(sortSchema).default([]),
+  autoSort: z.boolean().default(true),
   hiddenColumnIds: z.array(z.string()),
   columnOrderIds: z.array(z.string()).default([]),
 });
@@ -37,6 +39,8 @@ export const defaultViewConfig: ViewConfig = {
   filters: [],
   filterConjunction: "and",
   sorts: [],
+  permanentSorts: [],
+  autoSort: true,
   hiddenColumnIds: [],
   columnOrderIds: [],
 };
@@ -71,6 +75,8 @@ export function configFingerprint(c: ViewConfig): string {
       filters,
       filterConjunction: c.filterConjunction,
       sorts: c.sorts,
+      permanentSorts: c.permanentSorts,
+      autoSort: c.autoSort,
       hiddenColumnIds: hidden,
       columnOrderIds: c.columnOrderIds,
     });

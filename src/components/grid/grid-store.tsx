@@ -30,13 +30,26 @@ type GridState = {
   fingerprint: string;
 
   search: string;
-  filters: Filter[];                 // current UI filters (temporary, live preview)
-  filterConjunction: "and" | "or";   // current UI conjunction (temporary)
-  savedFilters: Filter[];            // baseline from view config (persisted in DB)
-  savedFilterConjunction: "and" | "or"; // baseline conjunction from view config
-  sorts: Sort[];           // current UI sorts (may be temporary or saved)
-  savedSorts: Sort[];      // baseline from view config (persisted in DB)
-  autoSort: boolean;       // true = sorts are temporary; false = sorts are persisted
+  filters: Filter[];
+  filterConjunction: "and" | "or";
+  savedFilters: Filter[];
+  savedFilterConjunction: "and" | "or";
+
+  // ── Sort state ──────────────────────────────────────────────
+  // `sorts` = the entries currently shown in the sort panel.
+  //   - When autoSort=true these also drive the live query + orange indicators.
+  //   - When autoSort=false these are staged; they don't affect the query
+  //     until the user clicks the "Sort" button.
+  sorts: Sort[];
+  // `savedSorts` = baseline copy used *only* for fingerprint stability so that
+  //   changing sorts (autoSort=true) doesn't mark the view as dirty.
+  savedSorts: Sort[];
+  // `permanentSorts` = the sort params applied when autoSort=false. Stored in
+  //   the view config and used as the ORDER BY when autoSort is off.
+  permanentSorts: Sort[];
+  // `autoSort` = toggle state (persisted in view config).
+  autoSort: boolean;
+
   hiddenColumnIds: string[];
   columnOrderIds: string[];
 
@@ -58,7 +71,7 @@ type GridState = {
   setFilterConjunction: (v: "and" | "or") => void;
   setSorts: (v: Sort[]) => void;
   setAutoSort: (v: boolean) => void;
-  revertSorts: () => void;
+  setPermanentSorts: (v: Sort[]) => void;
   revertFilters: () => void;
 
   toggleHiddenColumn: (columnId: string) => void;
@@ -79,15 +92,16 @@ type GridState = {
   markFiltersSaved: () => void;
 };
 
-function fingerprintFromParts(s: Pick<GridState, "search" | "savedFilters" | "savedFilterConjunction" | "sorts" | "savedSorts" | "autoSort" | "hiddenColumnIds" | "columnOrderIds">) {
+function fingerprintFromParts(
+  s: Pick<GridState, "search" | "savedFilters" | "savedFilterConjunction" | "savedSorts" | "autoSort" | "permanentSorts" | "hiddenColumnIds" | "columnOrderIds">,
+) {
   return configFingerprint({
     search: s.search,
-    // Filters are always temporary — use saved baselines so filter
-    // changes never dirty the view (same pattern as autoSort for sorts).
     filters: s.savedFilters,
     filterConjunction: s.savedFilterConjunction,
-    // When autoSort is on, temporary sort changes don't dirty the view
-    sorts: s.autoSort ? s.savedSorts : s.sorts,
+    sorts: s.savedSorts,
+    permanentSorts: s.permanentSorts,
+    autoSort: s.autoSort,
     hiddenColumnIds: s.hiddenColumnIds,
     columnOrderIds: s.columnOrderIds,
   });
@@ -112,6 +126,7 @@ export function createGridStore(tableId: string) {
     savedFilterConjunction: "and",
     sorts: [],
     savedSorts: [],
+    permanentSorts: [],
     autoSort: true,
     hiddenColumnIds: [],
     columnOrderIds: [],
@@ -128,7 +143,6 @@ export function createGridStore(tableId: string) {
       const fp2 = configFingerprint(cfg);
 
       // Convert saved Filter[] → FilterConditionUI[] so FilterPanel shows correct state
-      // when opened. Without this, the sync effect would overwrite saved filters with [].
       const restoredConditions: FilterConditionUI[] = cfg.filters.map((f, idx) => ({
         id: `restored-${idx}-${Date.now()}`,
         columnId: f.columnId,
@@ -136,6 +150,20 @@ export function createGridStore(tableId: string) {
         value: "value" in f ? String(f.value) : "",
         conjunction: cfg.filterConjunction,
       }));
+
+      // Restore autoSort from config (persisted toggle state)
+      const restoredAutoSort = cfg.autoSort;
+
+      // Restore sort panel entries:
+      // - If autoSort=true: use cfg.sorts (the auto-saved temp sorts)
+      // - If autoSort=false AND no saved temp sorts: seed from permanentSorts
+      //   so the panel shows what's currently applied
+      const restoredSorts =
+        cfg.sorts.length > 0
+          ? cfg.sorts
+          : !restoredAutoSort && cfg.permanentSorts.length > 0
+            ? cfg.permanentSorts
+            : [];
 
       set({
         initialized: true,
@@ -148,9 +176,10 @@ export function createGridStore(tableId: string) {
         filterConjunction: cfg.filterConjunction,
         savedFilters: cfg.filters,
         savedFilterConjunction: cfg.filterConjunction,
-        sorts: cfg.sorts,
+        sorts: restoredSorts,
         savedSorts: cfg.sorts,
-        autoSort: true,
+        autoSort: restoredAutoSort,
+        permanentSorts: cfg.permanentSorts,
         hiddenColumnIds: cfg.hiddenColumnIds,
         columnOrderIds: cfg.columnOrderIds,
 
@@ -177,39 +206,19 @@ export function createGridStore(tableId: string) {
       set((s) => ({ ...s, filterConjunction })),
 
     setSorts: (sorts) =>
-      set((s) => ({
-        ...s,
-        sorts,
-        fingerprint: fingerprintFromParts({ ...s, sorts }),
-      })),
+      set((s) => ({ ...s, sorts })),
 
     setAutoSort: (autoSort) =>
-      set((s) => {
-        // When switching from autoSort=true → false, revert sorts to savedSorts
-        // (discard temporary sorts — they were never meant to persist)
-        const shouldRevert = s.autoSort && !autoSort;
-        const newSorts = shouldRevert ? s.savedSorts : s.sorts;
-        return {
-          ...s,
-          autoSort,
-          sorts: newSorts,
-          fingerprint: fingerprintFromParts({ ...s, autoSort, sorts: newSorts }),
-        };
-      }),
+      set((s) => ({ ...s, autoSort })),
 
-    revertSorts: () =>
-      set((s) => ({
-        ...s,
-        sorts: s.savedSorts,
-        fingerprint: fingerprintFromParts({ ...s, sorts: s.savedSorts }),
-      })),
+    setPermanentSorts: (permanentSorts) =>
+      set((s) => ({ ...s, permanentSorts })),
 
     revertFilters: () =>
       set((s) => ({
         ...s,
         filters: s.savedFilters,
         filterConjunction: s.savedFilterConjunction,
-        // Also revert the UI conditions so FilterPanel reflects the saved state
         filterConditions: s.savedFilters.map((f, idx) => ({
           id: `reverted-${idx}-${Date.now()}`,
           columnId: f.columnId,

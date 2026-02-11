@@ -29,7 +29,7 @@ interface ViewsSidebarProps {
   createViewName: string;
   setCreateViewName: React.Dispatch<React.SetStateAction<string>>;
   computeNextViewName: () => string;
-  createViewMut: { isPending: boolean; mutate: (args: { tableId: string; name: string; config: { search: string; filters: unknown[]; sorts?: unknown[]; hiddenColumnIds: string[]; columnOrderIds?: string[] } }) => void };
+  createViewMut: { isPending: boolean; mutate: (args: { tableId: string; name: string; config: { search: string; filters: unknown[]; sorts?: unknown[]; permanentSorts?: unknown[]; autoSort?: boolean; hiddenColumnIds: string[]; columnOrderIds?: string[] } }) => void };
   tableId: string;
 
   // Context menu
@@ -93,7 +93,8 @@ export function ViewsSidebar({
 }: ViewsSidebarProps) {
   // Read parent view state from the grid store for inheritance
   const parentColumnOrderIds = useGridStore((s) => s.columnOrderIds);
-  const parentHiddenColumnIds = useGridStore((s) => s.hiddenColumnIds);
+  // Permanent sorts are inherited (irreversible, part of data order)
+  const parentPermanentSorts = useGridStore((s) => s.permanentSorts);
 
   // refs
   const viewsSidebarRef = useRef<HTMLDivElement>(null);
@@ -412,7 +413,9 @@ export function ViewsSidebar({
                         search: '',
                         filters: [],
                         sorts: [],
-                        hiddenColumnIds: parentHiddenColumnIds,
+                        permanentSorts: parentPermanentSorts,
+                        autoSort: true,
+                        hiddenColumnIds: [],
                         columnOrderIds: parentColumnOrderIds,
                       },
                     });

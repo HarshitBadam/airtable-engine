@@ -65,6 +65,7 @@ import { TopBar } from "./TopBar";
 import { ClearDataModal, DeleteTablePopup } from "./TableModals";
 import { Rail } from "./Rail";
 import { GridBar } from "./GridBar";
+import type { GridBarHandle } from "./GridBar";
 import { TableToolbar } from "./TableToolbar";
 import { ViewsSidebar } from "./ViewsSidebar";
 import { GridContainer } from "./GridContainer";
@@ -173,6 +174,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
   // View dropdown menu state (Grid view chevron dropdown)
   const [isViewDropdownOpen, setIsViewDropdownOpen] = useState(false);
+
+  // Ref for GridBar imperative handle (to open filter/sort panels programmatically)
+  const gridBarRef = useRef<GridBarHandle>(null);
 
   // Add a new table and open rename popup
   const handleAddTable = () => {
@@ -399,6 +403,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const toggleHiddenColumn = useGridStore((s) => s.toggleHiddenColumn);
   const setHiddenColumnIds = useGridStore((s) => s.setHiddenColumnIds);
   const columnOrderIds = useGridStore((s) => s.columnOrderIds);
+  const filterConditions = useGridStore((s) => s.filterConditions);
+  const setFilterConditions = useGridStore((s) => s.setFilterConditions);
   const setColumnOrderIds = useGridStore((s) => s.setColumnOrderIds);
 
   // Stable refs for callbacks passed to memoized GridRow (avoids breaking memo on every render)
@@ -596,51 +602,81 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     [currentSorts, setSorts],
   );
 
-  // === AUTO-SORT + VIEW-LEVEL SORT PERSISTENCE ===
+  // === SORT PERSISTENCE ===
   const autoSort = useGridStore((s) => s.autoSort);
   const setAutoSort = useGridStore((s) => s.setAutoSort);
-  const savedSorts = useGridStore((s) => s.savedSorts);
-  const revertSorts = useGridStore((s) => s.revertSorts);
-
-  // Effective sorts: autoSort=true → live preview of current sorts
-  //                  autoSort=false → only persisted (saved) sorts
-  const effectiveSortCount = autoSort ? currentSorts.length : savedSorts.length;
-  // Whether there are active sorts (for orange badge styling on the Sort button)
-  const hasTemporarySorts = currentSorts.length > 0;
+  const permanentSorts = useGridStore((s) => s.permanentSorts);
+  const setPermanentSorts = useGridStore((s) => s.setPermanentSorts);
   const markSortsSaved = useGridStore((s) => s.markSortsSaved);
   const markSaved = useGridStore((s) => s.markSaved);
   const searchForSave = useGridStore((s) => s.search);
   const filtersForSave = useGridStore((s) => s.filters);
   const filterConjunctionForSave = useGridStore((s) => s.filterConjunction);
   const markFiltersSaved = useGridStore((s) => s.markFiltersSaved);
+  const activeViewIdFromStore = useGridStore((s) => s.activeViewId);
 
-  const handleToggleAutoSort = useCallback(() => {
-    setAutoSort(!autoSort);
-  }, [autoSort, setAutoSort]);
+  // Visual indicators: ONLY when autoSort=true AND there are live sorts
+  const effectiveSortCount = autoSort ? currentSorts.length : 0;
+  const hasTemporarySorts = autoSort && currentSorts.length > 0;
 
-  // Save sorts to view config (autoSort=false "Sort" button)
-  const viewSortSaveMut = api.view.update.useMutation({
-    onSuccess: async () => {
-      markSortsSaved();
+  // Generic mutation for all sort-related saves
+  const sortSaveMut = api.view.update.useMutation({
+    onSuccess: () => {
       markSaved();
-      await utils.view.list.invalidate({ tableId });
+      void utils.view.list.invalidate({ tableId });
     },
   });
 
-  const activeViewIdFromStore = useGridStore((s) => s.activeViewId);
+  // Toggle autoSort — persists the toggle + current state immediately
+  const handleToggleAutoSort = useCallback(() => {
+    const newAutoSort = !autoSort;
+    setAutoSort(newAutoSort);
 
+    // Persist immediately so the toggle state survives refresh
+    if (activeViewIdFromStore) {
+      sortSaveMut.mutate({
+        viewId: activeViewIdFromStore,
+        config: {
+          search: searchForSave,
+          filters: filtersForSave,
+          filterConjunction: filterConjunctionForSave,
+          // When switching to autoSort=false, clear saved temp sorts
+          // When switching to autoSort=true, save current entries as temp sorts
+          sorts: newAutoSort ? currentSorts : [],
+          permanentSorts,
+          autoSort: newAutoSort,
+          hiddenColumnIds,
+          columnOrderIds,
+        },
+      });
+    }
+  }, [autoSort, setAutoSort, activeViewIdFromStore, sortSaveMut, searchForSave, filtersForSave, filterConjunctionForSave, currentSorts, permanentSorts, hiddenColumnIds, columnOrderIds]);
+
+  // "Sort" button (autoSort=false): apply staged entries as permanent sorts
   const handleSaveSorts = useCallback(() => {
     if (!activeViewIdFromStore) return;
-    viewSortSaveMut.mutate({
+    const newPermanentSorts = currentSorts;
+    setPermanentSorts(newPermanentSorts);
+    // Entries stay visible in panel — only removed via X
+    sortSaveMut.mutate({
       viewId: activeViewIdFromStore,
-      config: { search: searchForSave, filters: filtersForSave, filterConjunction: filterConjunctionForSave, sorts: currentSorts, hiddenColumnIds, columnOrderIds },
+      config: {
+        search: searchForSave,
+        filters: filtersForSave,
+        filterConjunction: filterConjunctionForSave,
+        sorts: [],
+        permanentSorts: newPermanentSorts,
+        autoSort: false,
+        hiddenColumnIds,
+        columnOrderIds,
+      },
     });
-  }, [activeViewIdFromStore, searchForSave, filtersForSave, filterConjunctionForSave, currentSorts, hiddenColumnIds, columnOrderIds, viewSortSaveMut]);
+  }, [activeViewIdFromStore, currentSorts, searchForSave, filtersForSave, filterConjunctionForSave, hiddenColumnIds, columnOrderIds, setPermanentSorts, sortSaveMut]);
 
-  // Cancel sorts: revert to savedSorts (autoSort=false "Cancel" button)
+  // "Cancel" button (autoSort=false): revert staged entries to permanentSorts
   const handleCancelSorts = useCallback(() => {
-    revertSorts();
-  }, [revertSorts]);
+    setSorts(permanentSorts);
+  }, [setSorts, permanentSorts]);
 
   // === AUTO-SAVE LAYOUT CHANGES (column order + visibility) ===
   // In Airtable, column reorder and hide/show changes are persisted immediately.
@@ -652,15 +688,17 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     },
   });
 
-  // Ref keeps the latest full config so the debounced save never uses stale values.
-  // When autoSort is on, sorts are temporary — persist the savedSorts baseline
-  // so other auto-save effects (layout, filters) don't accidentally save temp sorts.
-  const sortsForConfig = autoSort ? savedSorts : currentSorts;
+  // Ref keeps the latest full config so debounced auto-saves never use stale values.
+  // autoSort=true  → sorts = currentSorts (persist temp sorts for refresh)
+  // autoSort=false → sorts = []           (staging only, not persisted)
+  const sortsForConfig = autoSort ? currentSorts : [];
   const latestConfigRef = useRef({
     search: searchForSave,
     filters: filtersForSave,
     filterConjunction: filterConjunctionForSave,
     sorts: sortsForConfig,
+    permanentSorts,
+    autoSort,
     hiddenColumnIds,
     columnOrderIds,
   });
@@ -669,6 +707,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     filters: filtersForSave,
     filterConjunction: filterConjunctionForSave,
     sorts: sortsForConfig,
+    permanentSorts,
+    autoSort,
     hiddenColumnIds,
     columnOrderIds,
   };
@@ -695,6 +735,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     clearTimeout(layoutTimerRef.current);
     layoutTimerRef.current = setTimeout(() => {
       if (!activeViewIdFromStore) return;
+      // Skip if a column creation is in-flight (columnOrderIds contains temp IDs)
+      if (isCreatingColumnRef.current) return;
       layoutBaselineRef.current = layoutKey;
       layoutAutoSaveMut.mutate({
         viewId: activeViewIdFromStore,
@@ -749,8 +791,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey, activeViewIdFromStore]);
 
-  // === AUTO-SAVE SORT CHANGES ===
-  // Sorts (like filters) are reversible but persist across sessions.
+  // === AUTO-SAVE SORT CHANGES (autoSort=true only) ===
+  // When autoSort is ON, sorts persist across sessions (like filters).
+  // When autoSort is OFF, sorts are staged — only persisted via "Sort" button.
   const sortAutoSaveMut = api.view.update.useMutation({
     onSuccess: () => {
       markSortsSaved();
@@ -761,28 +804,28 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const sortBaselineRef = useRef<string>("");
   const sortTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const sortKey = `${activeViewIdFromStore}|${JSON.stringify(currentSorts)}`;
+  // Key includes autoSort so toggling back to true triggers a save of current entries
+  const sortKey = `${activeViewIdFromStore}|${autoSort}|${JSON.stringify(currentSorts)}`;
 
   useEffect(() => {
     if (!activeViewIdFromStore) return;
 
-    // When autoSort is on, sorts are temporary — don't persist them.
-    // Only auto-save when autoSort is off (sorts are meant to be persisted).
-    if (autoSort) {
+    // autoSort=false → sorts are staged, never auto-saved. Just track baseline.
+    if (!autoSort) {
       sortBaselineRef.current = sortKey;
       return;
     }
 
-    // On view switch (or first render), record the baseline and skip
+    // On view switch (or first render), record baseline and skip
     if (!sortBaselineRef.current.startsWith(activeViewIdFromStore + "|")) {
       sortBaselineRef.current = sortKey;
       return;
     }
 
-    // If sorts haven't actually changed, skip
+    // Nothing changed
     if (sortKey === sortBaselineRef.current) return;
 
-    // Debounce: wait for the user to finish adjusting sorts
+    // Debounce 400ms then save
     clearTimeout(sortTimerRef.current);
     sortTimerRef.current = setTimeout(() => {
       if (!activeViewIdFromStore) return;
@@ -791,7 +834,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         viewId: activeViewIdFromStore,
         config: latestConfigRef.current,
       });
-    }, 600);
+    }, 400);
 
     return () => clearTimeout(sortTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1654,9 +1697,16 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // Counter for generating unique temp IDs for optimistic column creation
   const tempColCounter = useRef(0);
 
+  // Guard: suppress layout auto-save while a column creation is in-flight
+  // (the optimistic columnOrderIds contains a temp ID that must NOT leak to the server).
+  const isCreatingColumnRef = useRef(false);
+
   // Create column — optimistic: add a placeholder column INSTANTLY, then reconcile with server
   const createColumnMut = api.column.create.useMutation({
     onMutate: async (vars) => {
+      // Suppress layout auto-save while temp IDs are in columnOrderIds
+      isCreatingColumnRef.current = true;
+
       // Generate a deterministic temporary ID
       const tempId = `__temp_col_${++tempColCounter.current}_${Date.now()}`;
 
@@ -1683,9 +1733,24 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       });
 
       // Append the temp column to the Zustand store's columnOrderIds
+      // (or insert it at the correct position if insert-field target is set)
       const currentOrder = columnOrderIdsRef.current;
       if (currentOrder.length > 0) {
-        setColumnOrderIds([...currentOrder, tempId]);
+        const target = insertFieldTargetRef.current;
+        if (target) {
+          const anchorIdx = currentOrder.indexOf(target.anchorColId);
+          if (anchorIdx !== -1) {
+            const insertIdx = target.side === "right" ? anchorIdx + 1 : anchorIdx;
+            const newOrder = [...currentOrder];
+            newOrder.splice(insertIdx, 0, tempId);
+            setColumnOrderIds(newOrder);
+          } else {
+            setColumnOrderIds([...currentOrder, tempId]);
+          }
+          insertFieldTargetRef.current = null;
+        } else {
+          setColumnOrderIds([...currentOrder, tempId]);
+        }
       }
 
       // If a default value is provided, stamp it into every cached row
@@ -1705,6 +1770,25 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               items: page.items.map((r) => {
                 const cells = (r.cells ?? {}) as Record<string, unknown>;
                 return { ...r, cells: { ...cells, [tempId]: cellValue } };
+              }),
+            })),
+          };
+        });
+      }
+
+      // If duplicating a field, optimistically copy cell values from the source column
+      if (vars.sourceColumnId) {
+        utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              items: page.items.map((r) => {
+                const cells = (r.cells ?? {}) as Record<string, unknown>;
+                const srcVal = cells[vars.sourceColumnId!];
+                if (srcVal === undefined) return r;
+                return { ...r, cells: { ...cells, [tempId]: srcVal } };
               }),
             })),
           };
@@ -1744,11 +1828,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           ...old,
           pages: old.pages.map((page) => ({
             ...page,
-            rows: page.rows.map((row: { id: string; cells: unknown }) => {
-              const cells = (row.cells ?? {}) as Record<string, unknown>;
-              if (!(tempId in cells)) return row;
+            items: page.items.map((r) => {
+              const cells = (r.cells ?? {}) as Record<string, unknown>;
+              if (!(tempId in cells)) return r;
               const { [tempId]: val, ...rest } = cells;
-              return { ...row, cells: { ...rest, [newCol.id]: val } };
+              return { ...r, cells: { ...rest, [newCol.id]: val } };
             }),
           })),
         };
@@ -1760,10 +1844,15 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         setActiveCell({ rowId: ac.rowId, columnId: newCol.id });
       }
 
+      // Temp → real swap is complete; allow layout auto-save again
+      isCreatingColumnRef.current = false;
+
       // Re-fetch views so the persisted columnOrderIds are in sync
       void utils.view.list.invalidate({ tableId });
     },
     onError: (_err, _vars, ctx) => {
+      // Column creation failed; allow layout auto-save again
+      isCreatingColumnRef.current = false;
       if (!ctx) return;
       // Rollback column cache
       if (ctx.prevCols) utils.column.list.setData({ tableId }, ctx.prevCols);
@@ -2005,8 +2094,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   }, [isValidTable, activeViewIdFromStore, activeCell, clearSelection, removeFromViewMut]);
 
   // === CREATE FIELD (view-scoped — adds column to table + current view's columnOrderIds) ===
-  const handleCreateField = useCallback((name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig) => {
+  // Track insert-field target for Insert left/right (used in onMutate to reorder)
+  const insertFieldTargetRef = useRef<{ anchorColId: string; side: "left" | "right" } | null>(null);
+
+  const handleCreateField = useCallback((name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig, insertPosition?: { anchorColId: string; side: "left" | "right" }) => {
     if (!isValidTable) return;
+    // Store insert position for the optimistic handler
+    insertFieldTargetRef.current = insertPosition ?? null;
     // Map UI type label to DB column type
     const dbType: "TEXT" | "NUMBER" = type === "Number" ? "NUMBER" : "TEXT";
     const fieldName = name.trim() || (dbType === "NUMBER" ? "Number" : "Field");
@@ -2019,6 +2113,68 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       viewId: activeViewIdFromStore ?? undefined,
     });
   }, [isValidTable, tableId, activeViewIdFromStore, createColumnMut]);
+
+  // === HIDE FIELD (from column header dropdown menu) ===
+  const handleHideField = useCallback((columnId: string) => {
+    toggleHiddenColumn(columnId);
+  }, [toggleHiddenColumn]);
+
+  // === FILTER BY FIELD (from column header dropdown menu) ===
+  const handleFilterByField = useCallback((columnId: string) => {
+    const col = orderedColumns.find((c) => c.id === columnId);
+    if (!col) return;
+    const colType = col.type;
+    const defaultOp = colType === "NUMBER" ? "equals" : "contains";
+    // Add a new filter condition for this column
+    const existingConditions = filterConditions ?? [];
+    const newCondition = {
+      id: crypto.randomUUID(),
+      columnId,
+      operator: defaultOp,
+      value: "",
+      conjunction: "and" as const,
+    };
+    setFilterConditions([...existingConditions, newCondition]);
+    // Open the filter panel via the GridBar imperative handle
+    gridBarRef.current?.openFilterPanel();
+  }, [orderedColumns, filterConditions, setFilterConditions]);
+
+  // === SORT BY FIELD (from column header dropdown menu) ===
+  const handleSortByField = useCallback((columnId: string, direction: "asc" | "desc") => {
+    const col = orderedColumns.find((c) => c.id === columnId);
+    if (!col) return;
+    const colType: "TEXT" | "NUMBER" = col.type === "NUMBER" ? "NUMBER" : "TEXT";
+    // Check if there's already a sort for this column and update it, otherwise add
+    const existing = currentSorts.findIndex((s) => s.columnId === columnId);
+    let newSorts;
+    if (existing !== -1) {
+      newSorts = currentSorts.map((s, i) => i === existing ? { ...s, direction } : s);
+    } else {
+      newSorts = [...currentSorts, { columnId, direction, type: colType }];
+    }
+    setSorts(newSorts);
+    // Open the sort panel via the GridBar imperative handle
+    gridBarRef.current?.openSortPanel();
+  }, [orderedColumns, currentSorts, setSorts]);
+
+  // === DUPLICATE FIELD (from column header dropdown menu) ===
+  const handleDuplicateField = useCallback((columnId: string) => {
+    if (!isValidTable) return;
+    const col = orderedColumns.find((c) => c.id === columnId);
+    if (!col) return;
+    const dbType: "TEXT" | "NUMBER" = col.type === "NUMBER" ? "NUMBER" : "TEXT";
+    const copyName = `${col.name} copy`;
+    // Store insert position so the optimistic handler places it next to the original
+    insertFieldTargetRef.current = { anchorColId: columnId, side: "right" };
+    createColumnMut.mutate({
+      tableId,
+      name: copyName,
+      type: dbType,
+      numberConfig: col.config ? (col.config as { decimalPlaces: number; thousandsSep: string; showThousands: boolean; largeNumAbbrev: string | null; allowNegative: boolean }) : undefined,
+      viewId: activeViewIdFromStore ?? undefined,
+      sourceColumnId: columnId,
+    });
+  }, [isValidTable, orderedColumns, tableId, activeViewIdFromStore, createColumnMut]);
 
   // Check scroll progress for proportional reveal
   const checkScrollProgress = () => {
@@ -2502,6 +2658,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           />
 
           <GridBar
+            ref={gridBarRef}
             isViewsSidebarOpen={isViewsSidebarOpen}
             handleToggleViewsSidebar={handleToggleViewsSidebar}
             handleListButtonMouseEnter={handleListButtonMouseEnter}
@@ -2622,6 +2779,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               onDuplicateRecord={handleDuplicateRecord}
               onDeleteRecord={handleDeleteRecord}
               onDeleteField={handleDeleteField}
+              onHideField={handleHideField}
+              onSortByField={handleSortByField}
+              onFilterByField={handleFilterByField}
+              onDuplicateField={handleDuplicateField}
               onCreateField={handleCreateField}
               deletingRowIds={deletingRowIds}
               searchTerm={activeSearchTerm}

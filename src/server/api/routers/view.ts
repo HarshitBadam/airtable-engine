@@ -6,6 +6,8 @@ const viewConfigSchema = z.object({
   filters: z.array(z.any()),
   filterConjunction: z.enum(["and", "or"]).default("and"),
   sorts: z.array(z.any()).default([]),
+  permanentSorts: z.array(z.any()).default([]),
+  autoSort: z.boolean().default(true),
   hiddenColumnIds: z.array(z.string()),
   columnOrderIds: z.array(z.string()).default([]),
 });
