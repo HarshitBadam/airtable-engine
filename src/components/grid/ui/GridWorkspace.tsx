@@ -633,6 +633,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const searchForSave = useGridStore((s) => s.search);
   const filtersForSave = useGridStore((s) => s.filters);
   const filterConjunctionForSave = useGridStore((s) => s.filterConjunction);
+  const filterTreeForSave = useGridStore((s) => s.filterTree);
   const markFiltersSaved = useGridStore((s) => s.markFiltersSaved);
   const activeViewIdFromStore = useGridStore((s) => s.activeViewId);
 
@@ -661,6 +662,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           search: searchForSave,
           filters: filtersForSave,
           filterConjunction: filterConjunctionForSave,
+          filterTree: filterTreeForSave,
           // When switching to autoSort=false, clear saved temp sorts
           // When switching to autoSort=true, save current entries as temp sorts
           sorts: newAutoSort ? currentSorts : [],
@@ -672,7 +674,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         },
       });
     }
-  }, [autoSort, setAutoSort, activeViewIdFromStore, sortSaveMut, searchForSave, filtersForSave, filterConjunctionForSave, currentSorts, permanentSorts, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave]);
+  }, [autoSort, setAutoSort, activeViewIdFromStore, sortSaveMut, searchForSave, filtersForSave, filterConjunctionForSave, filterTreeForSave, currentSorts, permanentSorts, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave]);
 
   // "Sort" button (autoSort=false): apply staged entries as permanent sorts
   const handleSaveSorts = useCallback(() => {
@@ -686,6 +688,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         search: searchForSave,
         filters: filtersForSave,
         filterConjunction: filterConjunctionForSave,
+        filterTree: filterTreeForSave,
         sorts: [],
         permanentSorts: newPermanentSorts,
         autoSort: false,
@@ -694,7 +697,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         rowOrderIds: rowOrderIdsForSave,
       },
     });
-  }, [activeViewIdFromStore, currentSorts, searchForSave, filtersForSave, filterConjunctionForSave, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave, setPermanentSorts, sortSaveMut]);
+  }, [activeViewIdFromStore, currentSorts, searchForSave, filtersForSave, filterConjunctionForSave, filterTreeForSave, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave, setPermanentSorts, sortSaveMut]);
 
   // "Cancel" button (autoSort=false): revert staged entries to permanentSorts
   const handleCancelSorts = useCallback(() => {
@@ -719,6 +722,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     search: searchForSave,
     filters: filtersForSave,
     filterConjunction: filterConjunctionForSave,
+    filterTree: filterTreeForSave,
     sorts: sortsForConfig,
     permanentSorts,
     autoSort,
@@ -730,6 +734,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     search: searchForSave,
     filters: filtersForSave,
     filterConjunction: filterConjunctionForSave,
+    filterTree: filterTreeForSave,
     sorts: sortsForConfig,
     permanentSorts,
     autoSort,
@@ -786,8 +791,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const filterBaselineRef = useRef<string>("");
   const filterTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Serialise current filters + conjunction into a stable key for change detection
-  const filterKey = `${activeViewIdFromStore}|${JSON.stringify(filtersForSave)}|${filterConjunctionForSave}`;
+  // Serialise current filters + conjunction + tree into a stable key for change detection
+  const filterKey = `${activeViewIdFromStore}|${JSON.stringify(filtersForSave)}|${filterConjunctionForSave}|${JSON.stringify(filterTreeForSave)}`;
 
   useEffect(() => {
     if (!activeViewIdFromStore) return;
@@ -1688,8 +1693,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   currentSortsRef.current = currentSorts;
   const filtersRef = useRef(filtersForSave);
   filtersRef.current = filtersForSave;
+  const filterTreeRef = useRef(filterTreeForSave);
+  filterTreeRef.current = filterTreeForSave;
 
   const setFilters = useGridStore((s) => s.setFilters);
+  const setFilterTree = useGridStore((s) => s.setFilterTree);
 
   // Counter for generating unique temp IDs for optimistic column creation
   const tempColCounter = useRef(0);
@@ -1879,6 +1887,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       const prevHiddenIds = hiddenColumnIdsRef.current;
       const prevSorts = currentSortsRef.current;
       const prevFilters = filtersRef.current;
+      const prevFilterTree = filterTreeRef.current;
 
       // Remove column from column list cache
       utils.column.list.setData({ tableId }, (old) => {
@@ -1914,7 +1923,25 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       const newFilters = prevFilters.filter((f) => f.columnId !== vars.columnId);
       if (newFilters.length !== prevFilters.length) setFilters(newFilters);
 
-      return { prevCols, prevRows, prevOrderIds, prevHiddenIds, prevSorts, prevFilters };
+      // Clean filterTree referencing this column (condition groups)
+      if (prevFilterTree) {
+        type TreeItem = { kind?: string; columnId?: string; items?: TreeItem[]; [k: string]: unknown };
+        const cleanTreeItems = (items: TreeItem[]): TreeItem[] =>
+          items
+            .filter((it) => !(it.kind === "condition" && it.columnId === vars.columnId))
+            .map((it) =>
+              it.kind === "group" && Array.isArray(it.items)
+                ? { ...it, items: cleanTreeItems(it.items) }
+                : it,
+            );
+        const cleaned = {
+          ...prevFilterTree,
+          items: cleanTreeItems(prevFilterTree.items as TreeItem[]),
+        };
+        setFilterTree(cleaned as typeof prevFilterTree);
+      }
+
+      return { prevCols, prevRows, prevOrderIds, prevHiddenIds, prevSorts, prevFilters, prevFilterTree };
     },
     onError: (_e, _v, ctx) => {
       if (!ctx) return;
@@ -1929,6 +1956,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       setHiddenColumnIds(ctx.prevHiddenIds);
       setSorts(ctx.prevSorts);
       setFilters(ctx.prevFilters);
+      setFilterTree(ctx.prevFilterTree);
     },
     onSuccess: () => {
       // Re-sync with server (column list, rows, and views since server cleans all view configs)

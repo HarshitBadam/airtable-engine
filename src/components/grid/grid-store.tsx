@@ -4,7 +4,7 @@ import React, { createContext, useContext, useRef } from "react";
 import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
 import type { StoreApi } from "zustand/vanilla";
-import { configFingerprint, defaultViewConfig, type ViewConfig, type Filter, type Sort } from "~/shared/grid";
+import { configFingerprint, defaultViewConfig, type ViewConfig, type Filter, type Sort, type FilterTree } from "~/shared/grid";
 
 // re-export for convenience
 export type { Sort };
@@ -32,8 +32,11 @@ type GridState = {
   search: string;
   filters: Filter[];
   filterConjunction: "and" | "or";
+  /** Tree-structured filters for condition groups. When set, takes precedence over flat filters. */
+  filterTree: FilterTree | undefined;
   savedFilters: Filter[];
   savedFilterConjunction: "and" | "or";
+  savedFilterTree: FilterTree | undefined;
 
   // ── Sort state ──────────────────────────────────────────────
   // `sorts` = the entries currently shown in the sort panel.
@@ -70,6 +73,7 @@ type GridState = {
   setSearch: (v: string) => void;
   setFilters: (v: Filter[]) => void;
   setFilterConjunction: (v: "and" | "or") => void;
+  setFilterTree: (v: FilterTree | undefined) => void;
   setSorts: (v: Sort[]) => void;
   setAutoSort: (v: boolean) => void;
   setPermanentSorts: (v: Sort[]) => void;
@@ -95,12 +99,13 @@ type GridState = {
 };
 
 function fingerprintFromParts(
-  s: Pick<GridState, "search" | "savedFilters" | "savedFilterConjunction" | "savedSorts" | "autoSort" | "permanentSorts" | "hiddenColumnIds" | "columnOrderIds" | "rowOrderIds">,
+  s: Pick<GridState, "search" | "savedFilters" | "savedFilterConjunction" | "savedFilterTree" | "savedSorts" | "autoSort" | "permanentSorts" | "hiddenColumnIds" | "columnOrderIds" | "rowOrderIds">,
 ) {
   return configFingerprint({
     search: s.search,
     filters: s.savedFilters,
     filterConjunction: s.savedFilterConjunction,
+    filterTree: s.savedFilterTree,
     sorts: s.savedSorts,
     permanentSorts: s.permanentSorts,
     autoSort: s.autoSort,
@@ -125,8 +130,10 @@ export function createGridStore(tableId: string) {
     search: "",
     filters: [],
     filterConjunction: "and",
+    filterTree: undefined,
     savedFilters: [],
     savedFilterConjunction: "and",
+    savedFilterTree: undefined,
     sorts: [],
     savedSorts: [],
     permanentSorts: [],
@@ -178,8 +185,10 @@ export function createGridStore(tableId: string) {
         search: cfg.search,
         filters: cfg.filters,
         filterConjunction: cfg.filterConjunction,
+        filterTree: cfg.filterTree,
         savedFilters: cfg.filters,
         savedFilterConjunction: cfg.filterConjunction,
+        savedFilterTree: cfg.filterTree,
         sorts: restoredSorts,
         savedSorts: cfg.sorts,
         autoSort: restoredAutoSort,
@@ -210,6 +219,9 @@ export function createGridStore(tableId: string) {
     setFilterConjunction: (filterConjunction) =>
       set((s) => ({ ...s, filterConjunction })),
 
+    setFilterTree: (filterTree) =>
+      set((s) => ({ ...s, filterTree })),
+
     setSorts: (sorts) =>
       set((s) => ({ ...s, sorts })),
 
@@ -224,6 +236,7 @@ export function createGridStore(tableId: string) {
         ...s,
         filters: s.savedFilters,
         filterConjunction: s.savedFilterConjunction,
+        filterTree: s.savedFilterTree,
         filterConditions: s.savedFilters.map((f, idx) => ({
           id: `reverted-${idx}-${Date.now()}`,
           columnId: f.columnId,
@@ -288,6 +301,7 @@ export function createGridStore(tableId: string) {
         ...s,
         savedFilters: s.filters,
         savedFilterConjunction: s.filterConjunction,
+        savedFilterTree: s.filterTree,
       })),
   }));
 }

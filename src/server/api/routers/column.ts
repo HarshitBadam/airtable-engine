@@ -1,6 +1,38 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 
+/* ── Helper: remove a deleted column from a filterTree ────────────── */
+type FilterTreeNode = { kind?: string; columnId?: string; items?: FilterTreeNode[]; [key: string]: unknown };
+
+/**
+ * Recursively remove conditions that reference `columnId` from a filter tree.
+ * Returns the cleaned items array and whether any changes were made.
+ */
+function cleanFilterTreeColumn(
+  items: FilterTreeNode[],
+  columnId: string,
+): { items: FilterTreeNode[]; changed: boolean } {
+  let changed = false;
+  const result: FilterTreeNode[] = [];
+  for (const item of items) {
+    if (item.kind === "condition") {
+      if (item.columnId === columnId) {
+        changed = true; // drop this condition
+        continue;
+      }
+      result.push(item);
+    } else if (item.kind === "group" && Array.isArray(item.items)) {
+      const cleaned = cleanFilterTreeColumn(item.items, columnId);
+      if (cleaned.changed) changed = true;
+      // Keep group even if empty (UI will show "Drag conditions here...")
+      result.push({ ...item, items: cleaned.items });
+    } else {
+      result.push(item);
+    }
+  }
+  return { items: result, changed };
+}
+
 export const columnRouter = createTRPCRouter({
 
   list: protectedProcedure
@@ -275,6 +307,18 @@ export const columnRouter = createTRPCRouter({
             changed = true;
           }
 
+          // Clean filterTree referencing this column (condition groups)
+          if (updatedConfig.filterTree && typeof updatedConfig.filterTree === "object") {
+            const tree = updatedConfig.filterTree as Record<string, unknown>;
+            if (Array.isArray(tree.items)) {
+              const cleaned = cleanFilterTreeColumn(tree.items as FilterTreeNode[], input.columnId);
+              if (cleaned.changed) {
+                tree.items = cleaned.items;
+                changed = true;
+              }
+            }
+          }
+
           if (changed) {
             await tx.view.update({
               where: { id: view.id },
@@ -337,6 +381,18 @@ export const columnRouter = createTRPCRouter({
           )
         : [];
 
+      // Clean filterTree referencing this column (condition groups)
+      let filterTree = config.filterTree;
+      if (filterTree && typeof filterTree === "object") {
+        const tree = filterTree as Record<string, unknown>;
+        if (Array.isArray(tree.items)) {
+          const cleaned = cleanFilterTreeColumn(tree.items as FilterTreeNode[], input.columnId);
+          if (cleaned.changed) {
+            filterTree = { ...tree, items: cleaned.items };
+          }
+        }
+      }
+
       await ctx.db.view.update({
         where: { id: input.viewId },
         data: {
@@ -346,6 +402,7 @@ export const columnRouter = createTRPCRouter({
             hiddenColumnIds,
             sorts,
             filters,
+            filterTree,
           } as unknown as object,
         },
       });

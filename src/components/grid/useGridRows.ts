@@ -16,6 +16,7 @@ export function useGridRows(tableId: string) {
   const search = useGridStore((s) => s.search);
   const filters = useGridStore((s) => s.filters);
   const filterConjunction = useGridStore((s) => s.filterConjunction);
+  const filterTree = useGridStore((s) => s.filterTree);
 
   // Which sorts drive the query?
   // autoSort=true  + sorts exist → use sorts (live preview, orange indicators)
@@ -34,11 +35,13 @@ export function useGridRows(tableId: string) {
       tableId,
       limit: 200,
       search: debouncedSearch.trim() ? debouncedSearch.trim() : undefined,
-      filters: filters.length ? filters : undefined,
-      conjunction: filters.length ? filterConjunction : undefined,
+      // When filterTree is present, send it instead of flat filters
+      filters: !filterTree && filters.length ? filters : undefined,
+      conjunction: !filterTree && filters.length ? filterConjunction : undefined,
+      filterTree: filterTree ?? undefined,
       sorts: effectiveSorts.length > 0 ? effectiveSorts : undefined,
     }),
-    [tableId, debouncedSearch, filters, filterConjunction, effectiveSorts],
+    [tableId, debouncedSearch, filters, filterConjunction, filterTree, effectiveSorts],
   );
 
   // Clear cell selection whenever the actual query parameters change.

@@ -19,10 +19,70 @@ export const sortSchema = z.object({
   type: z.enum(["TEXT", "NUMBER"]),
 });
 
+export type Filter = z.infer<typeof filterSchema>;
+export type Sort = z.infer<typeof sortSchema>;
+
+/* ============================================================
+   Filter tree (condition groups)
+   ============================================================ */
+
+/**
+ * A condition leaf in the filter tree.
+ * Matches the existing flat Filter shape but adds `kind` discriminator.
+ */
+export const filterTreeConditionSchema = z.object({
+  kind: z.literal("condition"),
+  columnId: z.string(),
+  op: z.string(), // one of the filter operators
+  value: z.union([z.string(), z.number()]).optional(),
+});
+
+export type FilterTreeCondition = z.infer<typeof filterTreeConditionSchema>;
+
+/**
+ * A group node: has its own conjunction (AND / OR) and a list of child items.
+ * Children can be conditions or nested groups (max 2 levels in UI).
+ */
+export interface FilterTreeGroup {
+  kind: "group";
+  conjunction: "and" | "or";
+  items: FilterTreeItem[];
+}
+
+export type FilterTreeItem = FilterTreeCondition | FilterTreeGroup;
+
+const filterTreeGroupSchema: z.ZodType<FilterTreeGroup> = z.lazy(() =>
+  z.object({
+    kind: z.literal("group"),
+    conjunction: z.enum(["and", "or"]),
+    items: z.array(
+      z.union([filterTreeConditionSchema, filterTreeGroupSchema as z.ZodType<FilterTreeGroup>]),
+    ),
+  }),
+);
+
+export const filterTreeItemSchema: z.ZodType<FilterTreeItem> = z.union([
+  filterTreeConditionSchema,
+  filterTreeGroupSchema,
+]);
+
+/**
+ * The root filter tree: a conjunction + top-level items.
+ * Replaces flat `filters[]` + `filterConjunction` when groups are present.
+ */
+export const filterTreeSchema = z.object({
+  conjunction: z.enum(["and", "or"]),
+  items: z.array(filterTreeItemSchema),
+});
+
+export type FilterTree = z.infer<typeof filterTreeSchema>;
+
 export const viewConfigSchema = z.object({
   search: z.string(),
   filters: z.array(filterSchema),
   filterConjunction: z.enum(["and", "or"]).default("and"),
+  /** Tree-structured filters (condition groups). When present, takes precedence over flat filters. */
+  filterTree: filterTreeSchema.optional(),
   sorts: z.array(sortSchema).default([]),
   permanentSorts: z.array(sortSchema).default([]),
   autoSort: z.boolean().default(true),
@@ -34,14 +94,13 @@ export const viewConfigSchema = z.object({
   rowOrderIds: z.array(z.string()).default([]),
 });
 
-export type Filter = z.infer<typeof filterSchema>;
-export type Sort = z.infer<typeof sortSchema>;
 export type ViewConfig = z.infer<typeof viewConfigSchema>;
 
 export const defaultViewConfig: ViewConfig = {
   search: "",
   filters: [],
   filterConjunction: "and",
+  filterTree: undefined,
   sorts: [],
   permanentSorts: [],
   autoSort: true,
@@ -79,6 +138,7 @@ export function configFingerprint(c: ViewConfig): string {
       search: c.search,
       filters,
       filterConjunction: c.filterConjunction,
+      filterTree: c.filterTree,
       sorts: c.sorts,
       permanentSorts: c.permanentSorts,
       autoSort: c.autoSort,

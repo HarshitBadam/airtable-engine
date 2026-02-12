@@ -2,6 +2,10 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import styles from "./FilterPanel.module.css";
 import { useGridStore, type FilterConditionUI } from "~/components/grid/grid-store";
+import type {
+  FilterTree as BackendFilterTree,
+  FilterTreeItem as BackendFilterTreeItem,
+} from "~/shared/grid";
 
 /* ============================================================
    Types
@@ -18,6 +22,180 @@ interface FilterPanelProps {
   baseColor?: string;
   /** Columns available for the field selector. */
   columns?: FilterColumn[];
+}
+
+/* ============================================================
+   Condition-group tree types
+   ============================================================ */
+
+type FilterTreeCondition = {
+  kind: "condition";
+  id: string;
+  columnId: string;
+  operator: string;
+  value: string;
+};
+
+type FilterTreeGroup = {
+  kind: "group";
+  id: string;
+  conjunction: "and" | "or"; // internal: "or" = "Any of the following are true…"
+  items: FilterTreeItem[];
+};
+
+type FilterTreeItem = FilterTreeCondition | FilterTreeGroup;
+
+function isGroup(item: FilterTreeItem): item is FilterTreeGroup {
+  return item.kind === "group";
+}
+
+/** Recursively flatten a tree into FilterConditionUI[] for the store/backend */
+function flattenToConditions(
+  items: FilterTreeItem[],
+  conjunction: "and" | "or",
+): FilterConditionUI[] {
+  const result: FilterConditionUI[] = [];
+  for (const item of items) {
+    if (isGroup(item)) {
+      result.push(...flattenToConditions(item.items, item.conjunction));
+    } else {
+      result.push({
+        id: item.id,
+        columnId: item.columnId,
+        operator: item.operator,
+        value: item.value,
+        conjunction,
+      });
+    }
+  }
+  return result;
+}
+
+/**
+ * Convert the UI tree to the backend FilterTree format for the API.
+ * Strips UI-only fields (id on conditions) and maps to the backend shape.
+ */
+function buildBackendFilterTree(
+  items: FilterTreeItem[],
+  rootConjunction: "and" | "or",
+  columns: Map<string, string>, // columnId → type
+): BackendFilterTree | undefined {
+  function convertItem(item: FilterTreeItem): BackendFilterTreeItem | null {
+    if (isGroup(item)) {
+      const children = item.items
+        .map(convertItem)
+        .filter((x): x is BackendFilterTreeItem => x !== null);
+      if (children.length === 0) return null;
+      return { kind: "group", conjunction: item.conjunction, items: children };
+    }
+
+    // Condition: validate it has a real column and valid operator
+    const cond = item;
+    if (!cond.columnId || !columns.has(cond.columnId)) return null;
+
+    const op = cond.operator;
+
+    // Valueless operators
+    if (op === "is_empty" || op === "is_not_empty") {
+      return { kind: "condition", columnId: cond.columnId, op };
+    }
+
+    // Text operators requiring value
+    if (op === "contains" || op === "not_contains" || op === "equals" || op === "not_equals") {
+      if (cond.value.trim() === "") return null;
+      return { kind: "condition", columnId: cond.columnId, op, value: cond.value };
+    }
+
+    // Number operators
+    if (op === "gt" || op === "lt" || op === "gte" || op === "lte") {
+      const num = Number(cond.value);
+      if (cond.value.trim() === "" || !Number.isFinite(num)) return null;
+      return { kind: "condition", columnId: cond.columnId, op, value: num };
+    }
+
+    return null;
+  }
+
+  const converted = items
+    .map(convertItem)
+    .filter((x): x is BackendFilterTreeItem => x !== null);
+
+  if (converted.length === 0) return undefined;
+
+  return { conjunction: rootConjunction, items: converted };
+}
+
+/** Check whether any root-level item is a group */
+function hasGroups(items: FilterTreeItem[]): boolean {
+  return items.some(isGroup);
+}
+
+/** Check whether any group contains a nested group */
+function hasNestedGroups(items: FilterTreeItem[]): boolean {
+  return items.some(
+    (item) => isGroup(item) && item.items.some(isGroup),
+  );
+}
+
+/** Deep-update a condition anywhere in the tree */
+function updateConditionInTree(
+  items: FilterTreeItem[],
+  id: string,
+  updater: (c: FilterTreeCondition) => FilterTreeCondition,
+): FilterTreeItem[] {
+  return items.map((item) => {
+    if (isGroup(item)) {
+      return { ...item, items: updateConditionInTree(item.items, id, updater) };
+    }
+    return item.id === id ? updater(item) : item;
+  });
+}
+
+/** Deep-remove an item (condition or group) by id anywhere in the tree */
+function removeItemFromTree(
+  items: FilterTreeItem[],
+  id: string,
+): FilterTreeItem[] {
+  return items
+    .filter((item) => item.id !== id)
+    .map((item) =>
+      isGroup(item)
+        ? { ...item, items: removeItemFromTree(item.items, id) }
+        : item,
+    );
+}
+
+/** Add a child to a specific group (by groupId) at any depth */
+function addChildToGroup(
+  items: FilterTreeItem[],
+  groupId: string,
+  child: FilterTreeItem,
+): FilterTreeItem[] {
+  return items.map((item) => {
+    if (isGroup(item)) {
+      if (item.id === groupId) {
+        return { ...item, items: [...item.items, child] };
+      }
+      return { ...item, items: addChildToGroup(item.items, groupId, child) };
+    }
+    return item;
+  });
+}
+
+/** Toggle a group's internal conjunction */
+function toggleGroupConjunction(
+  items: FilterTreeItem[],
+  groupId: string,
+): FilterTreeItem[] {
+  return items.map((item) => {
+    if (isGroup(item)) {
+      if (item.id === groupId) {
+        return { ...item, conjunction: item.conjunction === "and" ? "or" : "and" };
+      }
+      return { ...item, items: toggleGroupConjunction(item.items, groupId) };
+    }
+    return item;
+  });
 }
 
 /* ============================================================
@@ -235,6 +413,8 @@ type SubDropdown =
   | { kind: "conjunction"; conditionId: string }
   | { kind: "field"; conditionId: string }
   | { kind: "operator"; conditionId: string }
+  | { kind: "groupPlus"; groupId: string }
+  | { kind: "groupConjunction"; groupId: string }
   | null;
 
 export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
@@ -242,6 +422,7 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
   const setConditions = useGridStore((s) => s.setFilterConditions);
   const setFilters = useGridStore((s) => s.setFilters);
   const setFilterConjunction = useGridStore((s) => s.setFilterConjunction);
+  const setFilterTree = useGridStore((s) => s.setFilterTree);
 
   /* ---- Sync UI conditions → backend filters ---- */
   /* Converts FilterConditionUI[] to the backend Filter[] format
@@ -303,13 +484,122 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [dropIntoGroupId, setDropIntoGroupId] = useState<string | null>(null);
+  /** Group ID that just received an item — used for entry animation */
+  const [expandingGroupId, setExpandingGroupId] = useState<string | null>(null);
+  const expandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragItemRef = useRef<HTMLDivElement | null>(null);
   const rowsContainerRef = useRef<HTMLDivElement>(null);
   const itemRectsRef = useRef<DOMRect[]>([]);
   const dragIndexRef = useRef<number | null>(null);
   const dragOverIndexRef = useRef<number | null>(null);
+  const dropIntoGroupIdRef = useRef<string | null>(null);
+  const groupBoxRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  /* ---- in-group drag state ---- */
+  const [inGroupDrag, setInGroupDrag] = useState<{
+    groupId: string;
+    fromIdx: number;
+    overIdx: number;
+  } | null>(null);
+  const inGroupDragRef = useRef<{
+    groupId: string;
+    fromIdx: number;
+    overIdx: number;
+  } | null>(null);
+  const [inGroupDragPos, setInGroupDragPos] = useState<{ x: number; y: number } | null>(null);
+  const inGroupItemRectsRef = useRef<DOMRect[]>([]);
+  const groupContentRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const hasConditions = conditions.length > 0;
+
+  /* ---- GROUP TREE STATE ---- */
+  const [rootItems, setRootItems] = useState<FilterTreeItem[]>([]);
+  const [rootConjunction, setRootConjunction] = useState<"and" | "or">("and");
+  const groupInitRef = useRef(false);
+  const groupPlusRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const groupConjunctionRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
+
+  const savedFilterTree = useGridStore((s) => s.filterTree);
+
+  /* One-time initialization: restore tree from saved filterTree or flat conditions */
+  useEffect(() => {
+    if (groupInitRef.current) return;
+    groupInitRef.current = true;
+
+    // If a tree structure was saved (has groups), restore it fully
+    if (savedFilterTree && savedFilterTree.items.length > 0) {
+      let counter = 0;
+      const restoreItem = (item: BackendFilterTreeItem): FilterTreeItem => {
+        if (item.kind === "group") {
+          return {
+            kind: "group",
+            id: `restored-group-${counter++}-${Date.now()}`,
+            conjunction: item.conjunction,
+            items: item.items.map(restoreItem),
+          };
+        }
+        return {
+          kind: "condition",
+          id: `restored-${counter++}-${Date.now()}`,
+          columnId: item.columnId,
+          operator: item.op,
+          value: item.value !== undefined ? String(item.value) : "",
+        };
+      };
+
+      setRootItems(savedFilterTree.items.map(restoreItem));
+      setRootConjunction(savedFilterTree.conjunction);
+      return;
+    }
+
+    // Fallback: restore from flat conditions (backward compat — no groups)
+    if (conditions.length > 0) {
+      setRootItems(
+        conditions.map((c) => ({
+          kind: "condition" as const,
+          id: c.id,
+          columnId: c.columnId,
+          operator: c.operator,
+          value: c.value,
+        })),
+      );
+      if (conditions.length >= 2) {
+        setRootConjunction(conditions[1]?.conjunction ?? "and");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* Sync rootItems → store filterConditions + filterTree (for backend) */
+  useEffect(() => {
+    if (!groupInitRef.current) return;
+
+    // Always flatten to flat conditions for backward compatibility
+    const flat = flattenToConditions(rootItems, rootConjunction);
+    const uiConditions: FilterConditionUI[] = flat.map((c, i) => ({
+      ...c,
+      conjunction: i === 0 ? "and" : rootConjunction,
+    }));
+    setConditions(uiConditions);
+
+    // Build the tree-structured filters for the backend.
+    // When groups exist, the tree is the source of truth for evaluation.
+    // When no groups, we clear the tree so the flat path is used.
+    const colTypeMap = new Map(columns.map((c) => [c.id, c.type]));
+    const treeHasGroups = hasGroups(rootItems);
+
+    if (treeHasGroups) {
+      const tree = buildBackendFilterTree(rootItems, rootConjunction, colTypeMap);
+      setFilterTree(tree);
+    } else {
+      setFilterTree(undefined);
+    }
+  }, [rootItems, rootConjunction, columns, setConditions, setFilterTree]);
+
+  const hasAnyItems = rootItems.length > 0;
+  const panelHasGroups = hasGroups(rootItems);
+  const panelHasNestedGroups = hasNestedGroups(rootItems);
 
   /* ---- refs for trigger elements ---- */
   const conjunctionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -333,70 +623,165 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
     [getColumn],
   );
 
-  /* ---- mutations ---- */
+  /* ---- mutations (operate on rootItems tree) ---- */
 
   const addCondition = useCallback(() => {
     const defaultCol = columns[0];
     const defaultOp = defaultCol ? getDefaultOperator(defaultCol.type) : "contains";
-    setConditions([
-      ...conditions,
+    setRootItems((prev) => [
+      ...prev,
       {
+        kind: "condition" as const,
         id: crypto.randomUUID(),
         columnId: defaultCol?.id ?? "",
         operator: defaultOp,
         value: "",
-        conjunction: "and",
       },
     ]);
-  }, [columns, conditions, setConditions]);
+  }, [columns]);
 
   const removeCondition = useCallback((id: string) => {
-    setConditions(conditions.filter((c) => c.id !== id));
-  }, [conditions, setConditions]);
+    setRootItems((prev) => removeItemFromTree(prev, id));
+  }, []);
 
   const updateValue = useCallback((id: string, value: string) => {
-    setConditions(
-      conditions.map((c) => (c.id === id ? { ...c, value } : c)),
+    setRootItems((prev) =>
+      updateConditionInTree(prev, id, (c) => ({ ...c, value })),
     );
-  }, [conditions, setConditions]);
+  }, []);
 
   const updateConjunction = useCallback((_id: string, conjunction: "and" | "or") => {
-    // Airtable behavior: changing any conjunction changes ALL of them
-    setConditions(
-      conditions.map((c) => ({ ...c, conjunction })),
-    );
+    // Airtable behavior: changing any root conjunction changes ALL of them
+    setRootConjunction(conjunction);
     setOpenDropdown(null);
-  }, [conditions, setConditions]);
+  }, []);
 
   const updateField = useCallback((id: string, columnId: string, columnType: string) => {
-    setConditions(
-      conditions.map((c) =>
-        c.id === id
-          ? { ...c, columnId, operator: getDefaultOperator(columnType), value: "" }
-          : c,
-      ),
+    setRootItems((prev) =>
+      updateConditionInTree(prev, id, (c) => ({
+        ...c,
+        columnId,
+        operator: getDefaultOperator(columnType),
+        value: "",
+      })),
     );
     setOpenDropdown(null);
-  }, [conditions, setConditions]);
+  }, []);
 
   const updateOperator = useCallback((id: string, operator: string) => {
-    setConditions(
-      conditions.map((c) => (c.id === id ? { ...c, operator } : c)),
+    setRootItems((prev) =>
+      updateConditionInTree(prev, id, (c) => ({ ...c, operator })),
     );
     setOpenDropdown(null);
-  }, [conditions, setConditions]);
+  }, []);
+
+  /* ---- group mutations ---- */
+
+  const addRootGroup = useCallback(() => {
+    setRootItems((prev) => [
+      ...prev,
+      {
+        kind: "group" as const,
+        id: crypto.randomUUID(),
+        conjunction: "or", // "Any of the following are true…"
+        items: [],
+      },
+    ]);
+  }, []);
+
+  const removeGroup = useCallback((id: string) => {
+    setRootItems((prev) => removeItemFromTree(prev, id));
+  }, []);
+
+  const addConditionToGroup = useCallback(
+    (groupId: string) => {
+      const defaultCol = columns[0];
+      const defaultOp = defaultCol ? getDefaultOperator(defaultCol.type) : "contains";
+      setRootItems((prev) =>
+        addChildToGroup(prev, groupId, {
+          kind: "condition" as const,
+          id: crypto.randomUUID(),
+          columnId: defaultCol?.id ?? "",
+          operator: defaultOp,
+          value: "",
+        }),
+      );
+      setOpenDropdown(null);
+    },
+    [columns],
+  );
+
+  const addNestedGroupToGroup = useCallback((parentGroupId: string) => {
+    setRootItems((prev) =>
+      addChildToGroup(prev, parentGroupId, {
+        kind: "group" as const,
+        id: crypto.randomUUID(),
+        conjunction: "and", // "All of the following are true…"
+        items: [],
+      }),
+    );
+    setOpenDropdown(null);
+  }, []);
+
+  const handleToggleGroupConjunction = useCallback((groupId: string) => {
+    setRootItems((prev) => toggleGroupConjunction(prev, groupId));
+  }, []);
 
   /* ---- drag-and-drop reorder ---- */
 
   // Each filter row is 40px tall (32px content + 8px bottom padding)
   const ROW_HEIGHT = 40;
 
+  /** Move a root item into a group */
+  const moveItemIntoGroup = useCallback(
+    (itemIdx: number, groupId: string) => {
+      setRootItems((prev) => {
+        const item = prev[itemIdx];
+        if (!item) return prev;
+        // Don't allow a group to be dropped into itself
+        if (isGroup(item) && item.id === groupId) return prev;
+        // Remove from root
+        const next = prev.filter((_, i) => i !== itemIdx);
+        // Add to target group
+        return addChildToGroup(next, groupId, item);
+      });
+      // Trigger expanding animation on the target group
+      if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
+      setExpandingGroupId(groupId);
+      expandTimerRef.current = setTimeout(() => {
+        setExpandingGroupId(null);
+        expandTimerRef.current = null;
+      }, 300);
+    },
+    [],
+  );
+
   const reorderConditions = useCallback((fromIdx: number, toIdx: number) => {
-    const next = [...conditions];
-    const [moved] = next.splice(fromIdx, 1);
-    if (moved) next.splice(toIdx, 0, moved);
-    setConditions(next);
-  }, [conditions, setConditions]);
+    setRootItems((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      if (moved) next.splice(toIdx, 0, moved);
+      return next;
+    });
+  }, []);
+
+  /** Reorder items within a group */
+  const reorderInGroup = useCallback(
+    (groupId: string, fromIdx: number, toIdx: number) => {
+      setRootItems((prev) =>
+        prev.map((item) => {
+          if (isGroup(item) && item.id === groupId) {
+            const next = [...item.items];
+            const [moved] = next.splice(fromIdx, 1);
+            if (moved) next.splice(toIdx, 0, moved);
+            return { ...item, items: next };
+          }
+          return item;
+        }),
+      );
+    },
+    [],
+  );
 
   const handleDragStart = useCallback(
     (e: React.MouseEvent, index: number) => {
@@ -405,7 +790,7 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
       // Close any open dropdown
       setOpenDropdown(null);
 
-      // Capture all row rects at start
+      // Capture all root row rects
       if (rowsContainerRef.current) {
         const items = rowsContainerRef.current.querySelectorAll<HTMLDivElement>(
           "[data-filter-row]",
@@ -417,13 +802,44 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
 
       dragIndexRef.current = index;
       dragOverIndexRef.current = index;
+      dropIntoGroupIdRef.current = null;
       setDragIndex(index);
       setDragOverIndex(index);
+      setDropIntoGroupId(null);
       setDragPos({ x: e.clientX, y: e.clientY });
 
       const handleMouseMove = (ev: MouseEvent) => {
         setDragPos({ x: ev.clientX, y: ev.clientY });
 
+        // Check if cursor is over any group box (for drop-into-group)
+        let foundGroupId: string | null = null;
+        for (const [gid, el] of groupBoxRefs.current.entries()) {
+          const rect = el.getBoundingClientRect();
+          if (
+            ev.clientX >= rect.left &&
+            ev.clientX <= rect.right &&
+            ev.clientY >= rect.top &&
+            ev.clientY <= rect.bottom
+          ) {
+            // Don't drop a group into itself
+            const draggedItem = rootItems[index];
+            if (isGroup(draggedItem!) && draggedItem!.id === gid) continue;
+            foundGroupId = gid;
+            break;
+          }
+        }
+
+        if (foundGroupId) {
+          dropIntoGroupIdRef.current = foundGroupId;
+          setDropIntoGroupId(foundGroupId);
+          // Don't compute reorder index when dropping into group
+          return;
+        }
+
+        dropIntoGroupIdRef.current = null;
+        setDropIntoGroupId(null);
+
+        // Standard reorder logic
         const rects = itemRectsRef.current;
         let newOver = index;
         for (let i = 0; i < rects.length; i++) {
@@ -433,7 +849,7 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
             newOver = i;
           }
         }
-        newOver = Math.max(0, Math.min(newOver, conditions.length - 1));
+        newOver = Math.max(0, Math.min(newOver, rootItems.length - 1));
         dragOverIndexRef.current = newOver;
         setDragOverIndex(newOver);
       };
@@ -446,14 +862,20 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
 
         const fromIdx = dragIndexRef.current;
         const toIdx = dragOverIndexRef.current;
+        const targetGroupId = dropIntoGroupIdRef.current;
 
         dragIndexRef.current = null;
         dragOverIndexRef.current = null;
+        dropIntoGroupIdRef.current = null;
         setDragIndex(null);
         setDragOverIndex(null);
         setDragPos(null);
+        setDropIntoGroupId(null);
 
-        if (fromIdx !== null && toIdx !== null && fromIdx !== toIdx) {
+        if (targetGroupId && fromIdx !== null) {
+          // Drop into group
+          moveItemIntoGroup(fromIdx, targetGroupId);
+        } else if (fromIdx !== null && toIdx !== null && fromIdx !== toIdx) {
           reorderConditions(fromIdx, toIdx);
         }
       };
@@ -463,40 +885,164 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
     },
-    [conditions.length, reorderConditions],
+    [rootItems, reorderConditions, moveItemIntoGroup],
+  );
+
+  /** Drag handler for items INSIDE a group (reorder within group only) */
+  const handleInGroupDragStart = useCallback(
+    (e: React.MouseEvent, groupId: string, childIdx: number) => {
+      e.preventDefault();
+      setOpenDropdown(null);
+
+      // Capture rects of items within this group
+      const containerEl = groupContentRefs.current.get(groupId);
+      if (containerEl) {
+        const items = containerEl.querySelectorAll<HTMLDivElement>(
+          "[data-filter-row]",
+        );
+        inGroupItemRectsRef.current = Array.from(items).map((el) =>
+          el.getBoundingClientRect(),
+        );
+      }
+
+      const state = { groupId, fromIdx: childIdx, overIdx: childIdx };
+      inGroupDragRef.current = state;
+      setInGroupDrag(state);
+      setInGroupDragPos({ x: e.clientX, y: e.clientY });
+
+      const handleMouseMove = (ev: MouseEvent) => {
+        setInGroupDragPos({ x: ev.clientX, y: ev.clientY });
+
+        const rects = inGroupItemRectsRef.current;
+        let newOver = childIdx;
+        for (let i = 0; i < rects.length; i++) {
+          const rect = rects[i]!;
+          const midY = rect.top + rect.height / 2;
+          if (ev.clientY > midY) {
+            newOver = i;
+          }
+        }
+        newOver = Math.max(0, Math.min(newOver, rects.length - 1));
+        if (inGroupDragRef.current) {
+          inGroupDragRef.current = {
+            ...inGroupDragRef.current,
+            overIdx: newOver,
+          };
+          setInGroupDrag({ ...inGroupDragRef.current });
+        }
+      };
+
+      const handleMouseUp = () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.userSelect = "";
+        document.body.style.webkitUserSelect = "";
+
+        const dragState = inGroupDragRef.current;
+        inGroupDragRef.current = null;
+        setInGroupDrag(null);
+        setInGroupDragPos(null);
+
+        if (
+          dragState &&
+          dragState.fromIdx !== dragState.overIdx
+        ) {
+          reorderInGroup(dragState.groupId, dragState.fromIdx, dragState.overIdx);
+        }
+      };
+
+      document.body.style.userSelect = "none";
+      document.body.style.webkitUserSelect = "none";
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    },
+    [reorderInGroup],
   );
 
   const getRowDragStyle = (index: number): React.CSSProperties | undefined => {
     if (dragIndex === null || dragOverIndex === null) return undefined;
+    // Don't animate rows when we're targeting a group drop
+    if (dropIntoGroupId) return index === dragIndex ? { opacity: 0.35 } : undefined;
+
+    const rects = itemRectsRef.current;
+    const draggedHeight = rects[dragIndex]?.height ?? ROW_HEIGHT;
 
     if (index === dragIndex) {
-      // The dragged row's placeholder slides to the drop position
-      const delta = dragOverIndex - dragIndex;
+      // Sum heights of items between dragIndex and dragOverIndex
+      let offset = 0;
+      if (dragOverIndex > dragIndex) {
+        for (let i = dragIndex + 1; i <= dragOverIndex; i++) {
+          offset += rects[i]?.height ?? ROW_HEIGHT;
+        }
+      } else {
+        for (let i = dragOverIndex; i < dragIndex; i++) {
+          offset -= rects[i]?.height ?? ROW_HEIGHT;
+        }
+      }
       return {
-        transform: `translateY(${delta * ROW_HEIGHT}px)`,
-        transition: "transform 0.15s ease",
+        transform: `translateY(${offset}px)`,
+        zIndex: 10,
       };
     }
 
-    // Items between dragIndex and dragOverIndex shift to make room
+    // Displaced items shift by the dragged item's height
     if (dragOverIndex > dragIndex) {
-      // Dragging down: items between (dragIndex, dragOverIndex] shift up
       if (index > dragIndex && index <= dragOverIndex) {
         return {
-          transform: `translateY(${-ROW_HEIGHT}px)`,
-          transition: "transform 0.15s ease",
+          transform: `translateY(${-draggedHeight}px)`,
         };
       }
     } else if (dragOverIndex < dragIndex) {
-      // Dragging up: items between [dragOverIndex, dragIndex) shift down
       if (index >= dragOverIndex && index < dragIndex) {
         return {
-          transform: `translateY(${ROW_HEIGHT}px)`,
-          transition: "transform 0.15s ease",
+          transform: `translateY(${draggedHeight}px)`,
         };
       }
     }
 
+    return undefined;
+  };
+
+  /** Drag style for items inside a group */
+  const getInGroupDragStyle = (
+    groupId: string,
+    childIdx: number,
+  ): React.CSSProperties | undefined => {
+    if (!inGroupDrag || inGroupDrag.groupId !== groupId) return undefined;
+    const { fromIdx, overIdx } = inGroupDrag;
+    const rects = inGroupItemRectsRef.current;
+    const draggedHeight = rects[fromIdx]?.height ?? ROW_HEIGHT;
+
+    if (childIdx === fromIdx) {
+      let offset = 0;
+      if (overIdx > fromIdx) {
+        for (let i = fromIdx + 1; i <= overIdx; i++) {
+          offset += rects[i]?.height ?? ROW_HEIGHT;
+        }
+      } else {
+        for (let i = overIdx; i < fromIdx; i++) {
+          offset -= rects[i]?.height ?? ROW_HEIGHT;
+        }
+      }
+      return {
+        transform: `translateY(${offset}px)`,
+        opacity: 0.35,
+        zIndex: 10,
+      };
+    }
+    if (overIdx > fromIdx) {
+      if (childIdx > fromIdx && childIdx <= overIdx) {
+        return {
+          transform: `translateY(${-draggedHeight}px)`,
+        };
+      }
+    } else if (overIdx < fromIdx) {
+      if (childIdx >= overIdx && childIdx < fromIdx) {
+        return {
+          transform: `translateY(${draggedHeight}px)`,
+        };
+      }
+    }
     return undefined;
   };
 
@@ -536,6 +1082,28 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
     });
   }, []);
 
+  /* ---- group + button handler ---- */
+  const handleGroupPlusClick = useCallback((groupId: string) => {
+    setOpenDropdown((prev) => {
+      if (prev?.kind === "groupPlus" && prev.groupId === groupId) return null;
+      const el = groupPlusRefs.current.get(groupId);
+      const rect = el?.getBoundingClientRect();
+      if (rect) setDropdownPos({ top: rect.bottom + 2, left: rect.left });
+      return { kind: "groupPlus", groupId };
+    });
+  }, []);
+
+  /* ---- group conjunction text handler ---- */
+  const handleGroupConjunctionClick = useCallback((groupId: string) => {
+    setOpenDropdown((prev) => {
+      if (prev?.kind === "groupConjunction" && prev.groupId === groupId) return null;
+      const el = groupConjunctionRefs.current.get(groupId);
+      const rect = el?.getBoundingClientRect();
+      if (rect) setDropdownPos({ top: rect.bottom, left: rect.left });
+      return { kind: "groupConjunction", groupId };
+    });
+  }, []);
+
   /* ---- click-outside to close ---- */
   useEffect(() => {
     if (!openDropdown) return;
@@ -550,6 +1118,12 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
         if (el.contains(target)) return;
       }
       for (const el of operatorDropdownRefs.current.values()) {
+        if (el.contains(target)) return;
+      }
+      for (const el of groupPlusRefs.current.values()) {
+        if (el.contains(target)) return;
+      }
+      for (const el of groupConjunctionRefs.current.values()) {
         if (el.contains(target)) return;
       }
       setOpenDropdown(null);
@@ -579,9 +1153,26 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
     col.name.toLowerCase().includes(subSearchQuery.toLowerCase()),
   );
 
-  const activeConditionForDropdown = openDropdown
-    ? conditions.find((c) => c.id === openDropdown.conditionId)
-    : null;
+  /** Find a condition anywhere in the tree by id */
+  const findConditionInTree = useCallback(
+    (items: FilterTreeItem[], id: string): FilterTreeCondition | null => {
+      for (const item of items) {
+        if (isGroup(item)) {
+          const found = findConditionInTree(item.items, id);
+          if (found) return found;
+        } else if (item.id === id) {
+          return item;
+        }
+      }
+      return null;
+    },
+    [],
+  );
+
+  const activeConditionForDropdown =
+    openDropdown && "conditionId" in openDropdown
+      ? findConditionInTree(rootItems, openDropdown.conditionId)
+      : null;
 
   const filteredOperators = activeConditionForDropdown
     ? getOperatorsForType(getColumnType(activeConditionForDropdown.columnId)).filter((op) =>
@@ -590,14 +1181,22 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
     : [];
 
   /* ---- panel class ---- */
-  const panelCls = [styles.filterPanel, hasConditions ? styles.filterPanelActive : ""]
+  const panelCls = [
+    styles.filterPanel,
+    hasAnyItems ? styles.filterPanelActive : "",
+    panelHasNestedGroups
+      ? styles.filterPanelWithNestedGroups
+      : panelHasGroups
+        ? styles.filterPanelWithGroups
+        : "",
+  ]
     .filter(Boolean)
     .join(" ");
 
   /* ============================================================
-     RENDER — empty state (no conditions)
+     RENDER — empty state (no conditions and no groups)
      ============================================================ */
-  if (!hasConditions) {
+  if (!hasAnyItems) {
     return (
       <div className={panelCls}>
         {/* 1. Header */}
@@ -632,7 +1231,7 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
             <span>Add condition</span>
           </div>
           <div className={styles.filterConditionGroupWrapper}>
-            <div className={styles.filterAddConditionGroup}>
+            <div className={styles.filterAddConditionGroup} onClick={addRootGroup}>
               <PlusIcon className={styles.filterAddIcon} />
               <span>Add condition group</span>
             </div>
@@ -645,7 +1244,332 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
   }
 
   /* ============================================================
-     RENDER — active state (≥ 1 condition)
+     HELPER: Render a condition row (reused at root + inside groups)
+     ============================================================ */
+  const renderConditionRow = (
+    cond: FilterTreeCondition,
+    idx: number,
+    parentConjunction: "and" | "or",
+    isFirst: boolean,
+    /** Root index for drag (null if inside a group) */
+    rootIdx: number | null,
+    /** Group id if this condition is inside a group (for in-group drag) */
+    parentGroupId?: string,
+  ) => {
+    const isDraggingRoot = rootIdx !== null && dragIndex === rootIdx;
+    const isDraggingInGroup =
+      parentGroupId != null &&
+      inGroupDrag?.groupId === parentGroupId &&
+      inGroupDrag?.fromIdx === idx;
+    const isDragging = isDraggingRoot || isDraggingInGroup;
+
+    const inGrpStyle =
+      parentGroupId != null
+        ? getInGroupDragStyle(parentGroupId, idx)
+        : undefined;
+
+    return (
+      <div
+        key={cond.id}
+        data-filter-row
+        className={isDragging ? styles.filterRowPlaceholder : styles.filterRow}
+        style={rootIdx !== null ? getRowDragStyle(rootIdx) : inGrpStyle}
+      >
+        {/* LEFT: "Where" or conjunction */}
+        <div className={styles.filterRowLeft}>
+          {isFirst ? (
+            <div className={styles.filterRowWhereText}>Where</div>
+          ) : rootIdx !== null ? (
+            /* Root item → clickable dropdown to toggle ROOT conjunction */
+            <div
+              ref={(el) => {
+                if (el) conjunctionRefs.current.set(cond.id, el);
+                else conjunctionRefs.current.delete(cond.id);
+              }}
+              className={styles.filterRowConjunction}
+              onClick={
+                dragIndex !== null
+                  ? undefined
+                  : () => handleConjunctionClick(cond.id)
+              }
+            >
+              <span className={styles.filterRowConjunctionText}>
+                {parentConjunction}
+              </span>
+              <ChevronDownIcon className={styles.filterRowConjunctionChevron} />
+            </div>
+          ) : parentGroupId != null && idx === 1 ? (
+            /* Second item inside a group → clickable dropdown to toggle GROUP conjunction */
+            <div
+              ref={(el) => {
+                if (el) groupConjunctionRefs.current.set(parentGroupId, el);
+                else groupConjunctionRefs.current.delete(parentGroupId);
+              }}
+              className={styles.filterRowConjunction}
+              onClick={
+                dragIndex !== null
+                  ? undefined
+                  : () => handleGroupConjunctionClick(parentGroupId)
+              }
+            >
+              <span className={styles.filterRowConjunctionText}>
+                {parentConjunction}
+              </span>
+              <ChevronDownIcon className={styles.filterRowConjunctionChevron} />
+            </div>
+          ) : (
+            /* idx >= 2 inside a group — plain non-interactive label */
+            <div className={styles.filterRowWhereText}>
+              {parentConjunction}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT: field + operator + value + trash + drag */}
+        <div className={styles.filterRowRight}>
+          <div
+            ref={(el) => {
+              if (el) fieldDropdownRefs.current.set(cond.id, el);
+              else fieldDropdownRefs.current.delete(cond.id);
+            }}
+            className={styles.filterRowDropdown}
+            onClick={
+              dragIndex !== null ? undefined : () => handleFieldClick(cond.id)
+            }
+          >
+            <span className={styles.filterRowDropdownText}>
+              {getColumnName(cond.columnId)}
+            </span>
+            <ChevronDownIcon className={styles.filterRowDropdownChevron} />
+          </div>
+
+          <div
+            ref={(el) => {
+              if (el) operatorDropdownRefs.current.set(cond.id, el);
+              else operatorDropdownRefs.current.delete(cond.id);
+            }}
+            className={styles.filterRowOperatorDropdown}
+            onClick={
+              dragIndex !== null
+                ? undefined
+                : () => handleOperatorClick(cond.id)
+            }
+          >
+            <span className={styles.filterRowDropdownText}>
+              {operatorLabel(cond.operator, getColumnType(cond.columnId))}
+            </span>
+            <ChevronDownIcon className={styles.filterRowDropdownChevron} />
+          </div>
+
+          <input
+            className={styles.filterRowValueInput}
+            type="text"
+            placeholder="Enter a value"
+            value={cond.value}
+            onChange={(e) => updateValue(cond.id, e.target.value)}
+            readOnly={dragIndex !== null}
+          />
+
+          <div
+            className={styles.filterRowTrashButton}
+            onClick={
+              dragIndex !== null
+                ? undefined
+                : () => removeCondition(cond.id)
+            }
+          >
+            <TrashIcon className={styles.filterRowTrashIcon} />
+          </div>
+
+          <div
+            className={styles.filterRowDragHandle}
+            onMouseDown={
+              rootIdx !== null
+                ? (e) => handleDragStart(e, rootIdx)
+                : parentGroupId != null
+                  ? (e) => handleInGroupDragStart(e, parentGroupId, idx)
+                  : undefined
+            }
+          >
+            <DragIcon className={styles.filterRowDragIcon} />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ============================================================
+     HELPER: Render a group box (reused at root + nested)
+     ============================================================ */
+  const renderGroupBox = (
+    group: FilterTreeGroup,
+    depth: number,
+    /** Root index — allows the group box's drag handle to participate in root-level drag */
+    rootIdx?: number | null,
+    /** Parent group id (for nested groups — enables in-group drag) */
+    parentGroupIdForDrag?: string,
+    /** Child index within parent group (for nested groups — enables in-group drag) */
+    childIdxInParent?: number,
+  ) => {
+    const isEmpty = group.items.length === 0;
+    const headerText = isEmpty
+      ? "Drag conditions here to add them to this group"
+      : group.conjunction === "or"
+        ? "Any of the following are true..."
+        : "All of the following are true...";
+
+    const isPlusOpen =
+      openDropdown?.kind === "groupPlus" &&
+      openDropdown.groupId === group.id;
+
+    const isDropTarget = dropIntoGroupId === group.id;
+    const isExpanding = expandingGroupId === group.id;
+
+    const boxCls = [
+      depth === 0 ? styles.filterGroupBox : styles.filterNestedGroupBox,
+      isDropTarget ? styles.filterGroupBoxDropTarget : "",
+      isExpanding ? styles.filterGroupBoxExpanding : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    return (
+      <div
+        ref={(el) => {
+          if (el) groupBoxRefs.current.set(group.id, el);
+          else groupBoxRefs.current.delete(group.id);
+        }}
+        className={boxCls}
+      >
+        {/* Group header: text + action buttons */}
+        <div className={styles.filterGroupHeader}>
+          <span
+            ref={(el) => {
+              if (el) groupConjunctionRefs.current.set(group.id, el);
+              else groupConjunctionRefs.current.delete(group.id);
+            }}
+            className={`${styles.filterGroupHeaderText}${
+              !isEmpty ? ` ${styles.filterGroupHeaderTextActive}` : ""
+            }`}
+            onClick={
+              !isEmpty
+                ? () => handleToggleGroupConjunction(group.id)
+                : undefined
+            }
+          >
+            {headerText}
+          </span>
+          <div className={styles.filterGroupActions}>
+            {/* + button */}
+            <div
+              ref={(el) => {
+                if (el) groupPlusRefs.current.set(group.id, el);
+                else groupPlusRefs.current.delete(group.id);
+              }}
+              className={`${styles.filterGroupActionBtn}${
+                isPlusOpen ? ` ${styles.filterGroupActionBtnActive}` : ""
+              }`}
+              onClick={() => handleGroupPlusClick(group.id)}
+            >
+              <PlusIcon className={styles.filterGroupActionIcon} />
+            </div>
+            {/* Trash button */}
+            <div
+              className={styles.filterGroupActionBtn}
+              onClick={() => removeGroup(group.id)}
+            >
+              <TrashIcon className={styles.filterGroupActionIcon} />
+            </div>
+            {/* Drag handle */}
+            <div
+              className={styles.filterGroupActionBtn}
+              style={{ cursor: "grab" }}
+              onMouseDown={
+                rootIdx != null
+                  ? (e) => handleDragStart(e, rootIdx)
+                  : parentGroupIdForDrag != null && childIdxInParent != null
+                    ? (e) => handleInGroupDragStart(e, parentGroupIdForDrag, childIdxInParent)
+                    : undefined
+              }
+            >
+              <DragIcon className={styles.filterGroupActionIcon} />
+            </div>
+          </div>
+        </div>
+
+        {/* Group content: child items */}
+        {!isEmpty && (
+          <div
+            ref={(el) => {
+              if (el) groupContentRefs.current.set(group.id, el);
+              else groupContentRefs.current.delete(group.id);
+            }}
+            className={styles.filterGroupContent}
+          >
+            {group.items.map((child, childIdx) => {
+              if (isGroup(child)) {
+                // Nested group
+                const nestedIsDragging =
+                  inGroupDrag?.groupId === group.id &&
+                  inGroupDrag?.fromIdx === childIdx;
+                const nestedDragStyle = getInGroupDragStyle(group.id, childIdx);
+                return (
+                  <div
+                    key={child.id}
+                    data-filter-row
+                    className={
+                      nestedIsDragging
+                        ? styles.filterRowPlaceholder
+                        : styles.filterGroupConditionRow
+                    }
+                    style={nestedDragStyle}
+                  >
+                    <div className={styles.filterRowLeft}>
+                      {childIdx === 0 ? (
+                        <div className={styles.filterRowWhereText}>Where</div>
+                      ) : childIdx === 1 ? (
+                        /* Second child in group → clickable dropdown to toggle group conjunction */
+                        <div
+                          ref={(el) => {
+                            if (el) groupConjunctionRefs.current.set(group.id, el);
+                            else groupConjunctionRefs.current.delete(group.id);
+                          }}
+                          className={styles.filterRowConjunction}
+                          onClick={() => handleGroupConjunctionClick(group.id)}
+                        >
+                          <span className={styles.filterRowConjunctionText}>
+                            {group.conjunction === "or" ? "or" : "and"}
+                          </span>
+                          <ChevronDownIcon className={styles.filterRowConjunctionChevron} />
+                        </div>
+                      ) : (
+                        <div className={styles.filterRowWhereText}>
+                          {group.conjunction === "or" ? "or" : "and"}
+                        </div>
+                      )}
+                    </div>
+                    {renderGroupBox(child, depth + 1, null, group.id, childIdx)}
+                  </div>
+                );
+              }
+              // Condition inside group — pass groupId for in-group drag
+              return renderConditionRow(
+                child,
+                childIdx,
+                group.conjunction,
+                childIdx === 0,
+                null,
+                group.id,
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /* ============================================================
+     RENDER — active state (≥ 1 item)
      ============================================================ */
   return (
     <div className={panelCls}>
@@ -671,164 +1595,301 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
       {/* 3. "In this view, show records" */}
       <div className={styles.filterShowRecords}>In this view, show records</div>
 
-      {/* 4. Filter rows */}
+      {/* 4. Filter rows — iterate rootItems (conditions + groups) */}
       <div ref={rowsContainerRef} className={styles.filterRowsContainer}>
-        {conditions.map((cond, idx) => (
-          <div
-            key={cond.id}
-            data-filter-row
-            className={
-              dragIndex === idx ? styles.filterRowPlaceholder : styles.filterRow
-            }
-            style={getRowDragStyle(idx)}
-          >
-            {/* ---- LEFT: "Where" or conjunction ---- */}
-            <div className={styles.filterRowLeft}>
-              {idx === 0 ? (
-                <div className={styles.filterRowWhereText}>Where</div>
-              ) : (
-                <div
-                  ref={(el) => {
-                    if (el) conjunctionRefs.current.set(cond.id, el);
-                    else conjunctionRefs.current.delete(cond.id);
-                  }}
-                  className={styles.filterRowConjunction}
-                  onClick={dragIndex !== null ? undefined : () => handleConjunctionClick(cond.id)}
-                >
-                  <span className={styles.filterRowConjunctionText}>
-                    {cond.conjunction}
-                  </span>
-                  <ChevronDownIcon className={styles.filterRowConjunctionChevron} />
+        {rootItems.map((item, idx) => {
+          if (isGroup(item)) {
+            /* ---- GROUP item ---- */
+            return (
+              <div
+                key={item.id}
+                data-filter-row
+                className={
+                  dragIndex === idx
+                    ? styles.filterRowPlaceholder
+                    : styles.filterRow
+                }
+                style={getRowDragStyle(idx)}
+              >
+                {/* LEFT: "Where" or root conjunction */}
+                <div className={styles.filterRowLeft}>
+                  {idx === 0 ? (
+                    <div className={styles.filterRowWhereText}>Where</div>
+                  ) : (
+                    /* Root item → clickable dropdown to toggle ROOT conjunction */
+                    <div
+                      ref={(el) => {
+                        if (el) conjunctionRefs.current.set(item.id, el);
+                        else conjunctionRefs.current.delete(item.id);
+                      }}
+                      className={styles.filterRowConjunction}
+                      onClick={
+                        dragIndex !== null
+                          ? undefined
+                          : () => handleConjunctionClick(item.id)
+                      }
+                    >
+                      <span className={styles.filterRowConjunctionText}>
+                        {rootConjunction}
+                      </span>
+                      <ChevronDownIcon
+                        className={styles.filterRowConjunctionChevron}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* ---- RIGHT: field + operator + value + trash + drag ---- */}
-            <div className={styles.filterRowRight}>
-              {/* 1) Field selector */}
-              <div
-                ref={(el) => {
-                  if (el) fieldDropdownRefs.current.set(cond.id, el);
-                  else fieldDropdownRefs.current.delete(cond.id);
-                }}
-                className={styles.filterRowDropdown}
-                onClick={dragIndex !== null ? undefined : () => handleFieldClick(cond.id)}
-              >
-                <span className={styles.filterRowDropdownText}>
-                  {getColumnName(cond.columnId)}
-                </span>
-                <ChevronDownIcon className={styles.filterRowDropdownChevron} />
+                {/* RIGHT: the group box */}
+                {renderGroupBox(item, 0, idx)}
               </div>
+            );
+          }
 
-              {/* 2) Operator selector */}
-              <div
-                ref={(el) => {
-                  if (el) operatorDropdownRefs.current.set(cond.id, el);
-                  else operatorDropdownRefs.current.delete(cond.id);
-                }}
-                className={styles.filterRowOperatorDropdown}
-                onClick={dragIndex !== null ? undefined : () => handleOperatorClick(cond.id)}
-              >
-                <span className={styles.filterRowDropdownText}>
-                  {operatorLabel(cond.operator, getColumnType(cond.columnId))}
-                </span>
-                <ChevronDownIcon className={styles.filterRowDropdownChevron} />
-              </div>
-
-              {/* 3) Value input */}
-              <input
-                className={styles.filterRowValueInput}
-                type="text"
-                placeholder="Enter a value"
-                value={cond.value}
-                onChange={(e) => updateValue(cond.id, e.target.value)}
-                readOnly={dragIndex !== null}
-              />
-
-              {/* 4) Trash button */}
-              <div
-                className={styles.filterRowTrashButton}
-                onClick={dragIndex !== null ? undefined : () => removeCondition(cond.id)}
-              >
-                <TrashIcon className={styles.filterRowTrashIcon} />
-              </div>
-
-              {/* 5) Drag handle */}
-              <div
-                className={styles.filterRowDragHandle}
-                onMouseDown={(e) => handleDragStart(e, idx)}
-              >
-                <DragIcon className={styles.filterRowDragIcon} />
-              </div>
-            </div>
-          </div>
-        ))}
+          /* ---- CONDITION item ---- */
+          return renderConditionRow(
+            item,
+            idx,
+            rootConjunction,
+            idx === 0,
+            idx,
+          );
+        })}
       </div>
 
-      {/* Drag overlay — floating copy of the dragged row */}
-      {dragIndex !== null && dragPos && conditions[dragIndex] &&
-        createPortal(
-          <div
-            ref={dragItemRef}
-            className={styles.filterRowDragging}
-            style={{
-              left: itemRectsRef.current[dragIndex]?.left ?? 0,
-              top: dragPos.y - (ROW_HEIGHT / 2),
-              width: itemRectsRef.current[dragIndex]?.width ?? 558,
-            }}
-          >
-            {/* Render the dragged row content */}
-            {(() => {
-              const cond = conditions[dragIndex]!;
-              const idx = dragIndex;
-              return (
-                <>
-                  <div className={styles.filterRowLeft}>
-                    {idx === 0 ? (
-                      <div className={styles.filterRowWhereText}>Where</div>
-                    ) : (
-                      <div className={styles.filterRowConjunction} style={{ pointerEvents: "none" }}>
-                        <span className={styles.filterRowConjunctionText}>
-                          {cond.conjunction}
-                        </span>
-                        <ChevronDownIcon className={styles.filterRowConjunctionChevron} />
+      {/* Drag overlay — floating copy of the dragged item (strip only, no Where/And) */}
+      {dragIndex !== null &&
+        dragPos &&
+        rootItems[dragIndex] &&
+        (() => {
+          const draggedItem = rootItems[dragIndex]!;
+          // Find the actual filterRowRight / groupBox DOM element for width reference
+          const baseRect = itemRectsRef.current[dragIndex];
+
+          if (isGroup(draggedItem)) {
+            // Group drag ghost — show the group box itself
+            const groupBoxEl = groupBoxRefs.current.get(draggedItem.id);
+            const gRect = groupBoxEl?.getBoundingClientRect();
+            return createPortal(
+              <div
+                ref={dragItemRef}
+                className={styles.filterRowDragging}
+                style={{
+                  left: gRect?.left ?? baseRect?.left ?? 0,
+                  top: dragPos.y - (gRect?.height ?? 40) / 2,
+                  width: gRect?.width ?? 568,
+                  height: gRect?.height ?? 40,
+                  opacity: 0.9,
+                }}
+              >
+                <div
+                  className={styles.filterGroupBox}
+                  style={{ pointerEvents: "none", margin: 0, width: "100%" }}
+                >
+                  <div className={styles.filterGroupHeader}>
+                    <span className={styles.filterGroupHeaderText}>
+                      {draggedItem.items.length === 0
+                        ? "Drag conditions here to add them to this group"
+                        : draggedItem.conjunction === "or"
+                          ? "Any of the following are true..."
+                          : "All of the following are true..."}
+                    </span>
+                    <div className={styles.filterGroupActions}>
+                      <div className={styles.filterGroupActionBtn}>
+                        <PlusIcon className={styles.filterGroupActionIcon} />
                       </div>
+                      <div className={styles.filterGroupActionBtn}>
+                        <TrashIcon className={styles.filterGroupActionIcon} />
+                      </div>
+                      <div className={styles.filterGroupActionBtn} style={{ cursor: "grabbing" }}>
+                        <DragIcon className={styles.filterGroupActionIcon} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            );
+          }
+
+          // Condition drag ghost — show ONLY the 5-box strip (no Where/And label)
+          const cond = draggedItem as FilterTreeCondition;
+          const LEFT_COL_WIDTH = 72; // filterRowLeft fixed width
+          return createPortal(
+            <div
+              ref={dragItemRef}
+              className={styles.filterRowDragging}
+              style={{
+                left: (baseRect?.left ?? 0) + LEFT_COL_WIDTH,
+                top: dragPos.y - 16, // center on the 32px strip
+                width: (baseRect?.width ?? 558) - LEFT_COL_WIDTH,
+                height: 32,
+              }}
+            >
+              <div className={styles.filterRowRight} style={{ border: "none" }}>
+                <div
+                  className={styles.filterRowDropdown}
+                  style={{ pointerEvents: "none" }}
+                >
+                  <span className={styles.filterRowDropdownText}>
+                    {getColumnName(cond.columnId)}
+                  </span>
+                  <ChevronDownIcon
+                    className={styles.filterRowDropdownChevron}
+                  />
+                </div>
+                <div
+                  className={styles.filterRowOperatorDropdown}
+                  style={{ pointerEvents: "none" }}
+                >
+                  <span className={styles.filterRowDropdownText}>
+                    {operatorLabel(
+                      cond.operator,
+                      getColumnType(cond.columnId),
                     )}
+                  </span>
+                  <ChevronDownIcon
+                    className={styles.filterRowDropdownChevron}
+                  />
+                </div>
+                <input
+                  className={styles.filterRowValueInput}
+                  type="text"
+                  placeholder="Enter a value"
+                  value={cond.value}
+                  readOnly
+                  tabIndex={-1}
+                />
+                <div
+                  className={styles.filterRowTrashButton}
+                  style={{ pointerEvents: "none" }}
+                >
+                  <TrashIcon className={styles.filterRowTrashIcon} />
+                </div>
+                <div
+                  className={styles.filterRowDragHandle}
+                  style={{ cursor: "grabbing" }}
+                >
+                  <DragIcon className={styles.filterRowDragIcon} />
+                </div>
+              </div>
+            </div>,
+            document.body,
+          );
+        })()}
+
+      {/* In-group drag overlay — floating copy of item being dragged within a group */}
+      {inGroupDrag &&
+        inGroupDragPos &&
+        (() => {
+          // Find the group being dragged in (could be nested)
+          const findGroupById = (items: FilterTreeItem[], id: string): FilterTreeGroup | undefined => {
+            for (const it of items) {
+              if (isGroup(it)) {
+                if (it.id === id) return it;
+                const found = findGroupById(it.items, id);
+                if (found) return found;
+              }
+            }
+            return undefined;
+          };
+          const parentGroup = findGroupById(rootItems, inGroupDrag.groupId);
+          if (!parentGroup) return null;
+          const child = parentGroup.items[inGroupDrag.fromIdx];
+          if (!child) return null;
+          const containerEl = groupContentRefs.current.get(inGroupDrag.groupId);
+          const childEls = containerEl?.querySelectorAll<HTMLDivElement>("[data-filter-row]");
+          const childRect = childEls?.[inGroupDrag.fromIdx]?.getBoundingClientRect();
+
+          if (isGroup(child)) {
+            // Nested group ghost
+            const gBoxEl = groupBoxRefs.current.get(child.id);
+            const gR = gBoxEl?.getBoundingClientRect();
+            return createPortal(
+              <div
+                className={styles.filterRowDragging}
+                style={{
+                  left: gR?.left ?? childRect?.left ?? 0,
+                  top: inGroupDragPos.y - (gR?.height ?? 40) / 2,
+                  width: gR?.width ?? 568,
+                  height: gR?.height ?? 40,
+                  opacity: 0.9,
+                }}
+              >
+                <div
+                  className={styles.filterNestedGroupBox}
+                  style={{ pointerEvents: "none", margin: 0, width: "100%" }}
+                >
+                  <div className={styles.filterGroupHeader}>
+                    <span className={styles.filterGroupHeaderText}>
+                      {child.items.length === 0
+                        ? "Drag conditions here to add them to this group"
+                        : child.conjunction === "or"
+                          ? "Any of the following are true..."
+                          : "All of the following are true..."}
+                    </span>
+                    <div className={styles.filterGroupActions}>
+                      <div className={styles.filterGroupActionBtn}>
+                        <PlusIcon className={styles.filterGroupActionIcon} />
+                      </div>
+                      <div className={styles.filterGroupActionBtn}>
+                        <TrashIcon className={styles.filterGroupActionIcon} />
+                      </div>
+                      <div className={styles.filterGroupActionBtn} style={{ cursor: "grabbing" }}>
+                        <DragIcon className={styles.filterGroupActionIcon} />
+                      </div>
+                    </div>
                   </div>
-                  <div className={styles.filterRowRight}>
-                    <div className={styles.filterRowDropdown} style={{ pointerEvents: "none" }}>
-                      <span className={styles.filterRowDropdownText}>
-                        {getColumnName(cond.columnId)}
-                      </span>
-                      <ChevronDownIcon className={styles.filterRowDropdownChevron} />
-                    </div>
-                    <div className={styles.filterRowOperatorDropdown} style={{ pointerEvents: "none" }}>
-                      <span className={styles.filterRowDropdownText}>
-                        {operatorLabel(cond.operator, getColumnType(cond.columnId))}
-                      </span>
-                      <ChevronDownIcon className={styles.filterRowDropdownChevron} />
-                    </div>
-                    <input
-                      className={styles.filterRowValueInput}
-                      type="text"
-                      placeholder="Enter a value"
-                      value={cond.value}
-                      readOnly
-                      tabIndex={-1}
-                    />
-                    <div className={styles.filterRowTrashButton} style={{ pointerEvents: "none" }}>
-                      <TrashIcon className={styles.filterRowTrashIcon} />
-                    </div>
-                    <div className={styles.filterRowDragHandle} style={{ cursor: "grabbing" }}>
-                      <DragIcon className={styles.filterRowDragIcon} />
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
-          </div>,
-          document.body,
-        )}
+                </div>
+              </div>,
+              document.body,
+            );
+          }
+
+          // Condition ghost inside group — strip only
+          const cond = child as FilterTreeCondition;
+          const LEFT_W = 72; // filterRowLeft width
+          return createPortal(
+            <div
+              className={styles.filterRowDragging}
+              style={{
+                left: (childRect?.left ?? 0) + LEFT_W,
+                top: inGroupDragPos.y - 16,
+                width: (childRect?.width ?? 500) - LEFT_W,
+                height: 32,
+              }}
+            >
+              <div className={styles.filterRowRight} style={{ border: "none" }}>
+                <div className={styles.filterRowDropdown} style={{ pointerEvents: "none" }}>
+                  <span className={styles.filterRowDropdownText}>
+                    {getColumnName(cond.columnId)}
+                  </span>
+                  <ChevronDownIcon className={styles.filterRowDropdownChevron} />
+                </div>
+                <div className={styles.filterRowOperatorDropdown} style={{ pointerEvents: "none" }}>
+                  <span className={styles.filterRowDropdownText}>
+                    {operatorLabel(cond.operator, getColumnType(cond.columnId))}
+                  </span>
+                  <ChevronDownIcon className={styles.filterRowDropdownChevron} />
+                </div>
+                <input
+                  className={styles.filterRowValueInput}
+                  type="text"
+                  placeholder="Enter a value"
+                  value={cond.value}
+                  readOnly
+                  tabIndex={-1}
+                />
+                <div className={styles.filterRowTrashButton} style={{ pointerEvents: "none" }}>
+                  <TrashIcon className={styles.filterRowTrashIcon} />
+                </div>
+                <div className={styles.filterRowDragHandle} style={{ cursor: "grabbing" }}>
+                  <DragIcon className={styles.filterRowDragIcon} />
+                </div>
+              </div>
+            </div>,
+            document.body,
+          );
+        })()}
 
       {/* 5. Bottom action bar */}
       <div className={styles.filterActions}>
@@ -837,7 +1898,7 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
           <span>Add condition</span>
         </div>
         <div className={styles.filterConditionGroupWrapper}>
-          <div className={styles.filterAddConditionGroup}>
+          <div className={styles.filterAddConditionGroup} onClick={addRootGroup}>
             <PlusIcon className={styles.filterAddIcon} />
             <span>Add condition group</span>
           </div>
@@ -847,7 +1908,7 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
       </div>
 
       {/* ============================================================
-         PORTAL: Conjunction dropdown (and / or)
+         PORTAL: Root conjunction dropdown (and / or)
          ============================================================ */}
       {openDropdown?.kind === "conjunction" &&
         createPortal(
@@ -863,13 +1924,17 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
           >
             <div
               className={styles.filterConjunctionItem}
-              onClick={() => updateConjunction(openDropdown.conditionId, "and")}
+              onClick={() =>
+                updateConjunction(openDropdown.conditionId, "and")
+              }
             >
               and
             </div>
             <div
               className={styles.filterConjunctionItem}
-              onClick={() => updateConjunction(openDropdown.conditionId, "or")}
+              onClick={() =>
+                updateConjunction(openDropdown.conditionId, "or")
+              }
             >
               or
             </div>
@@ -892,9 +1957,12 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
               zIndex: 10004,
             }}
           >
-            {/* Search bar */}
             <div
-              className={`${styles.filterSubSearchContainer}${isSubSearchFocused ? ` ${styles.filterSubSearchContainerFocused}` : ""}`}
+              className={`${styles.filterSubSearchContainer}${
+                isSubSearchFocused
+                  ? ` ${styles.filterSubSearchContainerFocused}`
+                  : ""
+              }`}
             >
               <MagnifyingGlassIcon className={styles.filterSearchIcon} />
               <input
@@ -908,17 +1976,21 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
                 autoFocus
               />
             </div>
-
-            {/* Scrollable field list */}
             <div className={styles.filterSubItemList}>
               {filteredColumns.map((col) => (
                 <div
                   key={col.id}
                   className={styles.filterFieldItem}
-                  onClick={() => updateField(openDropdown.conditionId, col.id, col.type)}
+                  onClick={() =>
+                    updateField(openDropdown.conditionId, col.id, col.type)
+                  }
                 >
                   <span className={styles.filterFieldTypeIcon}>
-                    {col.type === "NUMBER" ? <NumberTypeIcon /> : <TextTypeIcon />}
+                    {col.type === "NUMBER" ? (
+                      <NumberTypeIcon />
+                    ) : (
+                      <TextTypeIcon />
+                    )}
                   </span>
                   <span className={styles.filterFieldName}>{col.name}</span>
                 </div>
@@ -931,7 +2003,8 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
       {/* ============================================================
          PORTAL: Operator dropdown (Find an operator)
          ============================================================ */}
-      {openDropdown?.kind === "operator" && activeConditionForDropdown &&
+      {openDropdown?.kind === "operator" &&
+        activeConditionForDropdown &&
         createPortal(
           <div
             data-filter-subdropdown
@@ -943,9 +2016,12 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
               zIndex: 10004,
             }}
           >
-            {/* Search bar */}
             <div
-              className={`${styles.filterSubSearchContainer}${isSubSearchFocused ? ` ${styles.filterSubSearchContainerFocused}` : ""}`}
+              className={`${styles.filterSubSearchContainer}${
+                isSubSearchFocused
+                  ? ` ${styles.filterSubSearchContainerFocused}`
+                  : ""
+              }`}
             >
               <MagnifyingGlassIcon className={styles.filterSearchIcon} />
               <input
@@ -959,18 +2035,133 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
                 autoFocus
               />
             </div>
-
-            {/* Scrollable operator list */}
             <div className={styles.filterSubItemList}>
               {filteredOperators.map((op) => (
                 <div
                   key={op.value}
                   className={styles.filterOperatorItem}
-                  onClick={() => updateOperator(openDropdown.conditionId, op.value)}
+                  onClick={() =>
+                    updateOperator(openDropdown.conditionId, op.value)
+                  }
                 >
                   {op.label}
                 </div>
               ))}
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* ============================================================
+         PORTAL: Group + button dropdown (Add condition / Add group)
+         ============================================================ */}
+      {openDropdown?.kind === "groupPlus" &&
+        createPortal(
+          <div
+            data-filter-subdropdown
+            className={styles.filterGroupPlusMenu}
+            style={{
+              position: "fixed",
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              zIndex: 10004,
+            }}
+          >
+            <div
+              className={styles.filterGroupPlusMenuItem}
+              onClick={() => addConditionToGroup(openDropdown.groupId)}
+            >
+              <span className={styles.filterGroupPlusMenuItemText}>
+                Add condition
+              </span>
+            </div>
+            {/* Only show "Add condition group" if nesting is allowed */}
+            {(() => {
+              // Check depth of this group — if it's already nested, don't allow deeper
+              const isNestedGroup = rootItems.some(
+                (ri) =>
+                  isGroup(ri) &&
+                  ri.items.some(
+                    (child) =>
+                      isGroup(child) && child.id === openDropdown.groupId,
+                  ),
+              );
+              if (isNestedGroup) return null;
+              return (
+                <div
+                  className={styles.filterGroupPlusMenuItem}
+                  onClick={() =>
+                    addNestedGroupToGroup(openDropdown.groupId)
+                  }
+                >
+                  <span className={styles.filterGroupPlusMenuItemText}>
+                    Add condition group
+                  </span>
+                </div>
+              );
+            })()}
+          </div>,
+          document.body,
+        )}
+
+      {/* ============================================================
+         PORTAL: Group conjunction dropdown (Any / All)
+         ============================================================ */}
+      {openDropdown?.kind === "groupConjunction" &&
+        createPortal(
+          <div
+            data-filter-subdropdown
+            className={`${styles.filterSubDropdown} ${styles.filterConjunctionDropdown}`}
+            style={{
+              position: "fixed",
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              zIndex: 10004,
+            }}
+          >
+            <div
+              className={styles.filterConjunctionItem}
+              onClick={() => {
+                // Set group conjunction to "and"
+                setRootItems((prev) => {
+                  const setConj = (items: FilterTreeItem[]): FilterTreeItem[] =>
+                    items.map((it) => {
+                      if (isGroup(it) && it.id === openDropdown.groupId) {
+                        return { ...it, conjunction: "and" };
+                      }
+                      if (isGroup(it)) {
+                        return { ...it, items: setConj(it.items) };
+                      }
+                      return it;
+                    });
+                  return setConj(prev);
+                });
+                setOpenDropdown(null);
+              }}
+            >
+              and
+            </div>
+            <div
+              className={styles.filterConjunctionItem}
+              onClick={() => {
+                // Set group conjunction to "or"
+                setRootItems((prev) => {
+                  const setConj = (items: FilterTreeItem[]): FilterTreeItem[] =>
+                    items.map((it) => {
+                      if (isGroup(it) && it.id === openDropdown.groupId) {
+                        return { ...it, conjunction: "or" };
+                      }
+                      if (isGroup(it)) {
+                        return { ...it, items: setConj(it.items) };
+                      }
+                      return it;
+                    });
+                  return setConj(prev);
+                });
+                setOpenDropdown(null);
+              }}
+            >
+              or
             </div>
           </div>,
           document.body,

@@ -1,6 +1,13 @@
 // src/server/api/routers/row.ts
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+import {
+  filterTreeSchema,
+  type FilterTreeItem,
+  type FilterTreeCondition,
+  type FilterTreeGroup,
+  type FilterTree,
+} from "~/shared/grid";
 
 /**
  * Params we pass into $queryRawUnsafe.
@@ -138,6 +145,156 @@ function buildFilterSql(filters: FilterInput[], params: SqlParam[], conjunction:
 
   const joiner = conjunction === "or" ? " OR " : " AND ";
   return clauses.length ? ` AND (${clauses.join(joiner)})` : "";
+}
+
+/* ============================================================
+   Filter tree SQL builder (nested condition groups)
+   ============================================================ */
+
+/**
+ * Build a SQL clause for a single condition node.
+ * Returns the clause string and may push params.
+ */
+function buildConditionClause(
+  cond: FilterTreeCondition,
+  params: SqlParam[],
+): string | null {
+  const colId = escapeLiteral(cond.columnId);
+  const colExpr = `("Row"."cells" ->> '${colId}')`;
+  const op = cond.op;
+
+  switch (op) {
+    case "is_empty":
+      return `(${colExpr} IS NULL OR ${colExpr} = '')`;
+    case "is_not_empty":
+      return `(${colExpr} IS NOT NULL AND ${colExpr} <> '')`;
+    case "contains": {
+      if (typeof cond.value !== "string" || cond.value === "") return null;
+      const escaped = escapeLikePattern(cond.value);
+      params.push(`%${escaped}%`);
+      return `(${colExpr} ILIKE $${params.length} ESCAPE '\\')`;
+    }
+    case "not_contains": {
+      if (typeof cond.value !== "string" || cond.value === "") return null;
+      const escaped = escapeLikePattern(cond.value);
+      params.push(`%${escaped}%`);
+      return `(${colExpr} IS NULL OR ${colExpr} NOT ILIKE $${params.length} ESCAPE '\\')`;
+    }
+    case "equals": {
+      if (typeof cond.value === "string") {
+        if (cond.value === "") return null;
+        params.push(cond.value);
+        return `(${colExpr} = $${params.length})`;
+      }
+      if (typeof cond.value === "number") {
+        params.push(cond.value);
+        return `(${colExpr} = $${params.length})`;
+      }
+      return null;
+    }
+    case "not_equals": {
+      if (typeof cond.value === "string") {
+        if (cond.value === "") return null;
+        params.push(cond.value);
+        return `(${colExpr} IS NULL OR ${colExpr} <> $${params.length})`;
+      }
+      if (typeof cond.value === "number") {
+        params.push(cond.value);
+        return `(${colExpr} IS NULL OR ${colExpr} <> $${params.length})`;
+      }
+      return null;
+    }
+    case "gt":
+    case "lt":
+    case "gte":
+    case "lte": {
+      if (typeof cond.value !== "number") return null;
+      params.push(cond.value);
+      const opMap = { gt: ">", lt: "<", gte: ">=", lte: "<=" } as const;
+      return `(NULLIF(${colExpr}, '')::double precision ${opMap[op]} $${params.length})`;
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * Recursively build SQL for a filter tree item.
+ * Returns a SQL fragment (without leading AND) or null if the item produces no clauses.
+ */
+function buildFilterTreeItemSql(
+  item: FilterTreeItem,
+  params: SqlParam[],
+): string | null {
+  if (item.kind === "condition") {
+    return buildConditionClause(item as FilterTreeCondition, params);
+  }
+
+  // Group node
+  const group = item as FilterTreeGroup;
+  const clauses: string[] = [];
+
+  for (const child of group.items) {
+    const clause = buildFilterTreeItemSql(child, params);
+    if (clause) clauses.push(clause);
+  }
+
+  if (clauses.length === 0) return null;
+  if (clauses.length === 1) return clauses[0]!;
+
+  const joiner = group.conjunction === "or" ? " OR " : " AND ";
+  return `(${clauses.join(joiner)})`;
+}
+
+/**
+ * Build SQL WHERE fragment for a complete filter tree.
+ * Returns a string like ` AND (...)` or empty string if no effective filters.
+ */
+function buildFilterTreeSql(tree: FilterTree, params: SqlParam[]): string {
+  const clauses: string[] = [];
+
+  for (const item of tree.items) {
+    const clause = buildFilterTreeItemSql(item, params);
+    if (clause) clauses.push(clause);
+  }
+
+  if (clauses.length === 0) return "";
+  if (clauses.length === 1) return ` AND ${clauses[0]}`;
+
+  const joiner = tree.conjunction === "or" ? " OR " : " AND ";
+  return ` AND (${clauses.join(joiner)})`;
+}
+
+/**
+ * Extract all columnIds from a filter tree (for validation).
+ */
+function extractColumnIds(tree: FilterTree): string[] {
+  const ids = new Set<string>();
+  const walk = (items: FilterTreeItem[]) => {
+    for (const item of items) {
+      if (item.kind === "condition") {
+        ids.add((item as FilterTreeCondition).columnId);
+      } else {
+        walk((item as FilterTreeGroup).items);
+      }
+    }
+  };
+  walk(tree.items);
+  return [...ids];
+}
+
+/**
+ * Check if a filter tree has any effective conditions (non-empty groups with conditions).
+ */
+function filterTreeHasConditions(tree: FilterTree): boolean {
+  const check = (items: FilterTreeItem[]): boolean => {
+    for (const item of items) {
+      if (item.kind === "condition") return true;
+      if (check((item as FilterTreeGroup).items)) return true;
+    }
+    return false;
+  };
+  return check(tree.items);
 }
 
 /**
@@ -365,6 +522,8 @@ export const rowRouter = createTRPCRouter({
         search: z.string().max(200).optional(),
         filters: z.array(filterSchema).optional(),
         conjunction: z.enum(["and", "or"]).default("and"),
+        /** Tree-structured filters (condition groups). Takes precedence over flat filters. */
+        filterTree: filterTreeSchema.optional(),
         sorts: z.array(sortSchema).optional(),
       }),
     )
@@ -378,6 +537,8 @@ export const rowRouter = createTRPCRouter({
       const search = input.search?.trim();
       const filters = input.filters ?? [];
       const conjunction = input.conjunction;
+      const filterTree = input.filterTree;
+      const useTree = filterTree && filterTreeHasConditions(filterTree);
       const sorts = input.sorts ?? [];
 
       // Validate sort columns belong to this table + type matches DB
@@ -397,15 +558,20 @@ export const rowRouter = createTRPCRouter({
       }
 
       // Validate filter columnIds belong to this table (required before literal injection)
-      if (filters.length > 0) {
-        const uniqueColIds = [...new Set(filters.map((f) => f.columnId))];
+      {
+        const colIdsToValidate: string[] = useTree
+          ? extractColumnIds(filterTree)
+          : filters.map((f) => f.columnId);
+        const uniqueColIds = [...new Set(colIdsToValidate)];
 
-        const count = await ctx.db.column.count({
-          where: { tableId: input.tableId, id: { in: uniqueColIds } },
-        });
+        if (uniqueColIds.length > 0) {
+          const count = await ctx.db.column.count({
+            where: { tableId: input.tableId, id: { in: uniqueColIds } },
+          });
 
-        if (count !== uniqueColIds.length) {
-          throw new Error("Invalid filter column");
+          if (count !== uniqueColIds.length) {
+            throw new Error("Invalid filter column");
+          }
         }
       }
 
@@ -440,7 +606,12 @@ export const rowRouter = createTRPCRouter({
         whereSql += ` AND "Row"."searchText" ILIKE $${params.length} ESCAPE '\\'`;
       }
 
-      whereSql += buildFilterSql(filters, params, conjunction);
+      // Use tree-structured filters when available, fall back to flat filters
+      if (useTree) {
+        whereSql += buildFilterTreeSql(filterTree, params);
+      } else {
+        whereSql += buildFilterSql(filters, params, conjunction);
+      }
 
       // Cursor predicate
       if (sorts.length === 0) {
@@ -496,7 +667,8 @@ export const rowRouter = createTRPCRouter({
 
       const isFirstPage = input.cursor === null;
 
-      if (isFirstPage && ((search && search.length > 0) || filters.length > 0)) {
+      const hasFilters = useTree || filters.length > 0;
+      if (isFirstPage && ((search && search.length > 0) || hasFilters)) {
         const countParams: SqlParam[] = [];
         countParams.push(input.tableId);
         let countWhere = `WHERE "Row"."tableId" = $${countParams.length}`;
@@ -507,7 +679,11 @@ export const rowRouter = createTRPCRouter({
           countWhere += ` AND "Row"."searchText" ILIKE $${countParams.length} ESCAPE '\\'`;
         }
 
-        countWhere += buildFilterSql(filters, countParams, conjunction);
+        if (useTree) {
+          countWhere += buildFilterTreeSql(filterTree, countParams);
+        } else {
+          countWhere += buildFilterSql(filters, countParams, conjunction);
+        }
 
         const countSql = `SELECT COUNT(*)::int AS count FROM "Row" ${countWhere}`;
         const res = await queryRawUnsafe<CountRow[]>(ctx.db, countSql, countParams);

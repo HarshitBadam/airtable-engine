@@ -14,6 +14,7 @@ export function useViewActions(tableId: string) {
   const search = useGridStore((s) => s.search);
   const filters = useGridStore((s) => s.filters);
   const filterConjunction = useGridStore((s) => s.filterConjunction);
+  const filterTree = useGridStore((s) => s.filterTree);
   const sorts = useGridStore((s) => s.sorts);
   const savedSorts = useGridStore((s) => s.savedSorts);
   const permanentSorts = useGridStore((s) => s.permanentSorts);
@@ -46,6 +47,7 @@ export function useViewActions(tableId: string) {
           search,
           filters,
           filterConjunction,
+          filterTree,
           sorts,
           permanentSorts,
           autoSort,

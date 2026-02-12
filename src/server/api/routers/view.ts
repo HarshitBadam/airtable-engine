@@ -5,6 +5,7 @@ const viewConfigSchema = z.object({
   search: z.string(),
   filters: z.array(z.any()),
   filterConjunction: z.enum(["and", "or"]).default("and"),
+  filterTree: z.any().optional(),
   sorts: z.array(z.any()).default([]),
   permanentSorts: z.array(z.any()).default([]),
   autoSort: z.boolean().default(true),
