@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './ViewsSidebar.module.css';
 import { useGridStore } from '~/components/grid/grid-store';
@@ -29,7 +29,7 @@ interface ViewsSidebarProps {
   createViewName: string;
   setCreateViewName: React.Dispatch<React.SetStateAction<string>>;
   computeNextViewName: () => string;
-  createViewMut: { isPending: boolean; mutate: (args: { tableId: string; name: string; config: { search: string; filters: unknown[]; sorts?: unknown[]; permanentSorts?: unknown[]; autoSort?: boolean; hiddenColumnIds: string[]; columnOrderIds?: string[] } }) => void };
+  createViewMut: { isPending: boolean; mutate: (args: { tableId: string; name: string; config: { search: string; filters: unknown[]; sorts?: unknown[]; permanentSorts?: unknown[]; autoSort?: boolean; hiddenColumnIds: string[]; columnOrderIds?: string[]; rowOrderIds?: string[] } }) => void };
   tableId: string;
 
   // Context menu
@@ -53,6 +53,9 @@ interface ViewsSidebarProps {
   startSidebarRename: (viewId: string) => void;
   commitSidebarRename: () => void;
   cancelSidebarRename: () => void;
+
+  // Drag-and-drop reorder callback (new order of view IDs)
+  onReorderViews?: (orderedViewIds: string[]) => void;
 }
 
 export function ViewsSidebar({
@@ -90,11 +93,14 @@ export function ViewsSidebar({
   startSidebarRename,
   commitSidebarRename,
   cancelSidebarRename,
+  onReorderViews,
 }: ViewsSidebarProps) {
   // Read parent view state from the grid store for inheritance
   const parentColumnOrderIds = useGridStore((s) => s.columnOrderIds);
   // Permanent sorts are inherited (irreversible, part of data order)
   const parentPermanentSorts = useGridStore((s) => s.permanentSorts);
+  // Row ordering is inherited (manual drag reorder)
+  const parentRowOrderIds = useGridStore((s) => s.rowOrderIds);
 
   // refs
   const viewsSidebarRef = useRef<HTMLDivElement>(null);
@@ -166,6 +172,147 @@ export function ViewsSidebar({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [renamingSidebarViewId, commitSidebarRename]);
+
+  // ========== DRAG-AND-DROP REORDER ==========
+  // Local ordering of views (null = use original `views` order)
+  const [localViewOrder, setLocalViewOrder] = useState<string[] | null>(null);
+  // Reset local order when views change from server
+  const prevViewIdsRef = useRef<string>('');
+  useEffect(() => {
+    const ids = views.map((v) => v.id).join(',');
+    if (ids !== prevViewIdsRef.current) {
+      prevViewIdsRef.current = ids;
+      setLocalViewOrder(null);
+    }
+  }, [views]);
+
+  // Drag state
+  const dragState = useRef<{
+    dragIndex: number;
+    startY: number;
+    currentIndex: number;
+    itemHeight: number;
+    orderedIds: string[];
+  } | null>(null);
+  const [dragActiveIndex, setDragActiveIndex] = useState<number | null>(null); // which index is being dragged
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null); // where the dragged item currently hovers
+  const [dragDeltaY, setDragDeltaY] = useState(0); // pixel offset for the dragged item
+  const viewListRef = useRef<HTMLUListElement>(null);
+
+  // Compute the displayed view list
+  const filteredViews = views.filter(v => !viewSearchQuery || v.name.toLowerCase().includes(viewSearchQuery.toLowerCase()));
+  const orderedViews = localViewOrder
+    ? localViewOrder.map((id) => filteredViews.find((v) => v.id === id)).filter(Boolean) as typeof filteredViews
+    : filteredViews;
+
+  const handleDragStart = useCallback((e: React.MouseEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Measure item height from the list
+    const listEl = viewListRef.current;
+    if (!listEl) return;
+    const items = listEl.querySelectorAll<HTMLLIElement>('[data-view-drag-item]');
+    if (!items[index]) return;
+    const itemHeight = items[index].getBoundingClientRect().height;
+    const ids = orderedViews.map((v) => v.id);
+
+    dragState.current = {
+      dragIndex: index,
+      startY: e.clientY,
+      currentIndex: index,
+      itemHeight,
+      orderedIds: ids,
+    };
+    setDragActiveIndex(index);
+    setDragOverIndex(index);
+    setDragDeltaY(0);
+  }, [orderedViews]);
+
+  useEffect(() => {
+    if (dragActiveIndex === null) return;
+    // Set grabbing cursor on body while dragging
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const ds = dragState.current;
+      if (!ds) return;
+      const delta = e.clientY - ds.startY;
+      setDragDeltaY(delta);
+
+      // Calculate which index position the dragged item is over
+      const rawIndex = ds.dragIndex + Math.round(delta / ds.itemHeight);
+      const clampedIndex = Math.max(0, Math.min(rawIndex, ds.orderedIds.length - 1));
+      if (clampedIndex !== ds.currentIndex) {
+        ds.currentIndex = clampedIndex;
+        setDragOverIndex(clampedIndex);
+      }
+    };
+
+    const handleMouseUp = () => {
+      const ds = dragState.current;
+      if (ds && ds.dragIndex !== ds.currentIndex) {
+        // Reorder
+        const newOrder = [...ds.orderedIds];
+        const [moved] = newOrder.splice(ds.dragIndex, 1);
+        newOrder.splice(ds.currentIndex, 0, moved!);
+        setLocalViewOrder(newOrder);
+        onReorderViews?.(newOrder);
+      }
+      dragState.current = null;
+      setDragActiveIndex(null);
+      setDragOverIndex(null);
+      setDragDeltaY(0);
+      // Restore cursor
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [dragActiveIndex, onReorderViews]);
+
+  // Compute translateY offset for each item during drag
+  const getItemTransform = (index: number): React.CSSProperties => {
+    if (dragActiveIndex === null || dragOverIndex === null) return {};
+    const ds = dragState.current;
+    if (!ds) return {};
+
+    if (index === dragActiveIndex) {
+      // The dragged item follows the mouse
+      return {
+        transform: `translateY(${dragDeltaY}px)`,
+        zIndex: 10,
+        position: 'relative',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        transition: 'none',
+      };
+    }
+
+    const from = dragActiveIndex;
+    const to = dragOverIndex;
+    const h = ds.itemHeight;
+
+    if (from < to) {
+      // Dragging down: items between (from, to] shift up
+      if (index > from && index <= to) {
+        return { transform: `translateY(${-h}px)`, transition: 'transform 0.2s ease' };
+      }
+    } else if (from > to) {
+      // Dragging up: items between [to, from) shift down
+      if (index >= to && index < from) {
+        return { transform: `translateY(${h}px)`, transition: 'transform 0.2s ease' };
+      }
+    }
+
+    return { transform: 'translateY(0px)', transition: 'transform 0.2s ease' };
+  };
 
   return (
     <div
@@ -417,6 +564,7 @@ export function ViewsSidebar({
                         autoSort: true,
                         hiddenColumnIds: [],
                         columnOrderIds: parentColumnOrderIds,
+                        rowOrderIds: parentRowOrderIds,
                       },
                     });
                   }
@@ -450,14 +598,14 @@ export function ViewsSidebar({
       </div>
 
       {/* View items list */}
-      <ul className={styles.viewsSidebarViewList}>
-        {views
-          .filter(v => !viewSearchQuery || v.name.toLowerCase().includes(viewSearchQuery.toLowerCase()))
-          .map((view) => (
+      <ul className={styles.viewsSidebarViewList} ref={viewListRef}>
+        {orderedViews.map((view, viewIndex) => (
           <li
             key={view.id}
-            className={`${styles.viewsSidebarViewItem} ${view.id === activeViewId ? styles.viewsSidebarViewItemActive : ''} ${view.id === renamingSidebarViewId ? styles.viewsSidebarViewItemRenaming : ''}`}
-            onClick={() => { if (renamingSidebarViewId !== view.id) setActiveViewId(view.id); }}
+            data-view-drag-item
+            className={`${styles.viewsSidebarViewItem} ${view.id === activeViewId ? styles.viewsSidebarViewItemActive : ''} ${view.id === renamingSidebarViewId ? styles.viewsSidebarViewItemRenaming : ''} ${dragActiveIndex === viewIndex ? styles.viewsSidebarViewItemDragging : ''}`}
+            style={getItemTransform(viewIndex)}
+            onClick={() => { if (renamingSidebarViewId !== view.id && dragActiveIndex === null) setActiveViewId(view.id); }}
             onDoubleClick={() => startSidebarRename(view.id)}
           >
             <div className={styles.viewsSidebarViewItemRow}>
@@ -535,6 +683,8 @@ export function ViewsSidebar({
                   viewBox="0 0 16 16"
                   fill="currentColor"
                   aria-hidden="true"
+                  onMouseDown={(e) => handleDragStart(e, viewIndex)}
+                  style={{ cursor: 'grab' }}
                 >
                   <path fillRule="nonzero" d="M5.75 4.5C6.16419 4.5 6.5 4.16419 6.5 3.75C6.5 3.33581 6.16419 3 5.75 3C5.33581 3 5 3.33581 5 3.75C5 4.16419 5.33581 4.5 5.75 4.5Z M10.25 4.5C10.6642 4.5 11 4.16419 11 3.75C11 3.33581 10.6642 3 10.25 3C9.83581 3 9.5 3.33581 9.5 3.75C9.5 4.16419 9.83581 4.5 10.25 4.5Z M5.75 8.75C6.16419 8.75 6.5 8.41419 6.5 8C6.5 7.58581 6.16419 7.25 5.75 7.25C5.33581 7.25 5 7.58581 5 8C5 8.41419 5.33581 8.75 5.75 8.75Z M10.25 8.75C10.6642 8.75 11 8.41419 11 8C11 7.58581 10.6642 7.25 10.25 7.25C9.83581 7.25 9.5 7.58581 9.5 8C9.5 8.41419 9.83581 8.75 10.25 8.75Z M5.75 13C6.16419 13 6.5 12.6642 6.5 12.25C6.5 11.8358 6.16419 11.5 5.75 11.5C5.33581 11.5 5 11.8358 5 12.25C5 12.6642 5.33581 13 5.75 13Z M10.25 13C10.6642 13 11 12.6642 11 12.25C11 11.8358 10.6642 11.5 10.25 11.5C9.83581 11.5 9.5 11.8358 9.5 12.25C9.5 12.6642 9.83581 13 10.25 13Z" />
                 </svg>

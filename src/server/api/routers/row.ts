@@ -786,6 +786,84 @@ export const rowRouter = createTRPCRouter({
       });
     }),
 
+  /**
+   * Reorder a single row: move it from one rowIndex to another.
+   * Uses a 3-step SQL transaction with a temporary negative index
+   * to avoid unique constraint violations on (tableId, rowIndex).
+   */
+  /**
+   * Reorder a single row: move it from its current rowIndex to another.
+   *
+   * Strategy: park the row at a temp index, then shift each affected row
+   * ONE AT A TIME in the correct order so every write fills the slot that
+   * was just vacated — no negation trick, no unique-constraint risk.
+   */
+  reorder: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        rowId: z.string(),
+        fromIndex: z.number().min(1),
+        toIndex: z.number().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.fromIndex === input.toIndex) return { ok: true };
+
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true },
+      });
+      if (!table) throw new Error("Table not found");
+
+      const row = await ctx.db.row.findFirst({
+        where: { id: input.rowId, tableId: input.tableId },
+        select: { id: true, rowIndex: true },
+      });
+      if (!row) throw new Error("Row not found");
+
+      const oldIdx = row.rowIndex;
+      const newIdx = input.toIndex;
+      if (oldIdx === newIdx) return { ok: true };
+
+      await ctx.db.$transaction(async (tx) => {
+        // Step 1: Park the dragged row at 0 (no real row ever uses 0).
+        // This frees up oldIdx for the shift chain.
+        await tx.row.update({
+          where: { id: input.rowId },
+          data: { rowIndex: 0 },
+        });
+
+        if (newIdx < oldIdx) {
+          // Moving UP: shift each row in [newIdx .. oldIdx-1] → +1
+          // Process in REVERSE order: highest first fills the empty slot above it.
+          for (let i = oldIdx - 1; i >= newIdx; i--) {
+            await tx.row.updateMany({
+              where: { tableId: input.tableId, rowIndex: i },
+              data: { rowIndex: i + 1 },
+            });
+          }
+        } else {
+          // Moving DOWN: shift each row in [oldIdx+1 .. newIdx] → -1
+          // Process in FORWARD order: lowest first fills the empty slot below it.
+          for (let i = oldIdx + 1; i <= newIdx; i++) {
+            await tx.row.updateMany({
+              where: { tableId: input.tableId, rowIndex: i },
+              data: { rowIndex: i - 1 },
+            });
+          }
+        }
+
+        // Step 2: Place the dragged row at its new position.
+        await tx.row.update({
+          where: { id: input.rowId },
+          data: { rowIndex: newIdx },
+        });
+      });
+
+      return { ok: true };
+    }),
+
   updateCell: protectedProcedure
     .input(
       z.object({

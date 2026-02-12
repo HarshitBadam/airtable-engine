@@ -29,7 +29,7 @@
   font-size: 13px;
   font-weight: 400;
   line-height: 18px;
-  z-index: 10;
+  z-index: 12; /* above GridBar (z:10) so toolbar dropdowns paint on top */
   transition-property: width;
   transition-duration: 0.3s;
   transition-timing-function: ease-in-out;

@@ -350,3 +350,132 @@
   z-index: 1;
   background-color: rgb(255, 255, 255);
 }
+
+/* =============================================
+   DISCARD CONFIRMATION DIALOG
+   ============================================= */
+
+/* Full-screen semi-transparent overlay */
+.discardOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Dialog card — exact Airtable computed styles */
+.discardDialog {
+  box-sizing: border-box;
+  display: block;
+  width: 425px; /* 361px content + 64px padding */
+  padding: 32px;
+  background-color: rgb(255, 255, 255);
+  border-radius: 6px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  word-break: break-word;
+  cursor: default;
+  box-shadow:
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+}
+
+/* Title text — exact Airtable computed styles */
+.discardTitle {
+  display: block;
+  box-sizing: border-box;
+  margin: 0 0 32px 0;
+  padding: 0;
+  font-family: "GT Eesti Display", -apple-system, system-ui, "system-ui", "Segoe UI", Roboto,
+    Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol";
+  font-feature-settings: "calt" 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+  letter-spacing: 0.025em;
+  color: rgb(29, 31, 37);
+  word-break: break-word;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Button row — exact Airtable computed styles */
+.discardActions {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+}
+
+/* Cancel button — exact Airtable computed styles */
+.discardCancelBtn {
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 12px;
+  margin: 0 8px 0 0;
+  max-width: 100%;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 22px;
+  text-align: center;
+  border: none;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0);
+  color: rgb(29, 31, 37);
+  word-break: break-word;
+  transition: background-color 0.1s ease;
+}
+.discardCancelBtn:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Discard button — exact Airtable computed styles */
+.discardConfirmBtn {
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 12px;
+  margin: 0;
+  max-width: 100%;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 22px;
+  text-align: center;
+  border: none;
+  border-radius: 6px;
+  background-color: rgb(22, 110, 225);
+  color: rgb(255, 255, 255);
+  fill: rgb(255, 255, 255);
+  word-break: break-word;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  transition: background-color 0.1s ease;
+}
+.discardConfirmBtn:hover {
+  background-color: rgb(18, 96, 196);
+}

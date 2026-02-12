@@ -52,6 +52,7 @@ type GridState = {
 
   hiddenColumnIds: string[];
   columnOrderIds: string[];
+  rowOrderIds: string[];
 
   /** Frontend-only filter conditions for the FilterPanel UI. */
   filterConditions: FilterConditionUI[];
@@ -77,6 +78,7 @@ type GridState = {
   toggleHiddenColumn: (columnId: string) => void;
   setHiddenColumnIds: (ids: string[]) => void;
   setColumnOrderIds: (ids: string[]) => void;
+  setRowOrderIds: (ids: string[]) => void;
 
   setActiveCell: (cell: CellKey | null) => void;
   clearSelection: () => void;
@@ -93,7 +95,7 @@ type GridState = {
 };
 
 function fingerprintFromParts(
-  s: Pick<GridState, "search" | "savedFilters" | "savedFilterConjunction" | "savedSorts" | "autoSort" | "permanentSorts" | "hiddenColumnIds" | "columnOrderIds">,
+  s: Pick<GridState, "search" | "savedFilters" | "savedFilterConjunction" | "savedSorts" | "autoSort" | "permanentSorts" | "hiddenColumnIds" | "columnOrderIds" | "rowOrderIds">,
 ) {
   return configFingerprint({
     search: s.search,
@@ -104,6 +106,7 @@ function fingerprintFromParts(
     autoSort: s.autoSort,
     hiddenColumnIds: s.hiddenColumnIds,
     columnOrderIds: s.columnOrderIds,
+    rowOrderIds: s.rowOrderIds,
   });
 }
 
@@ -130,6 +133,7 @@ export function createGridStore(tableId: string) {
     autoSort: true,
     hiddenColumnIds: [],
     columnOrderIds: [],
+    rowOrderIds: [],
 
     filterConditions: [],
     setFilterConditions: (filterConditions) => set((s) => ({ ...s, filterConditions })),
@@ -182,6 +186,7 @@ export function createGridStore(tableId: string) {
         permanentSorts: cfg.permanentSorts,
         hiddenColumnIds: cfg.hiddenColumnIds,
         columnOrderIds: cfg.columnOrderIds,
+        rowOrderIds: cfg.rowOrderIds,
 
         filterConditions: restoredConditions,
 
@@ -258,6 +263,13 @@ export function createGridStore(tableId: string) {
         ...s,
         columnOrderIds,
         fingerprint: fingerprintFromParts({ ...s, columnOrderIds }),
+      })),
+
+    setRowOrderIds: (rowOrderIds) =>
+      set((s) => ({
+        ...s,
+        rowOrderIds,
+        fingerprint: fingerprintFromParts({ ...s, rowOrderIds }),
       })),
 
     setActiveCell: (activeCell) => set((s) => ({ ...s, activeCell })),

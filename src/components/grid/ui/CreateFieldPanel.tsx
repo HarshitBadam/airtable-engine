@@ -372,6 +372,12 @@ const ChevronRight = () => (
 // COMPONENT
 // ============================================
 
+interface EditFieldInfo {
+  fieldName: string;
+  fieldType: "Single line text" | "Number" | string;
+  numberConfig?: NumberFormatConfig;
+}
+
 interface CreateFieldPanelProps {
   /** Position to render at (fixed, from + button rect) */
   position: { top: number; left: number };
@@ -380,18 +386,35 @@ interface CreateFieldPanelProps {
   onSelectFieldType?: (fieldType: string) => void;
   /** Called when the user confirms field creation (name, UI type label, default value, optional number config). */
   onCreateField?: (name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig) => void;
+  /** When provided, opens directly in edit mode for the given field */
+  editField?: EditFieldInfo;
+  /** Called when saving in edit mode (name + optional number config) */
+  onEditFieldSave?: (name: string, numberConfig?: NumberFormatConfig) => void;
 }
 
 // Only these field types are fully implemented
 const enabledFieldTypes = new Set(["Single line text", "Number"]);
 
-export function CreateFieldPanel({ position, onClose, onSelectFieldType, onCreateField }: CreateFieldPanelProps) {
+export function CreateFieldPanel({ position, onClose, onSelectFieldType, onCreateField, editField, onEditFieldSave }: CreateFieldPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedField, setSelectedField] = useState<{ label: string; icon: React.ReactNode } | null>(null);
   // "full" = initial picker (agents + standard), "typeSwitch" = shortened (standard only)
   const [pickerMode, setPickerMode] = useState<"full" | "typeSwitch">("full");
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const editModeInitialized = useRef(false);
+
+  // When in edit mode, immediately jump to the config panel for the right field type
+  useEffect(() => {
+    if (editField && !editModeInitialized.current) {
+      editModeInitialized.current = true;
+      const match = standardFieldItems.find((f) => f.label === editField.fieldType);
+      if (match) {
+        setSelectedField({ label: match.label, icon: match.icon });
+      }
+    }
+  }, [editField]);
 
   // Focus input on mount (only when in picker mode)
   useEffect(() => {
@@ -407,21 +430,40 @@ export function CreateFieldPanel({ position, onClose, onSelectFieldType, onCreat
         // Don't close if clicking inside a number-dropdown popup (rendered via portal)
         const target = event.target as HTMLElement;
         if (target.closest?.("[data-field-dropdown-popup]")) return;
+        // Don't close if clicking inside the discard dialog
+        if (target.closest?.("[data-discard-dialog]")) return;
+        // If configuring a Number field (and NOT in edit mode), show discard confirmation instead of closing
+        if (selectedField?.label === "Number" && !editField) {
+          setShowDiscardDialog(true);
+          return;
+        }
         onClose();
       }
     }
     const t = setTimeout(() => document.addEventListener("mousedown", handleClickOutside), 10);
     return () => { clearTimeout(t); document.removeEventListener("mousedown", handleClickOutside); };
-  }, [onClose]);
+  }, [onClose, selectedField, editField]);
 
   // Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        // If the discard dialog is showing, close it (go back to config)
+        if (showDiscardDialog) {
+          setShowDiscardDialog(false);
+          return;
+        }
+        // If configuring a Number field (and NOT in edit mode), show discard confirmation
+        if (selectedField?.label === "Number" && !editField) {
+          setShowDiscardDialog(true);
+          return;
+        }
+        onClose();
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, selectedField, showDiscardDialog]);
 
   const queryLower = searchQuery.toLowerCase().trim();
 
@@ -438,7 +480,8 @@ export function CreateFieldPanel({ position, onClose, onSelectFieldType, onCreat
   // Compute max-height: 8px from bottom of viewport
   const maxHeight = Math.max(300, window.innerHeight - position.top - 8);
 
-  return createPortal(
+  return (<>
+    {createPortal(
     <div
       ref={panelRef}
       className={styles.createFieldPanel}
@@ -465,6 +508,10 @@ export function CreateFieldPanel({ position, onClose, onSelectFieldType, onCreat
           }}
           onClose={onClose}
           onCreateField={onCreateField}
+          isEditMode={!!editField}
+          initialFieldName={editField?.fieldName}
+          initialNumberConfig={editField?.numberConfig}
+          onEditFieldSave={onEditFieldSave}
         />
       ) : (
         /* === FIELD TYPE PICKER VIEW === */
@@ -579,5 +626,41 @@ export function CreateFieldPanel({ position, onClose, onSelectFieldType, onCreat
       )}
     </div>,
     document.body,
-  );
+  )}
+
+  {/* === Discard confirmation dialog === */}
+  {showDiscardDialog && createPortal(
+    <div
+      className={styles.discardOverlay}
+      data-discard-dialog="true"
+      onMouseDown={(e) => {
+        // Clicking the backdrop (outside the dialog box) cancels the dialog
+        if (e.target === e.currentTarget) {
+          setShowDiscardDialog(false);
+        }
+      }}
+    >
+      <div className={styles.discardDialog}>
+        <p className={styles.discardTitle}>Discard your new field?</p>
+        <div className={styles.discardActions}>
+          <button
+            type="button"
+            className={styles.discardCancelBtn}
+            onClick={() => setShowDiscardDialog(false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.discardConfirmBtn}
+            onClick={onClose}
+          >
+            Discard
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )}
+  </>);
 }

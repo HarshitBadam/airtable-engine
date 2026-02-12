@@ -19,6 +19,7 @@ interface GridContainerProps {
   freezeSnapPreviewRef: React.RefObject<HTMLDivElement | null>;
   freezeLineRef: React.RefObject<HTMLDivElement | null>;
   freezePillRef: React.RefObject<HTMLDivElement | null>;
+  freezeTooltipRef: React.RefObject<HTMLDivElement | null>;
   selectionOverlayRef: React.RefObject<HTMLDivElement | null>;
 
   // Grid dimensions
@@ -64,16 +65,23 @@ interface GridContainerProps {
   onHideField?: (columnId: string) => void;
   onSortByField?: (columnId: string, direction: "asc" | "desc") => void;
   onFilterByField?: (columnId: string) => void;
-  onDuplicateField?: (columnId: string) => void;
+  onDuplicateField?: (columnId: string, duplicateCells: boolean) => void;
 
   // Field creation callback (from CreateFieldPanel → FieldConfigPanel)
   onCreateField?: (name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig, insertPosition?: { anchorColId: string; side: "left" | "right" }) => void;
+
+  // Field edit callback (rename / update config)
+  onEditFieldSave?: (columnId: string, name: string, numberConfig?: NumberFormatConfig) => void;
 
   // Row IDs currently animating out (slide-up delete)
   deletingRowIds?: Set<string>;
 
   // Search highlighting — debounced, trimmed search term (empty = no search)
   searchTerm?: string;
+
+  // Row drag-to-reorder
+  onReorderRow?: (rowId: string, fromIndex: number, toIndex: number) => void;
+  canDragRows?: boolean;
 }
 
 export function GridContainer({
@@ -86,6 +94,7 @@ export function GridContainer({
   freezeSnapPreviewRef,
   freezeLineRef,
   freezePillRef,
+  freezeTooltipRef,
   selectionOverlayRef,
   freezeWidth,
   rowHeight,
@@ -115,8 +124,11 @@ export function GridContainer({
   onFilterByField,
   onDuplicateField,
   onCreateField,
+  onEditFieldSave,
   deletingRowIds,
   searchTerm,
+  onReorderRow,
+  canDragRows = false,
 }: GridContainerProps) {
   // Sorted column IDs — for tinting sorted column headers orange.
   // ONLY for autoSort=true (temporary/reversible sorts). autoSort=false = no orange ever.
@@ -329,12 +341,138 @@ export function GridContainer({
     setRecordMenuPosition(null);
   }, []);
 
+  // === ROW DRAG-TO-REORDER ===
+  const [dragState, setDragState] = useState<{
+    rowId: string;
+    fromIndex: number;
+    currentDropIndex: number;
+  } | null>(null);
+
+  const autoScrollRafRef = useRef<number>(0);
+
+  const handleRowDragStart = useCallback(
+    (rowIndex: number, rowId: string, e: React.MouseEvent) => {
+      if (!canDragRows) return;
+      e.preventDefault();
+
+      const scroller = gridScrollerRef.current;
+      if (!scroller) return;
+
+      // Find the .gridRow DOM element from the event target (the drag handle SVG)
+      const rowEl = (e.target as HTMLElement).closest(`.${styles.gridRow}`) as HTMLElement | null;
+      if (!rowEl) return;
+
+      // --- Create a ghost clone that follows the cursor ---
+      const ghost = rowEl.cloneNode(true) as HTMLElement;
+      const rowRect = rowEl.getBoundingClientRect();
+      const offsetY = e.clientY - rowRect.top; // mouse offset within the row
+      ghost.style.position = "fixed";
+      ghost.style.left = `${rowRect.left}px`;
+      ghost.style.top = `${e.clientY - offsetY}px`;
+      ghost.style.width = `${rowRect.width}px`;
+      ghost.style.height = `${rowRect.height}px`;
+      ghost.style.pointerEvents = "none";
+      ghost.style.opacity = "0.85";
+      ghost.style.zIndex = "99999";
+      ghost.style.boxShadow = "0 2px 8px rgba(0,0,0,0.18)";
+      ghost.style.overflow = "hidden";
+      ghost.style.background = "#FFFFFF";
+      document.body.appendChild(ghost);
+
+      // Dim the original row while dragging
+      rowEl.style.opacity = "0.35";
+
+      // Track drop index via a local mutable variable (avoids async React state issues)
+      let currentDropIdx = rowIndex;
+      setDragState({ rowId, fromIndex: rowIndex, currentDropIndex: rowIndex });
+      document.body.style.cursor = "grabbing";
+      document.body.style.userSelect = "none";
+      document.body.style.webkitUserSelect = "none";
+
+      const handleMove = (ev: MouseEvent) => {
+        // Move ghost to follow cursor (horizontal position stays fixed)
+        ghost.style.top = `${ev.clientY - offsetY}px`;
+
+        const rect = scroller.getBoundingClientRect();
+        const relY = ev.clientY - rect.top + scroller.scrollTop;
+        const dropIdx = Math.max(0, Math.min(rows.length - 1, Math.floor(relY / DATA_ROW_HEIGHT)));
+
+        if (dropIdx !== currentDropIdx) {
+          currentDropIdx = dropIdx;
+          setDragState({ rowId, fromIndex: rowIndex, currentDropIndex: dropIdx });
+        }
+
+        // Auto-scroll when mouse is near top/bottom edges
+        const EDGE = 40;
+        const SPEED = 8;
+        cancelAnimationFrame(autoScrollRafRef.current);
+
+        if (ev.clientY < rect.top + EDGE) {
+          const tick = () => {
+            scroller.scrollTop -= SPEED;
+            autoScrollRafRef.current = requestAnimationFrame(tick);
+          };
+          autoScrollRafRef.current = requestAnimationFrame(tick);
+        } else if (ev.clientY > rect.bottom - EDGE) {
+          const tick = () => {
+            scroller.scrollTop += SPEED;
+            autoScrollRafRef.current = requestAnimationFrame(tick);
+          };
+          autoScrollRafRef.current = requestAnimationFrame(tick);
+        }
+      };
+
+      const handleUp = () => {
+        cancelAnimationFrame(autoScrollRafRef.current);
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("mouseup", handleUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        document.body.style.webkitUserSelect = "";
+
+        // Hide the drop indicator immediately
+        setDragState(null);
+
+        if (currentDropIdx !== rowIndex) {
+          // --- Smooth animation: slide ghost to the target row position ---
+          const scrollerRect = scroller.getBoundingClientRect();
+          const targetViewportY =
+            currentDropIdx * DATA_ROW_HEIGHT - scroller.scrollTop + scrollerRect.top;
+
+          ghost.style.transition = "top 150ms ease-out, opacity 150ms ease-out";
+          ghost.style.top = `${targetViewportY}px`;
+          ghost.style.opacity = "0.4";
+
+          const finalDropIdx = currentDropIdx;
+          setTimeout(() => {
+            ghost.remove();
+            if (rowEl.parentElement) rowEl.style.opacity = "";
+            onReorderRow?.(rowId, rowIndex, finalDropIdx);
+          }, 150);
+        } else {
+          // No movement — just clean up
+          ghost.remove();
+          if (rowEl.parentElement) rowEl.style.opacity = "";
+        }
+      };
+
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+    },
+    [canDragRows, gridScrollerRef, rows.length, DATA_ROW_HEIGHT, onReorderRow],
+  );
+
   // === COLUMN HEADER DROPDOWN MENU ===
   const [headerMenuColId, setHeaderMenuColId] = useState<string | null>(null);
   const [headerMenuPosition, setHeaderMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const headerMenuRef = useRef<HTMLDivElement>(null);
   const totalColumnCount = frozenColumns.length + scrollableColumns.length;
   const canModifyField = totalColumnCount > 1;
+
+  // === DUPLICATE FIELD DIALOG ===
+  const [dupFieldDialog, setDupFieldDialog] = useState<{ colId: string; colName: string } | null>(null);
+  const [dupCells, setDupCells] = useState(true);
+  const allColumns = [...frozenColumns, ...scrollableColumns];
 
   const handleHeaderMenuToggle = useCallback((e: React.MouseEvent, colId: string) => {
     if (headerMenuColId === colId) {
@@ -409,6 +547,9 @@ export function GridContainer({
   const [createFieldPosition, setCreateFieldPosition] = useState<{ top: number; left: number } | null>(null);
   const addColButtonRef = useRef<HTMLDivElement>(null);
 
+  // === EDIT FIELD STATE (when "Edit field" is chosen from header menu) ===
+  const [editFieldInfo, setEditFieldInfo] = useState<{ columnId: string; fieldName: string; fieldType: string; numberConfig?: NumberFormatConfig } | null>(null);
+
   const handleAddColClick = useCallback(() => {
     const btn = addColButtonRef.current;
     if (!btn) return;
@@ -420,12 +561,14 @@ export function GridContainer({
       left = rect.right - 400 - 4; // 4px inward (left)
     }
     insertFieldAnchorRef.current = null; // Reset anchor when opening from + button
+    setEditFieldInfo(null); // Ensure not in edit mode
     setCreateFieldPosition({ top: rect.bottom + 2, left }); // 2px down
   }, []);
 
   const handleCloseCreateField = useCallback(() => {
     setCreateFieldPosition(null);
     insertFieldAnchorRef.current = null;
+    setEditFieldInfo(null);
   }, []);
 
   // Wrapped onCreateField that passes insert position if set
@@ -450,12 +593,40 @@ export function GridContainer({
         left = rect.right - 400;
       }
       insertFieldAnchorRef.current = { anchorColId: headerMenuColId, side };
+      setEditFieldInfo(null); // Ensure not in edit mode
       setCreateFieldPosition({ top: rect.bottom + 2, left });
     }
     // Close the header menu
     setHeaderMenuColId(null);
     setHeaderMenuPosition(null);
   }, [headerMenuColId]);
+
+  // Handler for Edit field from header menu
+  const handleEditField = useCallback(() => {
+    if (!headerMenuColId) return;
+    const col = allColumns.find((c) => c.id === headerMenuColId);
+    if (!col) return;
+    // Map DB type to UI label
+    const uiType = col.type === "NUMBER" ? "Number" : "Single line text";
+    // Build number config if applicable
+    const numCfg = col.type === "NUMBER" && col.config
+      ? (col.config as NumberFormatConfig)
+      : undefined;
+    // Position the panel below the header cell
+    const headerCell = document.querySelector(`[data-col-header-id="${headerMenuColId}"]`);
+    if (headerCell) {
+      const rect = headerCell.getBoundingClientRect();
+      let left = rect.left;
+      if (left + 400 > window.innerWidth) {
+        left = rect.right - 400;
+      }
+      setEditFieldInfo({ columnId: headerMenuColId, fieldName: col.name, fieldType: uiType, numberConfig: numCfg });
+      setCreateFieldPosition({ top: rect.bottom + 2, left });
+    }
+    // Close the header menu
+    setHeaderMenuColId(null);
+    setHeaderMenuPosition(null);
+  }, [headerMenuColId, allColumns]);
 
   return (
     <div className={styles.gridContainer} ref={gridFooterRef}>
@@ -650,8 +821,23 @@ export function GridContainer({
                 onCellContextMenu={handleCellContextMenu}
                 isDeleting={deletingRowIds?.has(row.id) ?? false}
                 searchTerm={searchTerm}
+                onRowDragStart={handleRowDragStart}
+                canDragRows={canDragRows}
               />
             ))}
+
+            {/* Drop indicator line (visible during row drag) — highlights the grid line where the top of the row will go */}
+            {dragState && dragState.currentDropIndex !== dragState.fromIndex && (
+              <div
+                className={styles.gridDropIndicator}
+                style={{
+                  top: dragState.currentDropIndex > dragState.fromIndex
+                    ? (dragState.currentDropIndex + 1) * DATA_ROW_HEIGHT - 1
+                    : dragState.currentDropIndex * DATA_ROW_HEIGHT - 1,
+                  width: freezeWidth + scrollableColumnsWidth + 1,
+                }}
+              />
+            )}
 
             {/* Virtual scroll spacer — bottom */}
             {virtualRange.end < rows.length && (
@@ -668,7 +854,7 @@ export function GridContainer({
                 </div>
               </div>
               {/* Scrollable slab next to + button */}
-              <div className={styles.gridAddRowScrollable} style={{ width: scrollableColumnsWidth, ...(frozenColumns.length === 0 ? { borderLeftColor: 'transparent' } : {}) }} />
+              <div className={styles.gridAddRowScrollable} style={{ width: scrollableColumnsWidth + 1, ...(frozenColumns.length === 0 ? { borderLeftColor: 'transparent' } : {}) }} />
             </div>
 
             {/* Bottom spacer (distance between add-row and footer) */}
@@ -731,6 +917,12 @@ export function GridContainer({
           ref={freezePillRef}
           className={styles.gridFreezeLinePill}
         />
+        <div
+          ref={freezeTooltipRef}
+          className={styles.gridFreezeTooltip}
+        >
+          Drag to adjust the number of frozen columns
+        </div>
       </div>
 
       {/* Selection overlay — lives at .gridBody level so it paints above
@@ -907,7 +1099,7 @@ export function GridContainer({
         >
         <ul className={styles.colHeaderMenu}>
           {/* Edit field */}
-          <li className={styles.colHeaderMenuItem}>
+          <li className={styles.colHeaderMenuItem} onClick={handleEditField}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M10.5 1.71045C10.2406 1.71045 9.9813 1.80867 9.7876 2.00525L2.29017 9.50269L2.28931 9.50354C2.10332 9.69048 1.9991 9.94419 2.00001 10.2079V12.9999C2.00007 13.5462 2.45358 13.9998 2.99988 13.9999H5.79212C6.05578 14.0008 6.30942 13.8966 6.49635 13.7107L6.49732 13.7097L13.9948 6.21228C14.3878 5.82489 14.3878 5.17499 13.9948 4.7876L11.2124 2.00525C11.0187 1.80867 10.7594 1.71045 10.5 1.71045ZM10.4999 2.70715C10.4955 2.70269 10.5043 2.70269 10.4999 2.70715L10.5027 2.70972L13.2902 5.49719L13.2927 5.49976C13.2972 5.49534 13.2972 5.50418 13.2927 5.49976L13.2902 5.50269L12 6.79297L9.20704 4L10.4973 2.70972L10.4999 2.70715ZM8.50001 4.70703L11.293 7.5L5.79297 12.9999H3.00013L3.00001 10.207L8.50001 4.70703Z" />
             </svg>
@@ -920,7 +1112,9 @@ export function GridContainer({
           {/* Duplicate field */}
           <li className={styles.colHeaderMenuItem} onClick={() => {
             if (headerMenuColId) {
-              onDuplicateField?.(headerMenuColId);
+              const col = allColumns.find((c) => c.id === headerMenuColId);
+              setDupFieldDialog({ colId: headerMenuColId, colName: col?.name ?? "field" });
+              setDupCells(true);
               setHeaderMenuColId(null);
               setHeaderMenuPosition(null);
             }
@@ -1102,13 +1296,69 @@ export function GridContainer({
         document.body,
       )}
 
-      {/* === Create Field Panel (+ button dropdown) === */}
+      {/* === Create Field Panel (+ button dropdown) / Edit Field === */}
       {createFieldPosition && (
         <CreateFieldPanel
           position={createFieldPosition}
           onClose={handleCloseCreateField}
           onCreateField={handleCreateFieldWrapped}
+          editField={editFieldInfo ?? undefined}
+          onEditFieldSave={editFieldInfo ? (name, numCfg) => {
+            onEditFieldSave?.(editFieldInfo.columnId, name, numCfg);
+          } : undefined}
         />
+      )}
+
+      {/* === Duplicate Field Dialog (portal overlay) === */}
+      {dupFieldDialog && createPortal(
+        <div
+          className={styles.dupFieldOverlay}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setDupFieldDialog(null);
+          }}
+        >
+          <div className={styles.dupFieldDialog}>
+            <div className={styles.dupFieldCloseBtn} onClick={() => setDupFieldDialog(null)}>
+              <svg viewBox="0 0 16 16" fill="currentColor" className={styles.dupFieldCloseIcon} style={{ shapeRendering: "geometricPrecision" }}>
+                <path fillRule="nonzero" d="M12.3536 3.64645C12.1583 3.45118 11.8417 3.45118 11.6464 3.64645L8 7.29289L4.35355 3.64645C4.15829 3.45118 3.84171 3.45118 3.64645 3.64645C3.45118 3.84171 3.45118 4.15829 3.64645 4.35355L7.29289 8L3.64645 11.6464C3.45118 11.8417 3.45118 12.1583 3.64645 12.3536C3.84171 12.5488 4.15829 12.5488 4.35355 12.3536L8 8.70711L11.6464 12.3536C11.8417 12.5488 12.1583 12.5488 12.3536 12.3536C12.5488 12.1583 12.5488 11.8417 12.3536 11.6464L8.70711 8L12.3536 4.35355C12.5488 4.15829 12.5488 3.84171 12.3536 3.64645Z" />
+              </svg>
+            </div>
+            <p className={styles.dupFieldTitle}>Duplicate {dupFieldDialog.colName}</p>
+            <div className={styles.dupFieldToggleRow}>
+              <div
+                className={styles.dupFieldTogglePill}
+                style={{
+                  backgroundColor: dupCells ? "rgb(4, 138, 14)" : "rgba(0, 0, 0, 0.1)",
+                  justifyContent: dupCells ? "flex-end" : "flex-start",
+                }}
+                onClick={() => setDupCells((v) => !v)}
+              >
+                <div className={styles.dupFieldToggleCircle} />
+              </div>
+              <span className={styles.dupFieldToggleLabel}>Duplicate cells</span>
+            </div>
+            <div className={styles.dupFieldActions}>
+              <button
+                type="button"
+                className={styles.dupFieldCancelBtn}
+                onClick={() => setDupFieldDialog(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.dupFieldConfirmBtn}
+                onClick={() => {
+                  onDuplicateField?.(dupFieldDialog.colId, dupCells);
+                  setDupFieldDialog(null);
+                }}
+              >
+                Duplicate field
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

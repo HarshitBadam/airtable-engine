@@ -15,7 +15,7 @@ export const tableRouter = createTRPCRouter({
 
       return ctx.db.table.findMany({
         where: { baseId: input.baseId },
-        orderBy: { updatedAt: "desc" },
+        orderBy: { createdAt: "asc" },
       });
     }),
 
@@ -31,7 +31,7 @@ export const tableRouter = createTRPCRouter({
       });
       if (!base) throw new Error("Base not found");
 
-      const seedCount = 30;
+      const seedCount = 20;
 
       const defaultViewConfig: ViewConfig = {
         search: "",
@@ -50,18 +50,10 @@ export const tableRouter = createTRPCRouter({
           },
         });
 
-        // Create 10 default columns (mix of TEXT and NUMBER)
+        // Create 2 default columns: # (auto-number) and Name
         const colDefs: { name: string; type: "TEXT" | "NUMBER"; order: number }[] = [
-          { name: "Name",       type: "TEXT",   order: 1 },
-          { name: "Email",      type: "TEXT",   order: 2 },
-          { name: "Phone",      type: "TEXT",   order: 3 },
-          { name: "Company",    type: "TEXT",   order: 4 },
-          { name: "City",       type: "TEXT",   order: 5 },
-          { name: "Country",    type: "TEXT",   order: 6 },
-          { name: "Amount",     type: "NUMBER", order: 7 },
-          { name: "Rating",     type: "NUMBER", order: 8 },
-          { name: "Notes",      type: "TEXT",   order: 9 },
-          { name: "Status",     type: "TEXT",   order: 10 },
+          { name: "#",    type: "NUMBER", order: 1 },
+          { name: "Name", type: "TEXT",   order: 2 },
         ];
 
         const cols = await Promise.all(
@@ -83,20 +75,11 @@ export const tableRouter = createTRPCRouter({
           },
         });
 
-        // Seed rows with data for all 10 columns
-        const statuses = ["Active", "Inactive", "Pending", "Archived"];
+        // Seed 20 rows with auto-number ID and a faker name
         const rowsData = Array.from({ length: seedCount }, (_, i) => {
           const cells: Record<string, string | number> = {
-            [cols[0]!.id]: faker.person.fullName(),
-            [cols[1]!.id]: faker.internet.email(),
-            [cols[2]!.id]: faker.phone.number(),
-            [cols[3]!.id]: faker.company.name(),
-            [cols[4]!.id]: faker.location.city(),
-            [cols[5]!.id]: faker.location.country(),
-            [cols[6]!.id]: faker.number.int({ min: 100, max: 99999 }),
-            [cols[7]!.id]: faker.number.int({ min: 1, max: 5 }),
-            [cols[8]!.id]: faker.lorem.sentence(),
-            [cols[9]!.id]: statuses[i % statuses.length]!,
+            [cols[0]!.id]: i + 1,
+            [cols[1]!.id]: faker.person.fullName(),
           };
 
           return {
@@ -121,5 +104,40 @@ export const tableRouter = createTRPCRouter({
       });
 
       return result;
+    }),
+
+  rename: protectedProcedure
+    .input(z.object({ id: z.string(), name: z.string().min(1).max(80) }))
+    .mutation(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.id },
+        include: { base: { select: { ownerId: true } } },
+      });
+      if (!table || table.base.ownerId !== ctx.session.user.id) {
+        throw new Error("Table not found");
+      }
+      return ctx.db.table.update({
+        where: { id: input.id },
+        data: { name: input.name },
+      });
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.string(), baseId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify ownership
+      const base = await ctx.db.base.findFirst({
+        where: { id: input.baseId, ownerId: ctx.session.user.id },
+        select: { id: true },
+      });
+      if (!base) throw new Error("Base not found");
+
+      // Ensure at least one table remains
+      const count = await ctx.db.table.count({
+        where: { baseId: input.baseId },
+      });
+      if (count <= 1) throw new Error("Cannot delete the last table");
+
+      return ctx.db.table.delete({ where: { id: input.id } });
     }),
 });

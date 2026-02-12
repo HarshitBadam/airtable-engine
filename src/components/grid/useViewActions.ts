@@ -16,9 +16,11 @@ export function useViewActions(tableId: string) {
   const filterConjunction = useGridStore((s) => s.filterConjunction);
   const sorts = useGridStore((s) => s.sorts);
   const savedSorts = useGridStore((s) => s.savedSorts);
+  const permanentSorts = useGridStore((s) => s.permanentSorts);
   const autoSort = useGridStore((s) => s.autoSort);
   const hiddenColumnIds = useGridStore((s) => s.hiddenColumnIds);
   const columnOrderIds = useGridStore((s) => s.columnOrderIds);
+  const rowOrderIds = useGridStore((s) => s.rowOrderIds);
 
   const isDirty = saved !== cur;
 
@@ -36,8 +38,8 @@ export function useViewActions(tableId: string) {
     isDirty,
     save: () => {
       if (!activeViewId) return;
-      // Always persist current live sorts and filters — they're reversible
-      // but should survive page refreshes.
+      // Persist the full view config including permanentSorts, autoSort, and rowOrderIds.
+      // Omitting them would cause them to revert to defaults on save.
       update.mutate({
         viewId: activeViewId,
         config: {
@@ -45,8 +47,11 @@ export function useViewActions(tableId: string) {
           filters,
           filterConjunction,
           sorts,
+          permanentSorts,
+          autoSort,
           hiddenColumnIds,
           columnOrderIds,
+          rowOrderIds,
         },
       });
     },

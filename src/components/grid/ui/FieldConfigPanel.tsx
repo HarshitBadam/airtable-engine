@@ -336,6 +336,14 @@ interface FieldConfigPanelProps {
   onBack: () => void;
   onClose: () => void;
   onCreateField?: (name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig) => void;
+  /** When true, panel is in "edit existing field" mode — type selector disabled, button says "Save" */
+  isEditMode?: boolean;
+  /** Pre-fill field name when editing */
+  initialFieldName?: string;
+  /** Pre-fill number config when editing a Number field */
+  initialNumberConfig?: NumberFormatConfig;
+  /** Called when saving in edit mode (name + optional number config) */
+  onEditFieldSave?: (name: string, numberConfig?: NumberFormatConfig) => void;
 }
 
 export function FieldConfigPanel({
@@ -344,21 +352,27 @@ export function FieldConfigPanel({
   onBack,
   onClose,
   onCreateField,
+  isEditMode,
+  initialFieldName,
+  initialNumberConfig,
+  onEditFieldSave,
 }: FieldConfigPanelProps) {
-  const [fieldName, setFieldName] = useState("");
+  const [fieldName, setFieldName] = useState(initialFieldName ?? "");
   const [defaultValue, setDefaultValue] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Number-specific state
-  const [showThousandsSep, setShowThousandsSep] = useState(true);
-  const [allowNegative, setAllowNegative] = useState(true);
+  // Number-specific state (pre-fill from initialNumberConfig when editing)
+  const [showThousandsSep, setShowThousandsSep] = useState(initialNumberConfig?.showThousands ?? true);
+  const [allowNegative, setAllowNegative] = useState(initialNumberConfig?.allowNegative ?? true);
 
   // Number dropdown state
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
-  const [selectedDecimal, setSelectedDecimal] = useState<string>("1");
-  const [selectedThousands, setSelectedThousands] = useState<string>("Local");
-  const [selectedLargeNum, setSelectedLargeNum] = useState<string | null>(null);
+  const [selectedDecimal, setSelectedDecimal] = useState<string>(
+    initialNumberConfig?.decimalPlaces !== undefined ? String(initialNumberConfig.decimalPlaces) : "1"
+  );
+  const [selectedThousands, setSelectedThousands] = useState<string>(initialNumberConfig?.thousandsSep ?? "Local");
+  const [selectedLargeNum, setSelectedLargeNum] = useState<string | null>(initialNumberConfig?.largeNumAbbrev ?? null);
 
   const toggleDropdown = useCallback(
     (id: string) => setOpenDropdown((prev) => (prev === id ? null : id)),
@@ -404,7 +418,11 @@ export function FieldConfigPanel({
         }
       : undefined;
 
-    onCreateField?.(fieldName, fieldType, defaultValue, numConfig);
+    if (isEditMode) {
+      onEditFieldSave?.(fieldName, numConfig);
+    } else {
+      onCreateField?.(fieldName, fieldType, defaultValue, numConfig);
+    }
     onClose();
   };
 
@@ -426,7 +444,10 @@ export function FieldConfigPanel({
           value={fieldName}
           onChange={(e) => setFieldName(e.target.value)}
         />
-        <div className={styles.configTypeSelector} onClick={onBack}>
+        <div
+          className={`${styles.configTypeSelector}${isEditMode ? ` ${styles.configTypeSelectorDisabled}` : ""}`}
+          onClick={isEditMode ? undefined : onBack}
+        >
           <span className={styles.configTypeSelectorIcon}>{fieldTypeIcon}</span>
           <span className={styles.configTypeSelectorText}>{fieldType}</span>
           <span className={styles.configTypeSelectorChevron}>
@@ -588,7 +609,7 @@ export function FieldConfigPanel({
             className={styles.configCreateBtn}
             onClick={handleCreate}
           >
-            <span className={styles.configCreateBtnText}>Create field</span>
+            <span className={styles.configCreateBtnText}>{isEditMode ? "Save" : "Create field"}</span>
           </button>
         </div>
       </div>

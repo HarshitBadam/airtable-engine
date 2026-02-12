@@ -37,6 +37,9 @@ export const columnRouter = createTRPCRouter({
           })
           .optional(),
         viewId: z.string().optional(),
+        /** When inserting left/right, the anchor column and side */
+        anchorColumnId: z.string().optional(),
+        insertSide: z.enum(["left", "right"]).optional(),
         /** When duplicating a field, the source column whose cell data should be copied */
         sourceColumnId: z.string().optional(),
       }),
@@ -121,39 +124,55 @@ export const columnRouter = createTRPCRouter({
           `);
         }
 
-        // If a viewId is provided, add the new column to that view's columnOrderIds.
-        // This makes field creation view-scoped: only the target view (and future
-        // forks of it) will include the new column.
-        if (input.viewId) {
-          const view = await tx.view.findFirst({
-            where: { id: input.viewId, tableId: input.tableId },
-            select: { id: true, config: true },
-          });
-          if (view) {
-            const config = (view.config as Record<string, unknown>) ?? {};
-            const existingOrder = Array.isArray(config.columnOrderIds)
-              ? (config.columnOrderIds as string[])
-              : [];
+        // Column creation is table-level: the new column must appear in ALL views.
+        // If an insert position is specified (anchor + side), place the new column
+        // relative to the anchor in EVERY view (since the anchor exists in all views).
+        // Otherwise, append at the end.
+        const allViews = await tx.view.findMany({
+          where: { tableId: input.tableId },
+          select: { id: true, config: true },
+        });
 
-            let newOrder: string[];
-            if (existingOrder.length === 0) {
-              // Lazy-init: populate with ALL current table columns (includes the
-              // just-created one since we're inside the same transaction).
-              const allCols = await tx.column.findMany({
-                where: { tableId: input.tableId },
-                orderBy: { order: "asc" },
-                select: { id: true },
-              });
-              newOrder = allCols.map((c) => c.id);
+        for (const view of allViews) {
+          const config = (view.config as Record<string, unknown>) ?? {};
+          const existingOrder = Array.isArray(config.columnOrderIds)
+            ? (config.columnOrderIds as string[])
+            : [];
+
+          let newOrder: string[];
+          if (existingOrder.length === 0) {
+            // Lazy-init: populate with ALL current table columns (includes the
+            // just-created one since we're inside the same transaction).
+            const allCols = await tx.column.findMany({
+              where: { tableId: input.tableId },
+              orderBy: { order: "asc" },
+              select: { id: true },
+            });
+            newOrder = allCols.map((c) => c.id);
+          } else if (existingOrder.includes(col.id)) {
+            // Already present (safety check)
+            newOrder = existingOrder;
+          } else if (input.anchorColumnId && input.insertSide) {
+            // Insert relative to the anchor column in this view's order.
+            // The anchor column exists in all views since columns are table-level.
+            const anchorIdx = existingOrder.indexOf(input.anchorColumnId);
+            if (anchorIdx !== -1) {
+              newOrder = [...existingOrder];
+              const insertIdx = input.insertSide === "right" ? anchorIdx + 1 : anchorIdx;
+              newOrder.splice(insertIdx, 0, col.id);
             } else {
+              // Anchor not found in this view (shouldn't happen), append
               newOrder = [...existingOrder, col.id];
             }
-
-            await tx.view.update({
-              where: { id: view.id },
-              data: { config: { ...config, columnOrderIds: newOrder } as unknown as object },
-            });
+          } else {
+            // No insert position — append at end
+            newOrder = [...existingOrder, col.id];
           }
+
+          await tx.view.update({
+            where: { id: view.id },
+            data: { config: { ...config, columnOrderIds: newOrder } as unknown as object },
+          });
         }
 
         return col;
@@ -332,6 +351,50 @@ export const columnRouter = createTRPCRouter({
       });
 
       return { removed: true, columnId: input.columnId };
+    }),
+
+  /**
+   * Update a column's name and/or number config.
+   */
+  update: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        columnId: z.string(),
+        name: z.string().min(1).max(80).optional(),
+        numberConfig: z
+          .object({
+            decimalPlaces: z.number().int().min(0).max(8),
+            thousandsSep: z.string(),
+            showThousands: z.boolean(),
+            largeNumAbbrev: z.string().nullable(),
+            allowNegative: z.boolean(),
+          })
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true },
+      });
+      if (!table) throw new Error("Table not found");
+
+      const col = await ctx.db.column.findFirst({
+        where: { id: input.columnId, tableId: input.tableId },
+        select: { id: true },
+      });
+      if (!col) throw new Error("Column not found");
+
+      const data: Record<string, unknown> = {};
+      if (input.name !== undefined) data.name = input.name;
+      if (input.numberConfig !== undefined) data.config = input.numberConfig as unknown as object;
+
+      return ctx.db.column.update({
+        where: { id: input.columnId },
+        data,
+        select: { id: true, name: true, type: true, order: true, defaultValue: true, config: true },
+      });
     }),
 
   ensureIndexes: protectedProcedure

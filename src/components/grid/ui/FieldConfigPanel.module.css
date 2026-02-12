@@ -107,6 +107,13 @@
   background-color: rgb(246, 248, 252);
 }
 
+/* Disabled state for edit mode — greyed out, no interaction */
+.configTypeSelectorDisabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
 /* Field type icon (left, e.g. "A" for single line text) */
 .configTypeSelectorIcon {
   display: block;

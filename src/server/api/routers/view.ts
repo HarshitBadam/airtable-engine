@@ -10,6 +10,7 @@ const viewConfigSchema = z.object({
   autoSort: z.boolean().default(true),
   hiddenColumnIds: z.array(z.string()),
   columnOrderIds: z.array(z.string()).default([]),
+  rowOrderIds: z.array(z.string()).default([]),
 });
 
 export const viewRouter = createTRPCRouter({

@@ -59,12 +59,48 @@ export function useGridRows(tableId: string) {
     placeholderData: keepPreviousData,
   });
 
+  // Per-view row ordering: when the user has manually reordered rows via drag,
+  // rowOrderIds defines the display order. We apply it client-side.
+  const rowOrderIds = useGridStore((s) => s.rowOrderIds);
+
   // Stabilise `rows` — flatMap creates a new array on every render; useMemo
   // ensures the reference only changes when the underlying query data changes.
-  const rows = useMemo(
-    () => q.data?.pages.flatMap((p) => p.items) ?? [],
-    [q.data],
-  );
+  // If the view has a custom rowOrderIds, reorder the rows accordingly.
+  const rows = useMemo(() => {
+    const flat = q.data?.pages.flatMap((p) => p.items) ?? [];
+
+    // Only apply custom row order when:
+    // 1. rowOrderIds is non-empty (user has manually reordered)
+    // 2. No sorts or search are active (custom order only applies in natural view)
+    if (rowOrderIds.length === 0 || effectiveSorts.length > 0 || debouncedSearch.trim()) {
+      return flat;
+    }
+
+    // Build a map for O(1) lookup
+    const rowMap = new Map(flat.map((r) => [r.id, r]));
+
+    // Reorder: known rows first (in custom order), then any new rows at the end
+    const ordered: typeof flat = [];
+    const seen = new Set<string>();
+
+    for (const id of rowOrderIds) {
+      const r = rowMap.get(id);
+      if (r) {
+        ordered.push(r);
+        seen.add(id);
+      }
+    }
+
+    // Append rows not in the custom order (newly added rows)
+    for (const r of flat) {
+      if (!seen.has(r.id)) {
+        ordered.push(r);
+      }
+    }
+
+    return ordered;
+  }, [q.data, rowOrderIds, effectiveSorts.length, debouncedSearch]);
+
   const totalCount: number = q.data?.pages?.[0]?.totalCount ?? 0;
 
   return { q, rows, totalCount, input, debouncedSearch };

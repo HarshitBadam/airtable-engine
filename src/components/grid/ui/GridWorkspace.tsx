@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { skipToken } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
@@ -96,13 +97,16 @@ interface GridWorkspaceProps {
   tableId: string;
 }
 
-// Type for UI-only table management
+// Type for table items (from DB)
 interface TableItem {
   id: string;
   name: string;
 }
 
 export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
+  const router = useRouter();
+  const utils = api.useUtils();
+
   // === LOCAL STATE ===
   const [isTableDropdownOpen, setIsTableDropdownOpen] = useState(false);
   const [isAddOrImportDropdownOpen, setIsAddOrImportDropdownOpen] = useState(false);
@@ -119,12 +123,16 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const [hoveredTableId, setHoveredTableId] = useState<string | null>(null);
   const [tableDropdownAlignRight, setTableDropdownAlignRight] = useState(false);
   
-  // UI-only table management state
-  const [tables, setTables] = useState<TableItem[]>([
-    { id: '1', name: 'Table 1' }
-  ]);
-  const [activeTableId, setActiveTableId] = useState('1');
-  const [tableCounter, setTableCounter] = useState(1);
+  // DB-backed table list
+  const tablesQuery = api.table.listByBase.useQuery(
+    { baseId },
+    { staleTime: 30_000 },
+  );
+  const tables: TableItem[] = useMemo(
+    () => (tablesQuery.data ?? []).map((t) => ({ id: t.id, name: t.name })),
+    [tablesQuery.data],
+  );
+  const activeTableId = tableId; // always driven by the URL
   
   // Table rename popup state
   const [isRenamePopupOpen, setIsRenamePopupOpen] = useState(false);
@@ -136,13 +144,14 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const [isClearDataModalOpen, setIsClearDataModalOpen] = useState(false);
 
   // Freeze column divider state
-  const [frozenColCount, setFrozenColCount] = useState(0); // number of frozen data columns
+  const [frozenColCount, setFrozenColCount] = useState(1); // number of frozen data columns (default: freeze first field)
   const isDraggingFreezeRef = useRef(false);
   const freezeDragStartX = useRef(0);
   const freezeDragStartWidth = useRef(0);
   const gridFooterRef = useRef<HTMLDivElement>(null);
   const gridBodyRef = useRef<HTMLDivElement>(null);
   const freezePillRef = useRef<HTMLDivElement>(null);
+  const freezeTooltipRef = useRef<HTMLDivElement>(null);
   const freezeLineRef = useRef<HTMLDivElement>(null);
   const gridScrollerRef = useRef<HTMLDivElement>(null);
   const scrollShadowRef = useRef<HTMLDivElement>(null);
@@ -178,36 +187,49 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // Ref for GridBar imperative handle (to open filter/sort panels programmatically)
   const gridBarRef = useRef<GridBarHandle>(null);
 
-  // Add a new table and open rename popup
-  const handleAddTable = () => {
-    const newId = String(tableCounter + 1);
-    const newName = `Table ${tableCounter + 1}`;
-    setTables(prev => [...prev, { id: newId, name: newName }]);
-    setActiveTableId(newId);
-    setTableCounter(prev => prev + 1);
-    
-    // Open rename popup after a short delay to allow DOM to update
-    setTimeout(() => {
-      const newTabButton = document.querySelector(`[data-table-id="${newId}"]`);
-      if (newTabButton) {
-        const tabRect = newTabButton.getBoundingClientRect();
-        const transformOffset = 71; // CSS transform: translateX(-72px)
-        const minLeftMargin = 8; // Minimum distance from left edge of viewport
-        
-        // Calculate left position, ensuring popup stays at least 12px from left edge
-        // Since transform shifts -70px, we need left >= 82 to maintain 12px margin
-        const minLeft = minLeftMargin + transformOffset;
-        const left = Math.max(tabRect.left, minLeft);
-        
-        setRenamePopupPosition({
-          top: tabRect.bottom + 8,
-          left: left,
-        });
-        setRenameTableName(newName);
-        setRenameRecordName('Record');
-        setIsRenamePopupOpen(true);
+  // --- tRPC mutations for table management ---
+  const createTableMut = api.table.create.useMutation({
+    onSuccess: async (result) => {
+      await utils.table.listByBase.invalidate({ baseId });
+      const newId = result.table.id;
+      router.push(`/bases/${baseId}/tables/${newId}`);
+      // Open rename popup after navigation settles
+      setTimeout(() => {
+        const newTabButton = document.querySelector(`[data-table-id="${newId}"]`);
+        if (newTabButton) {
+          const tabRect = newTabButton.getBoundingClientRect();
+          const transformOffset = 71;
+          const minLeftMargin = 8;
+          const minLeft = minLeftMargin + transformOffset;
+          const left = Math.max(tabRect.left, minLeft);
+          setRenamePopupPosition({ top: tabRect.bottom + 8, left });
+          setRenameTableName(result.table.name);
+          setRenameRecordName('Record');
+          setIsRenamePopupOpen(true);
+        }
+      }, 150);
+    },
+  });
+
+  const renameTableMut = api.table.rename.useMutation({
+    onSuccess: () => utils.table.listByBase.invalidate({ baseId }),
+  });
+
+  const deleteTableMut = api.table.delete.useMutation({
+    onSuccess: async (_, variables) => {
+      await utils.table.listByBase.invalidate({ baseId });
+      // Navigate to first remaining table
+      const remaining = tables.filter((t) => t.id !== variables.id);
+      if (remaining.length > 0) {
+        router.push(`/bases/${baseId}/tables/${remaining[0]!.id}`);
       }
-    }, 50);
+    },
+  });
+
+  // Add a new table via DB and navigate to it
+  const handleAddTable = () => {
+    const newName = `Table ${tables.length + 1}`;
+    createTableMut.mutate({ baseId, name: newName });
   };
   
   // Handle opening rename popup from dropdown menu
@@ -237,12 +259,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     }
   };
   
-  // Handle save rename
+  // Handle save rename — persist to DB
   const handleSaveRename = () => {
-    if (renameTableName.trim()) {
-      setTables(prev => prev.map(t => 
-        t.id === activeTableId ? { ...t, name: renameTableName.trim() } : t
-      ));
+    const trimmed = renameTableName.trim();
+    if (trimmed) {
+      renameTableMut.mutate({ id: activeTableId, name: trimmed });
     }
     setIsRenamePopupOpen(false);
     setRenamePopupPosition(null);
@@ -292,19 +313,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     setDeleteTablePopupPosition(null);
   };
   
-  // Handle confirming delete table
+  // Handle confirming delete table — persist to DB
   const handleDeleteTable = () => {
     if (tables.length <= 1) return;
-    
-    // Remove the active table
-    const newTables = tables.filter(t => t.id !== activeTableId);
-    setTables(newTables);
-    
-    // Set active to the first remaining table
-    if (newTables.length > 0) {
-      setActiveTableId(newTables[0]!.id);
-    }
-    
+    deleteTableMut.mutate({ id: activeTableId, baseId });
     setIsDeleteTablePopupOpen(false);
     setDeleteTablePopupPosition(null);
   };
@@ -391,6 +403,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // === ROW DATA ===
   const { rows, totalCount, q: rowsQ, input: rowQueryInput, debouncedSearch } = useGridRows(tableId);
   rowsRef.current = rows;
+  // Stable ref so async callbacks (e.g. insert above/below onSuccess) always read the latest input
+  const rowQueryInputRef = useRef(rowQueryInput);
+  rowQueryInputRef.current = rowQueryInput;
   const { commit, cancel } = useCellEditing(tableId, rowQueryInput);
 
   // Search state for FindBar wiring
@@ -403,9 +418,15 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const toggleHiddenColumn = useGridStore((s) => s.toggleHiddenColumn);
   const setHiddenColumnIds = useGridStore((s) => s.setHiddenColumnIds);
   const columnOrderIds = useGridStore((s) => s.columnOrderIds);
+  const rowOrderIdsForSave = useGridStore((s) => s.rowOrderIds);
+  const setRowOrderIdsTop = useGridStore((s) => s.setRowOrderIds);
   const filterConditions = useGridStore((s) => s.filterConditions);
   const setFilterConditions = useGridStore((s) => s.setFilterConditions);
   const setColumnOrderIds = useGridStore((s) => s.setColumnOrderIds);
+
+  // Ref so mutation callbacks (which close over stale renders) always read the latest rowOrderIds
+  const rowOrderIdsRef = useRef(rowOrderIdsForSave);
+  rowOrderIdsRef.current = rowOrderIdsForSave;
 
   // Stable refs for callbacks passed to memoized GridRow (avoids breaking memo on every render)
   const commitRef = useRef(commit);
@@ -647,10 +668,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           autoSort: newAutoSort,
           hiddenColumnIds,
           columnOrderIds,
+          rowOrderIds: rowOrderIdsForSave,
         },
       });
     }
-  }, [autoSort, setAutoSort, activeViewIdFromStore, sortSaveMut, searchForSave, filtersForSave, filterConjunctionForSave, currentSorts, permanentSorts, hiddenColumnIds, columnOrderIds]);
+  }, [autoSort, setAutoSort, activeViewIdFromStore, sortSaveMut, searchForSave, filtersForSave, filterConjunctionForSave, currentSorts, permanentSorts, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave]);
 
   // "Sort" button (autoSort=false): apply staged entries as permanent sorts
   const handleSaveSorts = useCallback(() => {
@@ -669,9 +691,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         autoSort: false,
         hiddenColumnIds,
         columnOrderIds,
+        rowOrderIds: rowOrderIdsForSave,
       },
     });
-  }, [activeViewIdFromStore, currentSorts, searchForSave, filtersForSave, filterConjunctionForSave, hiddenColumnIds, columnOrderIds, setPermanentSorts, sortSaveMut]);
+  }, [activeViewIdFromStore, currentSorts, searchForSave, filtersForSave, filterConjunctionForSave, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave, setPermanentSorts, sortSaveMut]);
 
   // "Cancel" button (autoSort=false): revert staged entries to permanentSorts
   const handleCancelSorts = useCallback(() => {
@@ -701,6 +724,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     autoSort,
     hiddenColumnIds,
     columnOrderIds,
+    rowOrderIds: rowOrderIdsForSave,
   });
   latestConfigRef.current = {
     search: searchForSave,
@@ -711,6 +735,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     autoSort,
     hiddenColumnIds,
     columnOrderIds,
+    rowOrderIds: rowOrderIdsForSave,
   };
 
   // Per-view baseline to distinguish "view loaded" from "user changed layout"
@@ -720,7 +745,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   useEffect(() => {
     if (!activeViewIdFromStore) return;
 
-    const layoutKey = `${activeViewIdFromStore}|${columnOrderIds.join(",")}|${hiddenColumnIds.join(",")}`;
+    const layoutKey = `${activeViewIdFromStore}|${columnOrderIds.join(",")}|${hiddenColumnIds.join(",")}|${rowOrderIdsForSave.join(",")}`;
 
     // On view switch (or first render), record the baseline and skip
     if (!layoutBaselineRef.current.startsWith(activeViewIdFromStore + "|")) {
@@ -746,7 +771,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     return () => clearTimeout(layoutTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnOrderIds, hiddenColumnIds, activeViewIdFromStore]);
+  }, [columnOrderIds, hiddenColumnIds, rowOrderIdsForSave, activeViewIdFromStore]);
 
   // === AUTO-SAVE FILTER CHANGES ===
   // Filters are "temporary" (reversible) but persist across sessions — auto-save
@@ -1138,10 +1163,14 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const movePill = useCallback((clientY: number) => {
     const body = gridBodyRef.current;
     const pill = freezePillRef.current;
+    const tooltip = freezeTooltipRef.current;
     if (!body || !pill) return;
     const rect = body.getBoundingClientRect();
     const y = Math.max(0, Math.min(clientY - rect.top, rect.height));
     pill.style.top = `${y}px`;
+    if (tooltip) {
+      tooltip.style.top = `${y}px`;
+    }
   }, []);
 
   const handleFreezeDragStart = useCallback((e: React.MouseEvent) => {
@@ -1386,7 +1415,6 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   }, [rows.length]);
 
   // Fetch views for this table (skip if tableId is the "default" sentinel)
-  const utils = api.useUtils();
   const viewsQ = api.view.list.useQuery(
     isValidTable ? { tableId } : skipToken,
     { staleTime: 60_000 },
@@ -1442,9 +1470,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       // (which snaps to views[0] when activeViewId isn't found) doesn't
       // reset us before the invalidation resolves.
       utils.view.list.setData({ tableId }, (old) => {
-        if (!old) return [newView];
+        if (!old) return undefined;
         if (old.some((v) => v.id === newView.id)) return old;
-        return [...old, newView];
+        return [...old, { ...newView, createdAt: new Date(), updatedAt: new Date() }];
       });
       setActiveViewId(newView.id);
       setIsCreateViewBoxOpen(false);
@@ -1511,86 +1539,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // === ROW MUTATIONS ===
   const addRowMut = api.row.addMany.useMutation();
 
-  // Ref to track the ID of a just-inserted row so the auto-edit effect can find it
-  const newRowEditIdRef = useRef<string | null>(null);
-  // Maps temp optimistic IDs to real server IDs after mutation succeeds
-  const tempToRealIdRef = useRef<{ tempId: string; realId: string } | null>(null);
-
-  // Insert row — optimistic: inject a placeholder row into cache immediately
-  const insertRowMut = api.row.insertAt.useMutation({
-    onMutate: async (vars) => {
-      await utils.row.infinite.cancel(rowQueryInput);
-      const prev = utils.row.infinite.getInfiniteData(rowQueryInput);
-
-      const tempId = `__temp_${Date.now()}`;
-
-      // Build a placeholder row matching the shape from row.infinite
-      const tempRow = {
-        id: tempId,
-        rowIndex: vars.atIndex,
-        cells: {},
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
-        if (!old) return old;
-
-        let inserted = false;
-        return {
-          ...old,
-          pages: old.pages.map((page, pageIdx) => {
-            const newItems: typeof page.items = [];
-
-            for (const r of page.items) {
-              // Insert the temp row right before the first row at or above atIndex
-              if (!inserted && r.rowIndex >= vars.atIndex) {
-                newItems.push(tempRow as typeof r);
-                inserted = true;
-              }
-              // Shift existing rows at or above atIndex up by 1
-              newItems.push(
-                r.rowIndex >= vars.atIndex
-                  ? { ...r, rowIndex: r.rowIndex + 1 }
-                  : r,
-              );
-            }
-
-            // If not inserted yet (all rows have lower indices), append at end
-            if (!inserted && pageIdx === old.pages.length - 1) {
-              newItems.push(tempRow as typeof page.items[0]);
-              inserted = true;
-            }
-
-            return {
-              ...page,
-              items: newItems,
-              totalCount: pageIdx === 0 ? page.totalCount + 1 : page.totalCount,
-            };
-          }),
-        };
-      });
-
-      // Immediately schedule auto-edit for the temp row
-      newRowEditIdRef.current = tempId;
-
-      return { prev, tempId };
-    },
-    onError: (_e, _v, ctx) => {
-      newRowEditIdRef.current = null;
-      if (ctx?.prev) {
-        utils.row.infinite.setInfiniteData(rowQueryInput, ctx.prev);
-      }
-    },
-    onSuccess: (data, _vars, ctx) => {
-      // Map temp → real ID so the auto-edit effect (and any active editing state) uses the real ID
-      if (ctx?.tempId) {
-        tempToRealIdRef.current = { tempId: ctx.tempId, realId: data.id };
-      }
-      // Re-sync with server for accurate data
-      void utils.row.infinite.invalidate(rowQueryInput);
-    },
-  });
+  // (Insert above/below uses addRowMut + insertRowAndPosition helper below)
 
   // Duplicate row — optimistic: clone the row right below the source
   const duplicateRowMut = api.row.duplicateAt.useMutation({
@@ -1649,14 +1598,25 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         };
       });
 
-      return { prev };
+      // Pass the source rowId through context so onSuccess can update rowOrderIds
+      return { prev, sourceRowId: vars.rowId };
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) {
         utils.row.infinite.setInfiniteData(rowQueryInput, ctx.prev);
       }
     },
-    onSuccess: () => {
+    onSuccess: (data, _vars, ctx) => {
+      // If the view has a custom rowOrderIds, insert the duplicate right after the source row
+      const currentOrder = rowOrderIdsRef.current;
+      if (ctx?.sourceRowId && currentOrder.length > 0) {
+        const order = [...currentOrder];
+        const sourceIdx = order.indexOf(ctx.sourceRowId);
+        if (sourceIdx !== -1) {
+          order.splice(sourceIdx + 1, 0, data.id);
+          setRowOrderIdsTop(order);
+        }
+      }
       void utils.row.infinite.invalidate(rowQueryInput);
     },
   });
@@ -1679,6 +1639,43 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       });
     },
   });
+
+  // Row reordering is view-scoped: we rearrange the view's rowOrderIds
+  // instead of modifying the global rowIndex in the database.
+  // rowOrderIdsForSave and setRowOrderIdsTop are already declared at the top of the component.
+
+  // Determine whether drag-to-reorder should be active:
+  // Only when there are no active sorts (autoSort=true with sorts) and no active filters.
+  const canDragRows = !hasTemporarySorts && filtersForSave.length === 0;
+
+  const handleReorderRow = useCallback(
+    (rowId: string, fromVisualIdx: number, toVisualIdx: number) => {
+      if (fromVisualIdx === toVisualIdx) return;
+
+      // Build the current display-order row IDs.
+      // If rowOrderIds is empty (no custom order yet), lazy-initialize from loaded rows.
+      let currentOrder = rowOrderIdsForSave.length > 0
+        ? [...rowOrderIdsForSave]
+        : rows.map((r) => r.id);
+
+      // Ensure the dragged row exists in the order
+      const fromIdx = currentOrder.indexOf(rowId);
+      if (fromIdx === -1) return;
+
+      // Remove from old position and insert at new position
+      currentOrder.splice(fromIdx, 1);
+      const insertAt = Math.min(toVisualIdx, currentOrder.length);
+      currentOrder.splice(insertAt, 0, rowId);
+
+      // Update the store (triggers auto-save via the layout effect).
+      // useGridRows applies rowOrderIds client-side, so the grid re-renders immediately.
+      // IMPORTANT: We do NOT modify the TanStack Query cache here because
+      // the cache is shared across views (keyed by tableId + filters + sorts,
+      // not by viewId). Modifying it would make row reordering leak into other views.
+      setRowOrderIdsTop(currentOrder);
+    },
+    [rows, rowOrderIdsForSave, setRowOrderIdsTop],
+  );
 
   // === COLUMN MUTATIONS ===
 
@@ -1863,44 +1860,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     },
   });
 
-  // Remove column from view — optimistic: strip from store INSTANTLY, then persist to backend
-  const removeFromViewMut = api.column.removeFromView.useMutation({
-    onMutate: (vars) => {
-      // Snapshot previous Zustand state for rollback
-      const prevOrderIds = columnOrderIdsRef.current;
-      const prevHiddenIds = hiddenColumnIdsRef.current;
-      const prevSorts = currentSortsRef.current;
-      const prevFilters = filtersRef.current;
-
-      // Immediately update Zustand store: remove from columnOrderIds & hiddenColumnIds
-      setColumnOrderIds(prevOrderIds.filter((id: string) => id !== vars.columnId));
-      setHiddenColumnIds(prevHiddenIds.filter((id: string) => id !== vars.columnId));
-
-      // Clean sorts/filters referencing this column
-      const newSorts = prevSorts.filter((s) => s.columnId !== vars.columnId);
-      if (newSorts.length !== prevSorts.length) setSorts(newSorts);
-      const newFilters = prevFilters.filter((f) => f.columnId !== vars.columnId);
-      if (newFilters.length !== prevFilters.length) setFilters(newFilters);
-
-      return { prevOrderIds, prevHiddenIds, prevSorts, prevFilters };
-    },
-    onSuccess: () => {
-      // Re-fetch views to pick up the persisted config changes
-      void utils.view.list.invalidate({ tableId });
-    },
-    onError: (_err, _vars, ctx) => {
-      if (!ctx) return;
-      // Rollback Zustand store
-      setColumnOrderIds(ctx.prevOrderIds);
-      setHiddenColumnIds(ctx.prevHiddenIds);
-      setSorts(ctx.prevSorts);
-      setFilters(ctx.prevFilters);
-    },
-  });
-
-  // Delete column (PERMANENT, table-level) — not wired to UI; kept for future admin use.
-  // The "Delete field" menu uses removeFromViewMut (view-scoped) instead.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // Delete column (PERMANENT, table-level) — removes the column from the table
+  // and all views' configs. This is the correct "Delete field" action since
+  // field creation/deletion is table-level and affects ALL views.
   const deleteColumnMut = api.column.delete.useMutation({
     onMutate: async (vars) => {
       // Cancel both queries
@@ -1911,6 +1873,12 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
       const prevCols = utils.column.list.getData({ tableId });
       const prevRows = utils.row.infinite.getInfiniteData(rowQueryInput);
+
+      // Snapshot Zustand state for rollback
+      const prevOrderIds = columnOrderIdsRef.current;
+      const prevHiddenIds = hiddenColumnIdsRef.current;
+      const prevSorts = currentSortsRef.current;
+      const prevFilters = filtersRef.current;
 
       // Remove column from column list cache
       utils.column.list.setData({ tableId }, (old) => {
@@ -1936,20 +1904,61 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         };
       });
 
-      return { prevCols, prevRows };
+      // Optimistically update Zustand store: remove from columnOrderIds & hiddenColumnIds
+      setColumnOrderIds(prevOrderIds.filter((id: string) => id !== vars.columnId));
+      setHiddenColumnIds(prevHiddenIds.filter((id: string) => id !== vars.columnId));
+
+      // Clean sorts/filters referencing this column
+      const newSorts = prevSorts.filter((s) => s.columnId !== vars.columnId);
+      if (newSorts.length !== prevSorts.length) setSorts(newSorts);
+      const newFilters = prevFilters.filter((f) => f.columnId !== vars.columnId);
+      if (newFilters.length !== prevFilters.length) setFilters(newFilters);
+
+      return { prevCols, prevRows, prevOrderIds, prevHiddenIds, prevSorts, prevFilters };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prevCols) {
+      if (!ctx) return;
+      if (ctx.prevCols) {
         utils.column.list.setData({ tableId }, ctx.prevCols);
       }
-      if (ctx?.prevRows) {
+      if (ctx.prevRows) {
         utils.row.infinite.setInfiniteData(rowQueryInput, ctx.prevRows);
       }
+      // Rollback Zustand store
+      setColumnOrderIds(ctx.prevOrderIds);
+      setHiddenColumnIds(ctx.prevHiddenIds);
+      setSorts(ctx.prevSorts);
+      setFilters(ctx.prevFilters);
     },
     onSuccess: () => {
-      // Re-sync with server
+      // Re-sync with server (column list, rows, and views since server cleans all view configs)
       void utils.column.list.invalidate({ tableId });
       void utils.row.infinite.invalidate(rowQueryInput);
+      void utils.view.list.invalidate({ tableId });
+    },
+  });
+
+  // Update column (rename / change number config)
+  const updateColumnMut = api.column.update.useMutation({
+    onMutate: async (vars) => {
+      // Cancel column list query and optimistically update
+      await utils.column.list.cancel({ tableId });
+      const prevCols = utils.column.list.getData({ tableId });
+      if (prevCols) {
+        utils.column.list.setData({ tableId }, prevCols.map((c) =>
+          c.id === vars.columnId
+            ? { ...c, ...(vars.name !== undefined ? { name: vars.name } : {}), ...(vars.numberConfig !== undefined ? { config: vars.numberConfig } : {}) }
+            : c,
+        ));
+      }
+      return { prevCols };
+    },
+    onError: (_err, _vars, ctx) => {
+      // Rollback
+      if (ctx?.prevCols) utils.column.list.setData({ tableId }, ctx.prevCols);
+    },
+    onSuccess: () => {
+      void utils.column.list.invalidate({ tableId });
     },
   });
 
@@ -1993,57 +2002,77 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     }
   }, [rows, visibleColumns, setActiveCell, startEditing]);
 
-  // When rows update after insert above/below, find the new row by ID and start editing.
-  // Also swaps temp → real ID when the server data arrives.
-  useEffect(() => {
-    if (!newRowEditIdRef.current) return;
-    if (rows.length === 0 || visibleColumns.length === 0) return;
+  // Helper: after addMany creates a row at the end of the table, refetch the data,
+  // then update rowOrderIds to position it correctly in the current view.
+  // Other views naturally show it at the end (highest rowIndex, not in their rowOrderIds).
+  const insertRowAndPosition = useCallback(
+    async (targetRowId: string, direction: "above" | "below", newRowIndex: number) => {
+      // Wait for server data to be refetched
+      await utils.row.infinite.invalidate({ tableId });
 
-    let targetId = newRowEditIdRef.current;
+      // Read the fresh data directly from the TanStack Query cache
+      const freshData = utils.row.infinite.getInfiniteData(rowQueryInputRef.current);
+      if (!freshData) return;
 
-    // If the server has responded with a real ID mapping, apply it
-    const mapping = tempToRealIdRef.current;
-    if (mapping && targetId === mapping.tempId) {
-      targetId = mapping.realId;
-    }
+      const flat = freshData.pages.flatMap((p) => p.items);
+      const newRow = flat.find((r) => r.rowIndex === newRowIndex);
+      if (!newRow) return;
 
-    const typedRows = rows as Array<{ id: string; rowIndex: number; cells: unknown }>;
-    let newRow = typedRows.find((r) => r.id === targetId);
+      // Build rowOrderIds, placing the new row at the correct position.
+      // If rowOrderIds is empty (no custom order), lazy-init from current rows.
+      const currentOrder = rowOrderIdsRef.current;
+      const baseOrder =
+        currentOrder.length > 0
+          ? [...currentOrder]
+          : flat.filter((r) => r.id !== newRow.id).map((r) => r.id);
 
-    // Also try the temp ID in case the optimistic row is still in cache
-    if (!newRow && targetId !== newRowEditIdRef.current) {
-      newRow = typedRows.find((r) => r.id === newRowEditIdRef.current);
-    }
+      // Remove the new row if already present (safety)
+      const cleaned = baseOrder.filter((id) => id !== newRow.id);
 
-    if (!newRow) return; // Row hasn't appeared yet
+      // Insert adjacent to the target row
+      const targetIdx = cleaned.indexOf(targetRowId);
+      if (targetIdx !== -1) {
+        const insertAt = direction === "above" ? targetIdx : targetIdx + 1;
+        cleaned.splice(insertAt, 0, newRow.id);
+      } else {
+        // Target not found (edge case) — append at end
+        cleaned.push(newRow.id);
+      }
 
-    newRowEditIdRef.current = null;
-    tempToRealIdRef.current = null;
+      setRowOrderIdsTop(cleaned);
 
-    const firstCol = visibleColumns[0];
-    if (firstCol) {
-      requestAnimationFrame(() => {
-        setActiveCell({ rowId: newRow.id, columnId: firstCol.id });
-        startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
-      });
-    }
-  }, [rows, visibleColumns, setActiveCell, startEditing]);
+      // Auto-edit: focus the first visible cell of the NEW row.
+      // Use requestAnimationFrame so React renders the repositioned row first.
+      const firstCol = visibleColumnsRef.current[0];
+      if (firstCol) {
+        requestAnimationFrame(() => {
+          setActiveCell({ rowId: newRow.id, columnId: firstCol.id });
+          startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
+        });
+      }
+    },
+    [tableId, utils, setRowOrderIdsTop, setActiveCell, startEditing],
+  );
 
-  // === INSERT RECORD ABOVE (optimistic — row appears instantly) ===
+  // === INSERT RECORD ABOVE ===
   const handleInsertRecordAbove = useCallback((rowId: string) => {
     if (!isValidTable) return;
-    const row = (rows as Array<{ id: string; rowIndex: number; cells: unknown }>).find(r => r.id === rowId);
-    if (!row) return;
-    insertRowMut.mutate({ tableId, atIndex: row.rowIndex });
-  }, [isValidTable, tableId, rows, insertRowMut]);
+    addRowMut.mutate({ tableId, count: 1 }, {
+      onSuccess: (data) => {
+        void insertRowAndPosition(rowId, "above", data.startRowIndex);
+      },
+    });
+  }, [isValidTable, tableId, addRowMut, insertRowAndPosition]);
 
-  // === INSERT RECORD BELOW (optimistic — row appears instantly) ===
+  // === INSERT RECORD BELOW ===
   const handleInsertRecordBelow = useCallback((rowId: string) => {
     if (!isValidTable) return;
-    const row = (rows as Array<{ id: string; rowIndex: number; cells: unknown }>).find(r => r.id === rowId);
-    if (!row) return;
-    insertRowMut.mutate({ tableId, atIndex: row.rowIndex + 1 });
-  }, [isValidTable, tableId, rows, insertRowMut]);
+    addRowMut.mutate({ tableId, count: 1 }, {
+      onSuccess: (data) => {
+        void insertRowAndPosition(rowId, "below", data.startRowIndex);
+      },
+    });
+  }, [isValidTable, tableId, addRowMut, insertRowAndPosition]);
 
   // === DUPLICATE RECORD (optimistic — clone appears instantly below) ===
   const handleDuplicateRecord = useCallback((rowId: string) => {
@@ -2062,7 +2091,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     // 1) Mark the row as "deleting" → triggers CSS slide-up animation
     setDeletingRowIds((prev) => new Set(prev).add(rowId));
 
-    // 2) After animation completes, remove from cache and fire the server mutation
+    // 2) Remove the deleted row from the per-view rowOrderIds (if custom order exists)
+    const currentOrder = rowOrderIdsRef.current;
+    if (currentOrder.length > 0 && currentOrder.includes(rowId)) {
+      setRowOrderIdsTop(currentOrder.filter((id) => id !== rowId));
+    }
+
+    // 3) After animation completes, remove from cache and fire the server mutation
     setTimeout(() => {
       // Remove from cache optimistically
       utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
@@ -2084,22 +2119,22 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       // Fire the actual server deletion
       deleteRowMut.mutate({ tableId, rowId });
     }, DELETE_ANIM_MS);
-  }, [isValidTable, tableId, activeCell, clearSelection, deleteRowMut, utils, rowQueryInput]);
+  }, [isValidTable, tableId, activeCell, clearSelection, deleteRowMut, utils, rowQueryInput, setRowOrderIdsTop]);
 
-  // === DELETE FIELD (view-scoped — removes column from current view only) ===
+  // === DELETE FIELD (table-level — removes column from the table and all views) ===
   const handleDeleteField = useCallback((columnId: string) => {
-    if (!isValidTable || !activeViewIdFromStore) return;
+    if (!isValidTable) return;
     if (activeCell?.columnId === columnId) clearSelection();
-    removeFromViewMut.mutate({ viewId: activeViewIdFromStore, columnId });
-  }, [isValidTable, activeViewIdFromStore, activeCell, clearSelection, removeFromViewMut]);
+    deleteColumnMut.mutate({ tableId, columnId });
+  }, [isValidTable, tableId, activeCell, clearSelection, deleteColumnMut]);
 
-  // === CREATE FIELD (view-scoped — adds column to table + current view's columnOrderIds) ===
+  // === CREATE FIELD (table-level — adds column to table + ALL views' columnOrderIds) ===
   // Track insert-field target for Insert left/right (used in onMutate to reorder)
   const insertFieldTargetRef = useRef<{ anchorColId: string; side: "left" | "right" } | null>(null);
 
   const handleCreateField = useCallback((name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig, insertPosition?: { anchorColId: string; side: "left" | "right" }) => {
     if (!isValidTable) return;
-    // Store insert position for the optimistic handler
+    // Store insert position for the optimistic handler (current view only)
     insertFieldTargetRef.current = insertPosition ?? null;
     // Map UI type label to DB column type
     const dbType: "TEXT" | "NUMBER" = type === "Number" ? "NUMBER" : "TEXT";
@@ -2111,8 +2146,23 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       defaultValue: defaultValue.trim() || undefined,
       numberConfig: numberConfig ?? undefined,
       viewId: activeViewIdFromStore ?? undefined,
+      // Pass insert position to the server so ALL views insert relative to the anchor
+      anchorColumnId: insertPosition?.anchorColId ?? undefined,
+      insertSide: insertPosition?.side ?? undefined,
     });
   }, [isValidTable, tableId, activeViewIdFromStore, createColumnMut]);
+
+  // === EDIT FIELD (rename / update config via header dropdown → Edit field) ===
+  const handleEditFieldSave = useCallback((columnId: string, name: string, numberConfig?: NumberFormatConfig) => {
+    if (!isValidTable) return;
+    const fieldName = name.trim();
+    updateColumnMut.mutate({
+      tableId,
+      columnId,
+      name: fieldName || undefined,
+      numberConfig: numberConfig ?? undefined,
+    });
+  }, [isValidTable, tableId, updateColumnMut]);
 
   // === HIDE FIELD (from column header dropdown menu) ===
   const handleHideField = useCallback((columnId: string) => {
@@ -2158,7 +2208,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   }, [orderedColumns, currentSorts, setSorts]);
 
   // === DUPLICATE FIELD (from column header dropdown menu) ===
-  const handleDuplicateField = useCallback((columnId: string) => {
+  const handleDuplicateField = useCallback((columnId: string, duplicateCells: boolean) => {
     if (!isValidTable) return;
     const col = orderedColumns.find((c) => c.id === columnId);
     if (!col) return;
@@ -2172,7 +2222,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       type: dbType,
       numberConfig: col.config ? (col.config as { decimalPlaces: number; thousandsSep: string; showThousands: boolean; largeNumAbbrev: string | null; allowNegative: boolean }) : undefined,
       viewId: activeViewIdFromStore ?? undefined,
-      sourceColumnId: columnId,
+      sourceColumnId: duplicateCells ? columnId : undefined,
     });
   }, [isValidTable, orderedColumns, tableId, activeViewIdFromStore, createColumnMut]);
 
@@ -2456,9 +2506,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     table.name.toLowerCase().includes(tableSearchQuery.toLowerCase())
   );
 
-  // Handle table selection from dropdown
-  const handleTableSelect = (tableId: string) => {
-    setActiveTableId(tableId);
+  // Handle table selection from dropdown — navigate to the table's URL
+  const handleTableSelect = (selectedTableId: string) => {
+    router.push(`/bases/${baseId}/tables/${selectedTableId}`);
     setIsTableDropdownOpen(false);
     setTableSearchQuery('');
   };
@@ -2617,7 +2667,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             tabsScrollRef={tabsScrollRef}
             tables={tables}
             activeTableId={activeTableId}
-            setActiveTableId={setActiveTableId}
+            setActiveTableId={(id: string) => router.push(`/bases/${baseId}/tables/${id}`)}
             isTableTitleDropdownOpen={isTableTitleDropdownOpen}
             setIsTableTitleDropdownOpen={setIsTableTitleDropdownOpen}
             tableTitleDropdownPosition={tableTitleDropdownPosition}
@@ -2755,6 +2805,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               freezeSnapPreviewRef={freezeSnapPreviewRef}
               freezeLineRef={freezeLineRef}
               freezePillRef={freezePillRef}
+              freezeTooltipRef={freezeTooltipRef}
               selectionOverlayRef={selectionOverlayRef}
               freezeWidth={freezeWidth}
               rowHeight={rowHeight}
@@ -2784,8 +2835,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               onFilterByField={handleFilterByField}
               onDuplicateField={handleDuplicateField}
               onCreateField={handleCreateField}
+              onEditFieldSave={handleEditFieldSave}
               deletingRowIds={deletingRowIds}
               searchTerm={activeSearchTerm}
+              onReorderRow={handleReorderRow}
+              canDragRows={canDragRows}
             />
           </div>
         </div>

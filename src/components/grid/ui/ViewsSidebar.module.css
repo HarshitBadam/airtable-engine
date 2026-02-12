@@ -217,6 +217,27 @@
   background-color: rgba(0, 0, 0, 0.05);
 }
 
+/* Item currently being dragged — must come AFTER :hover and active to win cascade */
+.viewsSidebarViewItem.viewsSidebarViewItemDragging,
+.viewsSidebarViewItem.viewsSidebarViewItemDragging:hover {
+  background-color: #ffffff !important;
+  cursor: grabbing !important;
+}
+
+/* Dragging: keep grid icon visible, hide star, show actions (3-dots + 6-dots) */
+.viewsSidebarViewItemDragging .viewsSidebarViewItemGridIcon,
+.viewsSidebarViewItemDragging:hover .viewsSidebarViewItemGridIcon {
+  display: block !important;
+}
+.viewsSidebarViewItemDragging .viewsSidebarViewItemStarIcon,
+.viewsSidebarViewItemDragging:hover .viewsSidebarViewItemStarIcon {
+  display: none !important;
+}
+.viewsSidebarViewItemDragging .viewsSidebarViewItemActions,
+.viewsSidebarViewItemDragging:hover .viewsSidebarViewItemActions {
+  display: flex !important;
+}
+
 /* Inner row - always present, holds content */
 .viewsSidebarViewItemRow {
   display: flex;

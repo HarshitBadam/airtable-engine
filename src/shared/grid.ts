@@ -28,6 +28,10 @@ export const viewConfigSchema = z.object({
   autoSort: z.boolean().default(true),
   hiddenColumnIds: z.array(z.string()),
   columnOrderIds: z.array(z.string()).default([]),
+  // Per-view row ordering (set when user manually drags rows).
+  // When empty, rows display in default rowIndex order.
+  // When populated, defines the display order of rows for this view.
+  rowOrderIds: z.array(z.string()).default([]),
 });
 
 export type Filter = z.infer<typeof filterSchema>;
@@ -43,6 +47,7 @@ export const defaultViewConfig: ViewConfig = {
   autoSort: true,
   hiddenColumnIds: [],
   columnOrderIds: [],
+  rowOrderIds: [],
 };
 
 export function normalizeViewConfig(raw: unknown): ViewConfig {
@@ -79,6 +84,7 @@ export function configFingerprint(c: ViewConfig): string {
       autoSort: c.autoSort,
       hiddenColumnIds: hidden,
       columnOrderIds: c.columnOrderIds,
+      rowOrderIds: c.rowOrderIds,
     });
   }
   

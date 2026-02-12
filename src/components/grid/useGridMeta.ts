@@ -9,7 +9,7 @@ import { useEffect } from "react";
 /**
  * Ensure columnOrderIds is populated and in sync with actual table columns.
  * - If empty, use table column order.
- * - Append any new columns not yet in the order list.
+ * - Append any new columns not yet in the order list (columns are table-level).
  * - Remove stale ids (columns that no longer exist).
  */
 export function reconcileColumnOrder(
@@ -20,10 +20,15 @@ export function reconcileColumnOrder(
     ? config.columnOrderIds
     : tableColumnIds;
 
-  // NOTE: We intentionally do NOT append new table columns here.
-  // Column visibility is view-scoped: new columns only appear in the
-  // view where they were created (via column.create with viewId).
-  // We only remove stale IDs (columns deleted from the table entirely).
+  // Append new table columns that aren't yet in the view's order.
+  // Column creation is table-level: new columns appear in ALL views.
+  // This handles the case where the server-side update to ALL views'
+  // columnOrderIds hasn't been fetched yet by the client.
+  const existingSet = new Set(order);
+  const newCols = tableColumnIds.filter((id) => !existingSet.has(id));
+  if (newCols.length > 0) {
+    order = [...order, ...newCols];
+  }
 
   // Remove stale column ids that no longer exist in the table
   const tableIdSet = new Set(tableColumnIds);
