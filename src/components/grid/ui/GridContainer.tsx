@@ -82,6 +82,9 @@ interface GridContainerProps {
   // Row drag-to-reorder
   onReorderRow?: (rowId: string, fromIndex: number, toIndex: number) => void;
   canDragRows?: boolean;
+
+  // Wrap headers toggle — when true, header cell text wraps instead of truncating
+  wrapHeaders?: boolean;
 }
 
 export function GridContainer({
@@ -129,6 +132,7 @@ export function GridContainer({
   searchTerm,
   onReorderRow,
   canDragRows = false,
+  wrapHeaders = false,
 }: GridContainerProps) {
   // Sorted column IDs — for tinting sorted column headers orange.
   // ONLY for autoSort=true (temporary/reversible sorts). autoSort=false = no orange ever.
@@ -152,6 +156,34 @@ export function GridContainer({
 
   // Pre-compute lowercase search term for header highlighting
   const searchTermLower = searchTerm ? searchTerm.toLowerCase() : "";
+
+  // === WRAP HEADERS: measure actual header height for scroller positioning ===
+  // We measure BOTH frozen and scrollable headers and take the max,
+  // because the longest column name may live in either pane.
+  const frozenHeaderMeasureRef = useRef<HTMLDivElement>(null);
+  const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState(rowHeight);
+  useEffect(() => {
+    if (!wrapHeaders) {
+      setMeasuredHeaderHeight(rowHeight);
+      return;
+    }
+    const frozenEl = frozenHeaderMeasureRef.current;
+    const scrollEl = scrollableHeaderRef.current;
+    if (!frozenEl && !scrollEl) { setMeasuredHeaderHeight(rowHeight); return; }
+    const measure = () => {
+      const fh = frozenEl?.getBoundingClientRect().height ?? 0;
+      const sh = scrollEl?.getBoundingClientRect().height ?? 0;
+      const maxH = Math.max(fh, sh, rowHeight);
+      setMeasuredHeaderHeight(maxH);
+    };
+    const ro = new ResizeObserver(measure);
+    if (frozenEl) ro.observe(frozenEl);
+    if (scrollEl) ro.observe(scrollEl);
+    // Initial measurement
+    measure();
+    return () => ro.disconnect();
+  }, [wrapHeaders, rowHeight]);
+  const effectiveHeaderHeight = wrapHeaders ? measuredHeaderHeight : rowHeight;
 
   // === CUSTOM VERTICAL SCROLLBAR (overlay, no layout space) ===
   const vThumbRef = useRef<HTMLDivElement>(null);
@@ -634,11 +666,12 @@ export function GridContainer({
       <div className={styles.gridBody} ref={gridBodyRef}>
         {/* Frozen header (top-left) */}
         <div
-          className={styles.gridHeaderFrozen}
-          style={{ width: freezeWidth, height: rowHeight }}
+          ref={frozenHeaderMeasureRef}
+          className={`${styles.gridHeaderFrozen}${wrapHeaders ? ` ${styles.gridHeaderFrozenWrap}` : ''}`}
+          style={{ width: freezeWidth, ...(wrapHeaders ? { minHeight: effectiveHeaderHeight, height: 'auto', overflow: 'visible' } : { height: rowHeight }) }}
         >
           {/* Serial number / checkbox header */}
-          <div className={styles.gridHeaderRowNum} style={{ height: rowHeight }}>
+          <div className={styles.gridHeaderRowNum} style={wrapHeaders ? { minHeight: rowHeight, height: 'auto' } : { height: rowHeight }}>
             <div className={styles.gridHeaderRowNumInner}>
               <div className={styles.gridHeaderCheckbox} />
             </div>
@@ -661,14 +694,17 @@ export function GridContainer({
               <div
                 key={col.id}
                 data-col-header-id={col.id}
-                className={`${styles.gridHeaderCell}${headerMenuColId === col.id ? ` ${styles.gridHeaderCellMenuOpen}` : ''}${sortedColumnIds.includes(col.id) ? ` ${styles.gridHeaderCellSorted}` : ''}`}
+                className={`${styles.gridHeaderCell}${wrapHeaders ? ` ${styles.gridHeaderCellWrap}` : ''}${headerMenuColId === col.id ? ` ${styles.gridHeaderCellMenuOpen}` : ''}${sortedColumnIds.includes(col.id) ? ` ${styles.gridHeaderCellSorted}` : ''}`}
                 style={{
                   width: getColWidth(col.id),
-                  height: rowHeight,
+                  ...(wrapHeaders ? { minHeight: rowHeight, height: 'auto', overflow: 'visible' } : { height: rowHeight }),
                   ...(headerBg ? { backgroundColor: headerBg } : {}),
                 }}
               >
-                <div className={styles.gridHeaderCellMedia}>
+                <div
+                  className={`${styles.gridHeaderCellMedia}${wrapHeaders ? ` ${styles.gridHeaderCellMediaWrap}` : ''}`}
+                  style={wrapHeaders ? { height: 'auto', minHeight: 30 } : undefined}
+                >
                   <span className={styles.gridHeaderCellIcon}>
                     {col.type === "TEXT" ? (
                       <svg viewBox="0 0 16 16" fill="currentColor">
@@ -680,7 +716,10 @@ export function GridContainer({
                       </svg>
                     )}
                   </span>
-                  <span className={styles.gridHeaderCellName}>
+                  <span
+                    className={`${styles.gridHeaderCellName}${wrapHeaders ? ` ${styles.gridHeaderCellNameWrap}` : ''}`}
+                    style={wrapHeaders ? { whiteSpace: 'normal', overflow: 'visible', height: 'auto', textOverflow: 'clip', top: 0 } : undefined}
+                  >
                     {headerHasMatch ? <HighlightedText text={col.name} query={searchTerm!} /> : col.name}
                   </span>
                 </div>
@@ -709,10 +748,10 @@ export function GridContainer({
         {/* Scrollable header (top-right) — scrolls horizontally in sync with content */}
         <div
           ref={scrollableHeaderRef}
-          className={styles.gridHeaderScrollable}
-          style={{ left: freezeWidth, height: rowHeight }}
+          className={`${styles.gridHeaderScrollable}${wrapHeaders ? ` ${styles.gridHeaderScrollableWrap}` : ''}`}
+          style={{ left: freezeWidth, ...(wrapHeaders ? { minHeight: effectiveHeaderHeight, height: 'auto', overflow: 'visible' } : { height: rowHeight }) }}
         >
-          <div className={styles.gridHeaderScrollableInner} style={{ height: rowHeight }}>
+          <div className={styles.gridHeaderScrollableInner} style={wrapHeaders ? { minHeight: effectiveHeaderHeight, height: 'auto', overflow: 'visible' } : { height: rowHeight }}>
             {scrollableColumns.map((col, colIdx) => {
               const headerHasMatch = searchTermLower.length > 0 && col.name.toLowerCase().includes(searchTermLower);
               const isHeaderCurrent = headerHasMatch && findHeaderMatchColId === col.id;
@@ -724,15 +763,18 @@ export function GridContainer({
                 <div
                   key={col.id}
                   data-col-header-id={col.id}
-                  className={`${styles.gridHeaderCell}${headerMenuColId === col.id ? ` ${styles.gridHeaderCellMenuOpen}` : ''}${sortedColumnIds.includes(col.id) ? ` ${styles.gridHeaderCellSorted}` : ''}`}
+                  className={`${styles.gridHeaderCell}${wrapHeaders ? ` ${styles.gridHeaderCellWrap}` : ''}${headerMenuColId === col.id ? ` ${styles.gridHeaderCellMenuOpen}` : ''}${sortedColumnIds.includes(col.id) ? ` ${styles.gridHeaderCellSorted}` : ''}`}
                   style={{
                     width: getColWidth(col.id),
-                    height: rowHeight,
+                    ...(wrapHeaders ? { minHeight: rowHeight, height: 'auto', overflow: 'visible' } : { height: rowHeight }),
                     ...(frozenColumns.length === 0 && colIdx === 0 ? { borderLeftColor: 'transparent' } : {}),
                     ...(headerBg ? { backgroundColor: headerBg } : {}),
                   }}
                 >
-                  <div className={styles.gridHeaderCellMedia}>
+                  <div
+                    className={`${styles.gridHeaderCellMedia}${wrapHeaders ? ` ${styles.gridHeaderCellMediaWrap}` : ''}`}
+                    style={wrapHeaders ? { height: 'auto', minHeight: 30 } : undefined}
+                  >
                     <span className={styles.gridHeaderCellIcon}>
                       {col.type === "TEXT" ? (
                         <svg viewBox="0 0 16 16" fill="currentColor">
@@ -744,7 +786,10 @@ export function GridContainer({
                         </svg>
                       )}
                     </span>
-                    <span className={styles.gridHeaderCellName}>
+                    <span
+                      className={`${styles.gridHeaderCellName}${wrapHeaders ? ` ${styles.gridHeaderCellNameWrap}` : ''}`}
+                      style={wrapHeaders ? { whiteSpace: 'normal', overflow: 'visible', height: 'auto', textOverflow: 'clip', top: 0 } : undefined}
+                    >
                       {headerHasMatch ? <HighlightedText text={col.name} query={searchTerm!} /> : col.name}
                     </span>
                   </div>
@@ -772,7 +817,7 @@ export function GridContainer({
             <div
               ref={addColButtonRef}
               className={styles.gridHeaderAddCol}
-              style={{ height: rowHeight }}
+              style={wrapHeaders ? { minHeight: rowHeight, height: effectiveHeaderHeight } : { height: rowHeight }}
               onClick={handleAddColClick}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -793,7 +838,7 @@ export function GridContainer({
         <div
           ref={gridScrollerRef}
           className={styles.gridContentScroller}
-          style={{ top: rowHeight }}
+          style={{ top: effectiveHeaderHeight }}
         >
           <div
             className={styles.gridContentScrollerInner}
@@ -823,6 +868,7 @@ export function GridContainer({
                 searchTerm={searchTerm}
                 onRowDragStart={handleRowDragStart}
                 canDragRows={canDragRows}
+                cellHeight={DATA_ROW_HEIGHT}
               />
             ))}
 
@@ -935,7 +981,7 @@ export function GridContainer({
       </div>
 
       {/* Custom vertical scrollbar — overlays content, no layout space reserved */}
-      <div className={styles.customVScrollTrack} style={{ top: rowHeight, bottom: 34 }}>
+      <div className={styles.customVScrollTrack} style={{ top: effectiveHeaderHeight, bottom: 34 }}>
         <div ref={vThumbRef} className={styles.customVScrollThumb} />
       </div>
 

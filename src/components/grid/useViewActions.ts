@@ -22,6 +22,8 @@ export function useViewActions(tableId: string) {
   const hiddenColumnIds = useGridStore((s) => s.hiddenColumnIds);
   const columnOrderIds = useGridStore((s) => s.columnOrderIds);
   const rowOrderIds = useGridStore((s) => s.rowOrderIds);
+  const rowHeightPreset = useGridStore((s) => s.rowHeightPreset);
+  const wrapHeaders = useGridStore((s) => s.wrapHeaders);
 
   const isDirty = saved !== cur;
 
@@ -54,6 +56,8 @@ export function useViewActions(tableId: string) {
           hiddenColumnIds,
           columnOrderIds,
           rowOrderIds,
+          rowHeightPreset,
+          wrapHeaders,
         },
       });
     },

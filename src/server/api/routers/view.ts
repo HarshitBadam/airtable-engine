@@ -12,6 +12,8 @@ const viewConfigSchema = z.object({
   hiddenColumnIds: z.array(z.string()),
   columnOrderIds: z.array(z.string()).default([]),
   rowOrderIds: z.array(z.string()).default([]),
+  rowHeightPreset: z.enum(["short", "medium", "tall", "extraTall"]).default("short"),
+  wrapHeaders: z.boolean().default(false),
 });
 
 export const viewRouter = createTRPCRouter({

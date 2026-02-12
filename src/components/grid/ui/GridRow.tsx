@@ -75,6 +75,8 @@ export interface GridRowProps {
   onRowDragStart?: (rowIndex: number, rowId: string, e: React.MouseEvent) => void;
   /** Whether the drag handle should be interactive (false when sorts/filters are active). */
   canDragRows?: boolean;
+  /** Dynamic data row height in px (default 32). */
+  cellHeight?: number;
 }
 
 /**
@@ -97,6 +99,7 @@ export const GridRow = memo(function GridRow({
   searchTerm = "",
   onRowDragStart,
   canDragRows = false,
+  cellHeight = 32,
 }: GridRowProps) {
   // Subscribe to only this row's state — other rows won't re-render
   const activeColId = useGridStore(
@@ -164,6 +167,7 @@ export const GridRow = memo(function GridRow({
         className={`${styles.gridDataCell}${isActive ? ` ${styles.gridDataCellActive}` : ""}${isSorted ? ` ${styles.gridDataCellSorted}` : ""}`}
         style={{
           width: getColWidth(col.id),
+          height: cellHeight,
           ...extraStyle,
           ...(cellBg ? { backgroundColor: cellBg } : {}),
         }}
@@ -206,14 +210,14 @@ export const GridRow = memo(function GridRow({
     <div className={`${styles.gridRow}${isDeleting ? ` ${styles.gridRowDeleting}` : ''}`}>
       {/* Frozen group (serial number + frozen columns) — sticks to left */}
       <div className={styles.gridRowFrozenGroup} style={{ width: freezeWidth }}>
-        <div className={styles.gridRowNumCell}>
+        <div className={styles.gridRowNumCell} style={{ height: cellHeight }}>
           {/* Default: row number */}
           <div className={styles.gridRowNumOuter}>
             <div className={styles.gridRowNumInner}>{rowIndex + 1}</div>
           </div>
 
           {/* Hover overlay: drag handle + checkbox + spacer + expand */}
-          <div className={styles.gridRowNumHoverOverlay}>
+          <div className={styles.gridRowNumHoverOverlay} style={{ height: cellHeight }}>
             {/* Left: drag handle + checkbox */}
             <div className={styles.gridRowNumHoverLeft}>
               {/* Drag handle (DotsSixVertical) */}

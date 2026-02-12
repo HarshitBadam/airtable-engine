@@ -77,6 +77,9 @@ export const filterTreeSchema = z.object({
 
 export type FilterTree = z.infer<typeof filterTreeSchema>;
 
+export const rowHeightPresetSchema = z.enum(["short", "medium", "tall", "extraTall"]);
+export type RowHeightPreset = z.infer<typeof rowHeightPresetSchema>;
+
 export const viewConfigSchema = z.object({
   search: z.string(),
   filters: z.array(filterSchema),
@@ -92,6 +95,10 @@ export const viewConfigSchema = z.object({
   // When empty, rows display in default rowIndex order.
   // When populated, defines the display order of rows for this view.
   rowOrderIds: z.array(z.string()).default([]),
+  // Row height preset (Short/Medium/Tall/Extra Tall) — per-view
+  rowHeightPreset: rowHeightPresetSchema.default("short"),
+  // Wrap header text — per-view
+  wrapHeaders: z.boolean().default(false),
 });
 
 export type ViewConfig = z.infer<typeof viewConfigSchema>;
@@ -107,6 +114,8 @@ export const defaultViewConfig: ViewConfig = {
   hiddenColumnIds: [],
   columnOrderIds: [],
   rowOrderIds: [],
+  rowHeightPreset: "short",
+  wrapHeaders: false,
 };
 
 export function normalizeViewConfig(raw: unknown): ViewConfig {

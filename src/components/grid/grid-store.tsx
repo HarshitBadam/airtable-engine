@@ -4,7 +4,7 @@ import React, { createContext, useContext, useRef } from "react";
 import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
 import type { StoreApi } from "zustand/vanilla";
-import { configFingerprint, defaultViewConfig, type ViewConfig, type Filter, type Sort, type FilterTree } from "~/shared/grid";
+import { configFingerprint, defaultViewConfig, type ViewConfig, type Filter, type Sort, type FilterTree, type RowHeightPreset } from "~/shared/grid";
 
 // re-export for convenience
 export type { Sort };
@@ -57,6 +57,10 @@ type GridState = {
   columnOrderIds: string[];
   rowOrderIds: string[];
 
+  // Row height / wrap headers (per-view, auto-saved)
+  rowHeightPreset: RowHeightPreset;
+  wrapHeaders: boolean;
+
   /** Frontend-only filter conditions for the FilterPanel UI. */
   filterConditions: FilterConditionUI[];
   setFilterConditions: (v: FilterConditionUI[]) => void;
@@ -83,6 +87,9 @@ type GridState = {
   setHiddenColumnIds: (ids: string[]) => void;
   setColumnOrderIds: (ids: string[]) => void;
   setRowOrderIds: (ids: string[]) => void;
+
+  setRowHeightPreset: (v: RowHeightPreset) => void;
+  setWrapHeaders: (v: boolean) => void;
 
   setActiveCell: (cell: CellKey | null) => void;
   clearSelection: () => void;
@@ -111,6 +118,9 @@ function fingerprintFromParts(
     autoSort: s.autoSort,
     hiddenColumnIds: s.hiddenColumnIds,
     columnOrderIds: s.columnOrderIds,
+    // rowHeightPreset and wrapHeaders are auto-saved; excluded from dirty tracking
+    rowHeightPreset: "short",
+    wrapHeaders: false,
     rowOrderIds: s.rowOrderIds,
   });
 }
@@ -141,6 +151,9 @@ export function createGridStore(tableId: string) {
     hiddenColumnIds: [],
     columnOrderIds: [],
     rowOrderIds: [],
+
+    rowHeightPreset: "short",
+    wrapHeaders: false,
 
     filterConditions: [],
     setFilterConditions: (filterConditions) => set((s) => ({ ...s, filterConditions })),
@@ -196,6 +209,9 @@ export function createGridStore(tableId: string) {
         hiddenColumnIds: cfg.hiddenColumnIds,
         columnOrderIds: cfg.columnOrderIds,
         rowOrderIds: cfg.rowOrderIds,
+
+        rowHeightPreset: cfg.rowHeightPreset,
+        wrapHeaders: cfg.wrapHeaders,
 
         filterConditions: restoredConditions,
 
@@ -284,6 +300,9 @@ export function createGridStore(tableId: string) {
         rowOrderIds,
         fingerprint: fingerprintFromParts({ ...s, rowOrderIds }),
       })),
+
+    setRowHeightPreset: (rowHeightPreset) => set((s) => ({ ...s, rowHeightPreset })),
+    setWrapHeaders: (wrapHeaders) => set((s) => ({ ...s, wrapHeaders })),
 
     setActiveCell: (activeCell) => set((s) => ({ ...s, activeCell })),
     clearSelection: () => set((s) => ({ ...s, activeCell: null, editingCell: null, editorValue: "" })),

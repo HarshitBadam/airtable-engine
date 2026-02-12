@@ -83,8 +83,18 @@ type RowInfiniteData = InfiniteData<RowInfinitePage, RowInfiniteCursor>;
 // ============================================
 const ROW_NUM_WIDTH = 83;   // 44px cell + 39px margin-right
 const COLUMN_WIDTH = 180;   // each column header total width (border-box)
-const DATA_ROW_HEIGHT = 32; // matches CSS .gridRowNumCell/.gridDataCell height
 const OVERSCAN_COUNT = 15;  // extra rows rendered above/below viewport
+
+/** Row height presets matching Airtable's "Select a row height" dropdown. */
+// Type re-exported from shared/grid.ts for convenience
+export type { RowHeightPreset } from "~/shared/grid";
+import type { RowHeightPreset } from "~/shared/grid";
+const ROW_HEIGHT_VALUES: Record<RowHeightPreset, number> = {
+  short: 32,
+  medium: 56,
+  tall: 88,
+  extraTall: 128,
+};
 
 // GridRow & types imported from GridRow.tsx
 
@@ -176,7 +186,18 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const [rowHeight, setRowHeight] = useState(32);
   const rowHeightRef = useRef(32);
   rowHeightRef.current = rowHeight;
-  
+
+  // Data row height preset (Short/Medium/Tall/Extra Tall) — from grid store (persisted per-view)
+  const rowHeightPreset = useGridStore((s) => s.rowHeightPreset);
+  const setRowHeightPreset = useGridStore((s) => s.setRowHeightPreset);
+  const dataRowHeight = ROW_HEIGHT_VALUES[rowHeightPreset];
+  const dataRowHeightRef = useRef(dataRowHeight);
+  dataRowHeightRef.current = dataRowHeight;
+
+  // Wrap headers toggle — from grid store (persisted per-view)
+  const wrapHeaders = useGridStore((s) => s.wrapHeaders);
+  const setWrapHeaders = useGridStore((s) => s.setWrapHeaders);
+
   // Delete table popup state
   const [isDeleteTablePopupOpen, setIsDeleteTablePopupOpen] = useState(false);
   const [deleteTablePopupPosition, setDeleteTablePopupPosition] = useState<{ top: number; left: number } | null>(null);
@@ -729,6 +750,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     hiddenColumnIds,
     columnOrderIds,
     rowOrderIds: rowOrderIdsForSave,
+    rowHeightPreset,
+    wrapHeaders,
   });
   latestConfigRef.current = {
     search: searchForSave,
@@ -741,6 +764,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     hiddenColumnIds,
     columnOrderIds,
     rowOrderIds: rowOrderIdsForSave,
+    rowHeightPreset,
+    wrapHeaders,
   };
 
   // Per-view baseline to distinguish "view loaded" from "user changed layout"
@@ -777,6 +802,31 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     return () => clearTimeout(layoutTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [columnOrderIds, hiddenColumnIds, rowOrderIdsForSave, activeViewIdFromStore]);
+
+  // === AUTO-SAVE ROW HEIGHT / WRAP HEADERS CHANGES ===
+  // These are per-view display settings that persist immediately (no dirty flag).
+  const rowHeightAutoSaveMut = api.view.update.useMutation({
+    onSuccess: () => {
+      void utils.view.list.invalidate({ tableId });
+    },
+  });
+  const rhBaselineRef = useRef<string>("");
+  useEffect(() => {
+    if (!activeViewIdFromStore) return;
+    const key = `${activeViewIdFromStore}|${rowHeightPreset}|${wrapHeaders}`;
+    // First render / view switch → record baseline, skip save
+    if (!rhBaselineRef.current.startsWith(activeViewIdFromStore + "|")) {
+      rhBaselineRef.current = key;
+      return;
+    }
+    if (key === rhBaselineRef.current) return;
+    rhBaselineRef.current = key;
+    rowHeightAutoSaveMut.mutate({
+      viewId: activeViewIdFromStore,
+      config: latestConfigRef.current,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowHeightPreset, wrapHeaders, activeViewIdFromStore]);
 
   // === AUTO-SAVE FILTER CHANGES ===
   // Filters are "temporary" (reversible) but persist across sessions — auto-save
@@ -946,7 +996,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     }
 
     // Cell Y relative to .gridBody
-    const cellY = headerH + rowIdx * DATA_ROW_HEIGHT - scrollTop;
+    const drh = dataRowHeightRef.current;
+    const cellY = headerH + rowIdx * drh - scrollTop;
 
     // Fill handle — first child of overlay
     const handle = overlay.firstElementChild as HTMLElement | null;
@@ -970,13 +1021,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         overlayTop = cellY - 3;
         overlay.style.left = `${cellX - 3}px`;
         overlay.style.width = `${colWidth + 6}px`;
-        overlayHeight = DATA_ROW_HEIGHT + 3;
+        overlayHeight = drh + 3;
       } else {
         // TEXT: all sides outward including bottom (downward).
         overlayTop = cellY - 3;
         overlay.style.left = `${cellX - 3}px`;
         overlay.style.width = `${colWidth + 6}px`;
-        overlayHeight = DATA_ROW_HEIGHT + 6;
+        overlayHeight = drh + 6;
       }
     } else {
       // --- Active (non-editing) mode: show fill handle, 2px border ---
@@ -986,7 +1037,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       overlayTop = cellY - 2;
       overlay.style.left = `${cellX - 1}px`;
       overlay.style.width = `${colWidth + 2}px`;
-      overlayHeight = DATA_ROW_HEIGHT + 3;
+      overlayHeight = drh + 3;
     }
 
     overlay.style.top = `${overlayTop}px`;
@@ -1017,8 +1068,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     const fw = freezeWidthRef.current;
 
     // --- Vertical ---
-    const cellTop = rowIdx * DATA_ROW_HEIGHT;
-    const cellBottom = cellTop + DATA_ROW_HEIGHT;
+    const drhScroll = dataRowHeightRef.current;
+    const cellTop = rowIdx * drhScroll;
+    const cellBottom = cellTop + drhScroll;
     if (cellTop < scroller.scrollTop) {
       scroller.scrollTop = cellTop;
     } else if (cellBottom > scroller.scrollTop + scroller.clientHeight) {
@@ -1389,8 +1441,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     const calcRange = () => {
       const st = scroller.scrollTop;
       const vh = scroller.clientHeight;
-      const start = Math.max(0, Math.floor(st / DATA_ROW_HEIGHT) - OVERSCAN_COUNT);
-      const end = Math.min(rows.length, Math.ceil((st + vh) / DATA_ROW_HEIGHT) + OVERSCAN_COUNT);
+      const drhCalc = dataRowHeightRef.current;
+      const start = Math.max(0, Math.floor(st / drhCalc) - OVERSCAN_COUNT);
+      const end = Math.min(rows.length, Math.ceil((st + vh) / drhCalc) + OVERSCAN_COUNT);
       setVirtualRange((prev) =>
         prev.start === start && prev.end === end ? prev : { start, end },
       );
@@ -2782,6 +2835,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             isSearchPending={isSearchPending}
             onPrevMatch={handlePrevMatch}
             onNextMatch={handleNextMatch}
+            rowHeightPreset={rowHeightPreset}
+            onRowHeightPresetChange={setRowHeightPreset}
+            wrapHeaders={wrapHeaders}
+            onToggleWrapHeaders={() => setWrapHeaders(!wrapHeaders)}
           />
 
           {/* === GRID AREA (views sidebar + grid content) === */}
@@ -2844,7 +2901,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               rows={rows}
               virtualRange={virtualRange}
               totalCount={totalCount}
-              DATA_ROW_HEIGHT={DATA_ROW_HEIGHT}
+              DATA_ROW_HEIGHT={dataRowHeight}
+              wrapHeaders={wrapHeaders}
               getCellValue={getCellValue}
               stableCommit={stableCommit}
               stableCancel={stableCancel}

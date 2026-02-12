@@ -236,6 +236,52 @@
   left: 0px;
 }
 
+/* Wrap headers — allow header cell text to wrap instead of truncating */
+.gridHeaderCellNameWrap {
+  white-space: normal;
+  word-break: break-word;
+  text-overflow: clip;
+  height: auto;
+  line-height: 16px;
+  overflow: visible;
+  top: 0;
+}
+
+/* Wrap headers — expand the media container to fit wrapped text */
+.gridHeaderCellMediaWrap {
+  height: auto;
+  min-height: 30px;
+  align-items: flex-start;
+  padding-top: 6px;
+  padding-bottom: 4px;
+}
+
+/* Wrap headers — header cell overflow must be visible for wrapped text */
+.gridHeaderCellWrap {
+  overflow: visible;
+  height: auto;
+  align-items: flex-start;
+}
+
+/* When wrapping, chevron aligns to top instead of center */
+.gridHeaderCellWrap .gridHeaderCellChevron {
+  align-self: flex-start;
+  margin-top: 7px;
+}
+
+/* When wrapping, icon loses the negative offset */
+.gridHeaderCellWrap .gridHeaderCellIcon {
+  top: 1px;
+}
+
+/* Wrap headers — header pane overflow must be visible */
+.gridHeaderFrozenWrap {
+  overflow: visible;
+}
+.gridHeaderScrollableWrap {
+  overflow: visible;
+}
+
 /* --- Scrollable header inner (horizontal flex row) --- */
 .gridHeaderScrollableInner {
   display: flex;
@@ -546,6 +592,7 @@
   box-sizing: border-box;
   background: #FFFFFF;
   position: relative;
+  transition: height 0.15s ease-out;
 }
 
 .gridRowNumOuter {
@@ -720,6 +767,7 @@
   background: #FFFFFF;
   cursor: default;
   overflow: hidden;
+  transition: height 0.15s ease-out;
 }
 
 /* Last cell in each scrollable row gets a right border */
@@ -805,7 +853,7 @@
   padding: 6px;
   box-sizing: border-box;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   flex-basis: auto;
   overflow: hidden;
 }
