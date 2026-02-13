@@ -740,7 +740,7 @@ export const rowRouter = createTRPCRouter({
                 if (items.length <= rankedRows.length) {
                   // Last item is from ranked zone — find its rank
                   const lastRankRes = await queryRawUnsafe<{ rank: number }[]>(ctx.db,
-                    `SELECT "rank" FROM "ViewRowRank" WHERE "viewId" = $1 AND "rowId" = $2`,
+                    `SELECT "rank" FROM "ViewRowRank" WHERE "viewId" = $1 AND "rowId" = $2::uuid`,
                     [input.viewId, last.id],
                   );
                   if (lastRankRes.length > 0) {
@@ -1008,6 +1008,15 @@ export const rowRouter = createTRPCRouter({
       const tableIdEscaped = escapeLiteral(input.tableId);
       const orderByClause = buildSortOrderByForAlias(input.sorts, "r");
 
+      // Mark ranks as stale BEFORE the heavy transaction.
+      // This prevents concurrent infinite/windowFetch queries from entering
+      // the ViewRowRank path and contending with the bulk INSERT's
+      // page-level B-tree index locks (which would hang the COUNT query).
+      await ctx.db.view.update({
+        where: { id: input.viewId },
+        data: { ranksStale: true },
+      });
+
       await ctx.db.$transaction(async (tx) => {
         // 1. Clear existing ranks for this view
         await tx.$executeRawUnsafe(
@@ -1022,7 +1031,7 @@ export const rowRouter = createTRPCRouter({
           WHERE r."tableId" = '${tableIdEscaped}'
         `);
 
-        // 3. Mark view as fresh
+        // 3. Mark view as fresh (only after successful INSERT)
         await tx.view.update({
           where: { id: input.viewId },
           data: { ranksStale: false },
@@ -1066,11 +1075,9 @@ export const rowRouter = createTRPCRouter({
           select: { nextRowIndex: true },
         });
 
-        // Mark all views for this table as stale (ranks invalidated)
-        await tx.view.updateMany({
-          where: { tableId: input.tableId },
-          data: { ranksStale: true },
-        });
+        // NOTE: We intentionally do NOT mark ranks stale here.
+        // New rows have no ViewRowRank entry and naturally fall to the
+        // "unranked tail" (Phase 2) of the ViewRowRank pagination path.
 
         return t;
       });
@@ -1211,11 +1218,9 @@ export const rowRouter = createTRPCRouter({
           },
         });
 
-        // Mark view ranks stale
-        await tx.view.updateMany({
-          where: { tableId: input.tableId },
-          data: { ranksStale: true },
-        });
+        // NOTE: We intentionally do NOT mark ranks stale here.
+        // The new row has no ViewRowRank entry and naturally falls to
+        // the "unranked tail" (Phase 2) of the ViewRowRank pagination path.
 
         return newRow;
       }, { timeout: 30_000 });  // 30s for row shifting
@@ -1297,11 +1302,9 @@ export const rowRouter = createTRPCRouter({
           },
         });
 
-        // Mark view ranks stale
-        await tx.view.updateMany({
-          where: { tableId: input.tableId },
-          data: { ranksStale: true },
-        });
+        // NOTE: We intentionally do NOT mark ranks stale here.
+        // The duplicated row has no ViewRowRank entry and naturally
+        // falls to the "unranked tail" (Phase 2).
 
         return newRow;
       }, { timeout: 30_000 });  // 30s for row shifting
@@ -1331,6 +1334,15 @@ export const rowRouter = createTRPCRouter({
       if (!row) throw new Error("Row not found");
 
       return ctx.db.$transaction(async (tx) => {
+        // Clean up ViewRowRank entries for this row across ALL views.
+        // This leaves a small gap in the rank sequence which is tolerable —
+        // the JOIN in ViewRowRank queries naturally skips missing rows,
+        // and rankCount stays accurate since we're removing the entry.
+        await tx.$executeRawUnsafe(
+          `DELETE FROM "ViewRowRank" WHERE "rowId" = $1::uuid`,
+          input.rowId,
+        );
+
         await tx.row.delete({ where: { id: input.rowId } });
 
         await tx.table.update({
@@ -1338,11 +1350,9 @@ export const rowRouter = createTRPCRouter({
           data: { rowCount: { decrement: 1 } },
         });
 
-        // Mark view ranks stale
-        await tx.view.updateMany({
-          where: { tableId: input.tableId },
-          data: { ranksStale: true },
-        });
+        // NOTE: We intentionally do NOT mark ranks stale here.
+        // The ViewRowRank entry was cleaned up above, and the remaining
+        // ranks are still valid (frozen sort order is preserved).
 
         return { id: input.rowId };
       });
@@ -1422,11 +1432,10 @@ export const rowRouter = createTRPCRouter({
           data: { rowIndex: newIdx },
         });
 
-        // Mark view ranks stale
-        await tx.view.updateMany({
-          where: { tableId: input.tableId },
-          data: { ranksStale: true },
-        });
+        // NOTE: We intentionally do NOT mark ranks stale here.
+        // Reorder only affects rowIndex (natural order), not the frozen
+        // ViewRowRank sort order. Reorder is only allowed when no sorts
+        // are active (canDragRows check on the frontend).
       });
 
       return { ok: true };
@@ -1486,11 +1495,10 @@ export const rowRouter = createTRPCRouter({
         select: { id: true, rowIndex: true, cells: true, updatedAt: true },
       });
 
-      // Mark all views for this table as stale (cell change may affect sort order)
-      await ctx.db.view.updateMany({
-        where: { tableId: input.tableId },
-        data: { ranksStale: true },
-      });
+      // NOTE: We intentionally do NOT mark ranks stale here.
+      // With permanent sort (autoSort=false), the rank is frozen — cell
+      // edits don't move the row. With autoSort=true, the query uses live
+      // ORDER BY (no ViewRowRank), so ranks aren't relevant.
 
       return result;
     }),

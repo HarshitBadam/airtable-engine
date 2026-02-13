@@ -664,6 +664,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const setAutoSort = useGridStore((s) => s.setAutoSort);
   const permanentSorts = useGridStore((s) => s.permanentSorts);
   const setPermanentSorts = useGridStore((s) => s.setPermanentSorts);
+  const setRanksComputing = useGridStore((s) => s.setRanksComputing);
   const markSortsSaved = useGridStore((s) => s.markSortsSaved);
   const markSaved = useGridStore((s) => s.markSaved);
   const searchForSave = useGridStore((s) => s.search);
@@ -729,38 +730,45 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   }, [autoSort, setAutoSort, activeViewIdFromStore, sortSaveMut, searchForSave, filtersForSave, filterConjunctionForSave, filterTreeForSave, currentSorts, permanentSorts, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave]);
 
   // Mutation to compute materialized ViewRowRank for one-time sort (autoSort=OFF).
-  // When ranks finish computing, onSuccess invalidates the infinite query so
-  // subsequent fetches seamlessly transition from live ORDER BY → ViewRowRank.
-  // We intentionally do NOT clear the jump cache here — the data already in the
-  // cache is valid (same sort order) and clearing it would cause a disruptive
-  // second round of skeletons after the user has already loaded data.
+  // permanentSorts is set in onSuccess (deferred) so the query doesn't switch to
+  // a slow live ORDER BY (Tier 3) during computation.  Instead, the query stays
+  // on its current path (fast), and once ranks are ready the query switches to
+  // the ViewRowRank fast path (Tier 2, O(log N)).
   const computeRanksMut = api.row.computeViewRanks.useMutation({
-    onSuccess: () => {
-      // Ranks now ready — invalidate so next page fetch uses ViewRowRank path.
-      // Don't clearJumpCache — existing jump cache data is still correct.
+    onSuccess: (_data, variables) => {
+      // Ranks materialized — flip permanentSorts so the query uses ViewRowRank.
+      setPermanentSorts(variables.sorts);
+      setRanksComputing(false);
+      clearJumpCache();
       void utils.row.infinite.invalidate();
+    },
+    onError: () => {
+      // Computation failed — clear the indicator; user can retry.
+      setRanksComputing(false);
     },
   });
 
   // "Sort" button (autoSort=false): materialize sort into ViewRowRank.
-  // Rank computation is fire-and-forget; the grid immediately shows sorted data
-  // via the standard live ORDER BY path. Once ranks are ready, the onSuccess
-  // handler above triggers a seamless transition to the ViewRowRank path.
+  // We do NOT set permanentSorts here — that happens in onSuccess.  This avoids
+  // a slow Tier 3 (live ORDER BY) query on large tables that could timeout.
+  // Instead, the user sees a brief "computing" state while ranks materialize,
+  // then sorted data appears instantly via ViewRowRank.
   const handleSaveSorts = useCallback(() => {
-    if (!activeViewIdFromStore) return;
-    const newPermanentSorts = currentSorts;
-    setPermanentSorts(newPermanentSorts);
+    if (!activeViewIdFromStore || currentSorts.length === 0) return;
 
-    // 1. Fire-and-forget rank materialization (onSuccess handles cache refresh)
-    if (newPermanentSorts.length > 0) {
-      computeRanksMut.mutate({
-        tableId,
-        viewId: activeViewIdFromStore,
-        sorts: newPermanentSorts,
-      });
-    }
+    // 1. Show "computing sort" indicator
+    setRanksComputing(true);
 
-    // 2. Save permanentSorts in view config (for display in sort panel)
+    // 2. Fire rank materialization (onSuccess sets permanentSorts + invalidates)
+    computeRanksMut.mutate({
+      tableId,
+      viewId: activeViewIdFromStore,
+      sorts: currentSorts,
+    });
+
+    // 3. Persist permanentSorts to the view config in the DB so the sort
+    //    survives a page refresh even if onSuccess hasn't fired yet.
+    //    (The server-side rank computation will complete regardless.)
     sortSaveMut.mutate({
       viewId: activeViewIdFromStore,
       config: {
@@ -769,18 +777,14 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         filterConjunction: filterConjunctionForSave,
         filterTree: filterTreeForSave,
         sorts: [],
-        permanentSorts: newPermanentSorts,
+        permanentSorts: currentSorts,
         autoSort: false,
         hiddenColumnIds,
         columnOrderIds,
         rowOrderIds: rowOrderIdsForSave,
       },
     });
-
-    // 3. Immediately invalidate so grid shows sorted data via live ORDER BY
-    clearJumpCache();
-    void utils.row.infinite.invalidate();
-  }, [activeViewIdFromStore, currentSorts, tableId, searchForSave, filtersForSave, filterConjunctionForSave, filterTreeForSave, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave, setPermanentSorts, computeRanksMut, sortSaveMut, clearJumpCache, utils]);
+  }, [activeViewIdFromStore, currentSorts, tableId, searchForSave, filtersForSave, filterConjunctionForSave, filterTreeForSave, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave, setRanksComputing, computeRanksMut, sortSaveMut]);
 
   // "Cancel" button (autoSort=false): revert staged entries to permanentSorts
   const handleCancelSorts = useCallback(() => {
@@ -3066,7 +3070,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             onToggleAutoSort={handleToggleAutoSort}
             onSaveSorts={handleSaveSorts}
             onCancelSorts={handleCancelSorts}
-            findMatchCount={findMatches.length}
+            findMatchCount={activeSearchTerm ? totalCount : findMatches.length}
             findCurrentIndex={currentMatchIndex}
             isSearchPending={isSearchPending}
             onPrevMatch={handlePrevMatch}

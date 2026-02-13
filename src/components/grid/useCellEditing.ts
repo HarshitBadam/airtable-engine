@@ -34,6 +34,7 @@ export function useCellEditing(
 
   const search = useGridStore((s) => s.search);
   const filters = useGridStore((s) => s.filters);
+  const autoSort = useGridStore((s) => s.autoSort);
   const sorts = useGridStore((s) => s.sorts);
 
   const utils = api.useUtils();
@@ -98,7 +99,11 @@ export function useCellEditing(
     },
 
     onSuccess: async () => {
-      const affectsMembership = !!search.trim() || filters.length > 0 || sorts.length > 0;
+      // When autoSort=false, sorts are staged (not driving the query) and
+      // the rank is frozen — cell edits never move the row.  Only check
+      // sorts that actually drive the query (autoSort=true + sorts exist).
+      const liveSortsActive = autoSort && sorts.length > 0;
+      const affectsMembership = !!search.trim() || filters.length > 0 || liveSortsActive;
       if (affectsMembership) {
         await utils.row.infinite.invalidate(rowQueryInput);
       }

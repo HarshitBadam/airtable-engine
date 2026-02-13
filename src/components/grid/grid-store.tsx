@@ -52,6 +52,11 @@ type GridState = {
   permanentSorts: Sort[];
   // `autoSort` = toggle state (persisted in view config).
   autoSort: boolean;
+  // `ranksComputing` = true while computeViewRanks is in-flight.
+  //   Used as a UI indicator (e.g. "Sorting..." in the toolbar).
+  //   permanentSorts is NOT set until ranks are ready (onSuccess),
+  //   so the query stays on its current path during computation.
+  ranksComputing: boolean;
 
   hiddenColumnIds: string[];
   columnOrderIds: string[];
@@ -81,6 +86,7 @@ type GridState = {
   setSorts: (v: Sort[]) => void;
   setAutoSort: (v: boolean) => void;
   setPermanentSorts: (v: Sort[]) => void;
+  setRanksComputing: (v: boolean) => void;
   revertFilters: () => void;
 
   toggleHiddenColumn: (columnId: string) => void;
@@ -148,6 +154,7 @@ export function createGridStore(tableId: string) {
     savedSorts: [],
     permanentSorts: [],
     autoSort: true,
+    ranksComputing: false,
     hiddenColumnIds: [],
     columnOrderIds: [],
     rowOrderIds: [],
@@ -206,6 +213,7 @@ export function createGridStore(tableId: string) {
         savedSorts: cfg.sorts,
         autoSort: restoredAutoSort,
         permanentSorts: cfg.permanentSorts,
+        ranksComputing: false,
         hiddenColumnIds: cfg.hiddenColumnIds,
         columnOrderIds: cfg.columnOrderIds,
         rowOrderIds: cfg.rowOrderIds,
@@ -246,6 +254,9 @@ export function createGridStore(tableId: string) {
 
     setPermanentSorts: (permanentSorts) =>
       set((s) => ({ ...s, permanentSorts })),
+
+    setRanksComputing: (ranksComputing) =>
+      set((s) => ({ ...s, ranksComputing })),
 
     revertFilters: () =>
       set((s) => ({
