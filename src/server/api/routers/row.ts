@@ -638,12 +638,14 @@ export const rowRouter = createTRPCRouter({
           });
 
           if (rankCount > 0) {
+            // Unranked count via simple arithmetic — avoids the expensive
+            // LEFT JOIN anti-join COUNT that was taking 300-500ms per call.
+            const unrankedCount = Math.max(0, table.rowCount - rankCount);
+            const totalCount = rankCount + unrankedCount;
+
             const cursor = input.cursor;
-            // Detect cursor type → which phase we're in
             const isRankCursor = cursor && typeof cursor === "object" && "rank" in cursor;
             const isUnrankedTail = typeof cursor === "number";
-            // Guard: if cursor is from the standard sorted path ({ rowIndex, sortValues }),
-            // it can't be used with ViewRowRank. Fall through to the standard sorted path.
             const isSortedCursor = cursor && typeof cursor === "object" && "sortValues" in cursor;
 
             if (!isSortedCursor) {
@@ -667,17 +669,7 @@ export const rowRouter = createTRPCRouter({
                   nextCursor = items[items.length - 1]!.rowIndex;
                 }
 
-                // Count unranked rows for totalCount
-                const ucParams: SqlParam[] = [input.viewId, input.tableId];
-                const ucSql = `
-                  SELECT COUNT(*)::int AS count FROM "Row" r
-                  LEFT JOIN "ViewRowRank" vrr ON vrr."rowId" = r."id" AND vrr."viewId" = $1
-                  WHERE r."tableId" = $2 AND vrr."rank" IS NULL
-                `;
-                const ucRes = await queryRawUnsafe<CountRow[]>(ctx.db, ucSql, ucParams);
-                const unrankedCount = ucRes[0]?.count ?? 0;
-
-                return { items, nextCursor, totalCount: rankCount + unrankedCount };
+                return { items, nextCursor, totalCount };
               }
 
               // ── Phase 1: Ranked rows (frozen sort order) ──
@@ -691,21 +683,7 @@ export const rowRouter = createTRPCRouter({
                 ORDER BY vrr."rank" ASC
                 LIMIT $3
               `;
-
-              // Count unranked rows in parallel (for totalCount)
-              const ucParams: SqlParam[] = [input.viewId, input.tableId];
-              const ucSql = `
-                SELECT COUNT(*)::int AS count FROM "Row" r
-                LEFT JOIN "ViewRowRank" vrr ON vrr."rowId" = r."id" AND vrr."viewId" = $1
-                WHERE r."tableId" = $2 AND vrr."rank" IS NULL
-              `;
-
-              const [rankedRows, ucRes] = await Promise.all([
-                queryRawUnsafe<RowSelect[]>(ctx.db, rankedSql, rp),
-                queryRawUnsafe<CountRow[]>(ctx.db, ucSql, ucParams),
-              ]);
-              const unrankedCount = ucRes[0]?.count ?? 0;
-              const totalCount = rankCount + unrankedCount;
+              const rankedRows = await queryRawUnsafe<RowSelect[]>(ctx.db, rankedSql, rp);
 
               let items: RowSelect[] = rankedRows;
               let hasNext = rankedRows.length > input.limit;
@@ -1008,35 +986,50 @@ export const rowRouter = createTRPCRouter({
       const tableIdEscaped = escapeLiteral(input.tableId);
       const orderByClause = buildSortOrderByForAlias(input.sorts, "r");
 
-      // Mark ranks as stale BEFORE the heavy transaction.
-      // This prevents concurrent infinite/windowFetch queries from entering
-      // the ViewRowRank path and contending with the bulk INSERT's
-      // page-level B-tree index locks (which would hang the COUNT query).
+      // ── NON-TRANSACTIONAL rank materialization ──────────────────────
+      // Previously this was an interactive transaction that held a single
+      // DB connection for the entire DELETE + INSERT (10-30s for 100K+ rows).
+      // That monopolised the connection pool, starving concurrent operations
+      // (scrolling, editing, duplicating, jumping) and causing cascading
+      // timeouts.
+      //
+      // Now each step is a separate auto-commit query.  Each query acquires
+      // a connection, executes, and returns it to the pool immediately.
+      // The INSERT still holds a connection during execution, but the DELETE
+      // and UPDATE connections are released between steps, giving other
+      // operations access to the pool.
+      //
+      // Safety: ranksStale is already TRUE (set above), so concurrent
+      // queries fall back to Tier 3.  If the INSERT fails, the system stays
+      // on Tier 3 (graceful degradation).  The user can retry the sort.
+
+      // 1. Mark ranks stale — prevents concurrent queries from entering
+      //    the ViewRowRank path during the heavy INSERT.
       await ctx.db.view.update({
         where: { id: input.viewId },
         data: { ranksStale: true },
       });
 
-      await ctx.db.$transaction(async (tx) => {
-        // 1. Clear existing ranks for this view
-        await tx.$executeRawUnsafe(
-          `DELETE FROM "ViewRowRank" WHERE "viewId" = '${viewIdEscaped}'`,
-        );
+      // 2. Clear existing ranks (fast, auto-commits, releases connection)
+      await ctx.db.$executeRawUnsafe(
+        `DELETE FROM "ViewRowRank" WHERE "viewId" = '${viewIdEscaped}'`,
+      );
 
-        // 2. Insert new ranks from ROW_NUMBER()
-        await tx.$executeRawUnsafe(`
-          INSERT INTO "ViewRowRank" ("viewId", "rank", "rowId")
-          SELECT '${viewIdEscaped}', ROW_NUMBER() OVER (ORDER BY ${orderByClause})::int, r."id"
-          FROM "Row" r
-          WHERE r."tableId" = '${tableIdEscaped}'
-        `);
+      // 3. Insert new ranks from ROW_NUMBER() (heavy, 10-30s, auto-commits)
+      await ctx.db.$executeRawUnsafe(`
+        INSERT INTO "ViewRowRank" ("viewId", "rank", "rowId")
+        SELECT '${viewIdEscaped}', ROW_NUMBER() OVER (ORDER BY ${orderByClause})::int, r."id"
+        FROM "Row" r
+        WHERE r."tableId" = '${tableIdEscaped}'
+      `);
 
-        // 3. Mark view as fresh (only after successful INSERT)
-        await tx.view.update({
-          where: { id: input.viewId },
-          data: { ranksStale: false },
-        });
-      }, { timeout: 120_000 }); // 120s for large tables (DELETE + INSERT with ROW_NUMBER)
+      // 4. Mark view as fresh (fast, auto-commits)
+      //    If step 3 threw, we never reach here → ranksStale stays true
+      //    → system stays on Tier 3 → user can retry.
+      await ctx.db.view.update({
+        where: { id: input.viewId },
+        data: { ranksStale: false },
+      });
 
       return { ok: true, rankCount: table.rowCount };
     }),
@@ -1616,15 +1609,8 @@ export const rowRouter = createTRPCRouter({
           });
 
           if (rankCount > 0) {
-            // Count unranked rows (added after sort was applied)
-            const ucParams: SqlParam[] = [input.viewId, input.tableId];
-            const ucSql = `
-              SELECT COUNT(*)::int AS count FROM "Row" r
-              LEFT JOIN "ViewRowRank" vrr ON vrr."rowId" = r."id" AND vrr."viewId" = $1
-              WHERE r."tableId" = $2 AND vrr."rank" IS NULL
-            `;
-            const ucRes = await queryRawUnsafe<CountRow[]>(ctx.db, ucSql, ucParams);
-            const unrankedCount = ucRes[0]?.count ?? 0;
+            // Simple arithmetic instead of expensive LEFT JOIN anti-join COUNT
+            const unrankedCount = Math.max(0, table.rowCount - rankCount);
             const totalCount = rankCount + unrankedCount;
 
             let items: RowSelect[];

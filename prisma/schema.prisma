@@ -118,16 +118,19 @@ model Table {
 }
 
 model Column {
-  id           String     @id @default(cuid())
-  tableId      String
-  table        Table      @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  name         String
-  type         ColumnType
-  order        Int
-  defaultValue String?
-  config       Json?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id             String     @id @default(cuid())
+  tableId        String
+  table          Table      @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  name           String
+  type           ColumnType
+  order          Int
+  defaultValue   String?
+  config         Json?
+  /// Set during field duplication; cleared after backfill completes.
+  /// getCellValue uses this to show source column values before backfill.
+  sourceColumnId String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   @@unique([tableId, order])
   @@index([tableId])

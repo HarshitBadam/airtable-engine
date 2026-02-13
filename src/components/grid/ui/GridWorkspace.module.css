@@ -102,3 +102,50 @@
   position: relative;
   z-index: 0; /* isolate stacking context so toolbar dropdowns paint above */
 }
+
+/* === COLUMN OPERATION TOAST === */
+.columnOpToast {
+  position: absolute;
+  top: 44px;          /* below the header row */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: #1b1b1f;
+  color: #e0e0e0;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  animation: columnOpToastIn 0.2s ease-out;
+}
+
+@keyframes columnOpToastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.columnOpSpinner {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  animation: columnOpSpin 0.8s linear infinite;
+}
+
+@keyframes columnOpSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.columnOpPulse {
+  animation: columnOpPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes columnOpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

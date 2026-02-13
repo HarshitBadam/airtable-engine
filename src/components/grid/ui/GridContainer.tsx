@@ -97,6 +97,8 @@ interface GridContainerProps {
   isBulkAdding?: boolean;
   baseColor?: string;
   baseTextColor?: string;
+  /** Columns currently being backfilled — cells show grey placeholder text */
+  backfillingColumnIds?: ReadonlySet<string>;
 }
 
 export function GridContainer({
@@ -152,6 +154,7 @@ export function GridContainer({
   isBulkAdding = false,
   baseColor = "#7D37EF",
   baseTextColor = "#FFFFFF",
+  backfillingColumnIds,
 }: GridContainerProps) {
   // Sorted column IDs — for tinting sorted column headers orange.
   // ONLY for autoSort=true (temporary/reversible sorts). autoSort=false = no orange ever.
@@ -907,6 +910,7 @@ export function GridContainer({
                       onRowDragStart={handleRowDragStart}
                       canDragRows={canDragRows}
                       cellHeight={DATA_ROW_HEIGHT}
+                      backfillingColumnIds={backfillingColumnIds}
                     />
                   ) : (
                     /* Skeleton row — shown while data is being fetched */

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { skipToken, useQueryClient } from "@tanstack/react-query";
+import { skipToken } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
 import type { inferProcedureOutput } from "@trpc/server";
 import type { AppRouter } from "~/server/api/root";
@@ -119,7 +119,6 @@ interface TableItem {
 export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const router = useRouter();
   const utils = api.useUtils();
-  const queryClient = useQueryClient();
 
   // === LOCAL STATE ===
   const [isTableDropdownOpen, setIsTableDropdownOpen] = useState(false);
@@ -429,13 +428,23 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const {
     rows, totalCount, q: rowsQ, input: rowQueryInput, debouncedSearch,
     getRowAtIndex, getRowById, triggerJumpFetch,
-    clearJumpCache, updateJumpCacheRow, stampJumpCacheColumn, remapJumpCacheColumnId,
-    copyJumpCacheColumn, pendingColumnDefaultsRef,
+    clearJumpCache, updateJumpCacheRow,
   } = useGridRows(tableId);
   rowsRef.current = rows;
-  // Stable ref so async callbacks (e.g. insert above/below onSuccess) always read the latest input
-  const rowQueryInputRef = useRef(rowQueryInput);
-  rowQueryInputRef.current = rowQueryInput;
+
+  // After a mutation, we need fresh data. But `utils.row.infinite.invalidate()`
+  // refetches ALL cached pages sequentially (70 pages at row 70K = 35s).
+  // This helper truncates to the first page, then invalidates — so only 1
+  // page is refetched (<100ms). Other pages load on-demand as user scrolls.
+  const refreshRows = useCallback(() => {
+    clearJumpCache();
+    utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
+      if (!old?.pages?.length) return old;
+      return { pages: old.pages.slice(0, 1), pageParams: old.pageParams.slice(0, 1) } as typeof old;
+    });
+    void utils.row.infinite.invalidate();
+  }, [clearJumpCache, utils, rowQueryInput]);
+
   const { commit, cancel } = useCellEditing(tableId, rowQueryInput, updateJumpCacheRow);
 
   // Search state for FindBar wiring
@@ -729,37 +738,32 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     }
   }, [autoSort, setAutoSort, activeViewIdFromStore, sortSaveMut, searchForSave, filtersForSave, filterConjunctionForSave, filterTreeForSave, currentSorts, permanentSorts, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave]);
 
-  // Mutation to compute materialized ViewRowRank for one-time sort (autoSort=OFF).
-  // permanentSorts is set in onSuccess (deferred) so the query doesn't switch to
-  // a slow live ORDER BY (Tier 3) during computation.  Instead, the query stays
-  // on its current path (fast), and once ranks are ready the query switches to
-  // the ViewRowRank fast path (Tier 2, O(log N)).
+  // Background rank materialization — enables fast O(log N) jumps later.
   const computeRanksMut = api.row.computeViewRanks.useMutation({
-    onSuccess: (_data, variables) => {
-      // Ranks materialized — flip permanentSorts so the query uses ViewRowRank.
-      setPermanentSorts(variables.sorts);
+    onSuccess: () => {
+      // Ranks ready — clear the computing flag so useGridRows sends viewId
+      // and the query switches from Tier 3 (live ORDER BY) to Tier 2 (ViewRowRank).
       setRanksComputing(false);
-      clearJumpCache();
-      void utils.row.infinite.invalidate();
+      refreshRows();
     },
     onError: () => {
-      // Computation failed — clear the indicator; user can retry.
       setRanksComputing(false);
     },
   });
 
-  // "Sort" button (autoSort=false): materialize sort into ViewRowRank.
-  // We do NOT set permanentSorts here — that happens in onSuccess.  This avoids
-  // a slow Tier 3 (live ORDER BY) query on large tables that could timeout.
-  // Instead, the user sees a brief "computing" state while ranks materialize,
-  // then sorted data appears instantly via ViewRowRank.
+  // "Sort" button (autoSort=false):
+  // 1. Set permanentSorts IMMEDIATELY → query uses Tier 3 (live ORDER BY) → user sees sorted data in <1s
+  // 2. Fire computeViewRanks in background → when done, query auto-upgrades to Tier 2
+  // 3. While computing, viewId is suppressed (ranksComputing=true) to avoid racing with the INSERT
   const handleSaveSorts = useCallback(() => {
     if (!activeViewIdFromStore || currentSorts.length === 0) return;
 
-    // 1. Show "computing sort" indicator
+    // Immediate: user sees sorted data via live ORDER BY
+    setPermanentSorts(currentSorts);
     setRanksComputing(true);
+    clearJumpCache();
 
-    // 2. Fire rank materialization (onSuccess sets permanentSorts + invalidates)
+    // Background: materialize ranks for fast jumps later
     computeRanksMut.mutate({
       tableId,
       viewId: activeViewIdFromStore,
@@ -986,17 +990,37 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortKey, activeViewIdFromStore, autoSort]);
 
-  // Helper to get cell value as string
+  // Helper to get cell value as string.
+  // Resolves default values and duplication source values for columns
+  // where the backfill hasn't written to this row yet.
   const getCellValue = useCallback(
     (cells: unknown, columnId: string): string => {
       if (!cells || typeof cells !== "object") return "";
       const record = cells as Record<string, unknown>;
       const val = record[columnId];
-      if (val === null || val === undefined) return "";
-      if (typeof val === "object") return JSON.stringify(val);
-      return typeof val === "string" ? val : String(val as number | boolean | bigint | symbol);
+      if (val !== null && val !== undefined) {
+        if (typeof val === "object") return JSON.stringify(val);
+        return typeof val === "string" ? val : String(val as number | boolean | bigint | symbol);
+      }
+
+      // Value is missing — check if this column has a fallback:
+      const col = orderedColumns.find((c) => c.id === columnId);
+
+      // 1. Duplication: show source column's value (sourceColumnId is stored in DB)
+      if (col?.sourceColumnId) {
+        const srcVal = record[col.sourceColumnId];
+        if (srcVal !== null && srcVal !== undefined) {
+          if (typeof srcVal === "object") return JSON.stringify(srcVal);
+          return typeof srcVal === "string" ? srcVal : String(srcVal as number | boolean | bigint | symbol);
+        }
+      }
+
+      // 2. Default value: show column's defaultValue
+      if (col?.defaultValue) return col.defaultValue;
+
+      return "";
     },
-    [],
+    [orderedColumns],
   );
 
   // === KEYBOARD NAVIGATION & SELECTION OVERLAY ===
@@ -1731,83 +1755,22 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
   // (Insert above/below uses addRowMut + insertRowAndPosition helper below)
 
-  // Duplicate row — optimistic: clone the row right below the source
+  // Duplicate row — server does the work, then we refetch.
+  // No optimistic cache manipulation — avoids page-boundary bugs,
+  // view-switch race conditions, and jump cache inconsistencies.
   const duplicateRowMut = api.row.duplicateAt.useMutation({
-    onMutate: async (vars) => {
-      await utils.row.infinite.cancel(rowQueryInput);
-      const prev = utils.row.infinite.getInfiniteData(rowQueryInput);
-
-      // Find the source row in cache so we can clone its cells
-      let sourceRow: RowInfinitePage["items"][number] | undefined;
-      if (prev) {
-        for (const page of prev.pages) {
-          sourceRow = page.items.find((r) => r.id === vars.rowId);
-          if (sourceRow) break;
-        }
-      }
-
-      const atIndex = sourceRow ? sourceRow.rowIndex + 1 : 0;
-      const tempId = `__temp_dup_${Date.now()}`;
-      const tempRow = {
-        id: tempId,
-        rowIndex: atIndex,
-        cells: sourceRow ? sourceRow.cells : {},
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
-        if (!old) return old;
-        let inserted = false;
-        return {
-          ...old,
-          pages: old.pages.map((page, pageIdx) => {
-            const newItems: typeof page.items = [];
-            for (const r of page.items) {
-              newItems.push(
-                r.rowIndex >= atIndex
-                  ? { ...r, rowIndex: r.rowIndex + 1 }
-                  : r,
-              );
-              // Insert the duplicate right after the source row
-              if (!inserted && r.id === vars.rowId) {
-                newItems.push(tempRow as typeof r);
-                inserted = true;
-              }
-            }
-            if (!inserted && pageIdx === old.pages.length - 1) {
-              newItems.push(tempRow as typeof page.items[0]);
-              inserted = true;
-            }
-            return {
-              ...page,
-              items: newItems,
-              totalCount: pageIdx === 0 ? page.totalCount + 1 : page.totalCount,
-            };
-          }),
-        };
-      });
-
-      // Pass the source rowId through context so onSuccess can update rowOrderIds
-      return { prev, sourceRowId: vars.rowId };
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx?.prev) {
-        utils.row.infinite.setInfiniteData(rowQueryInput, ctx.prev);
-      }
-    },
-    onSuccess: (data, _vars, ctx) => {
-      // If the view has a custom rowOrderIds, insert the duplicate right after the source row
+    onSuccess: (data, vars) => {
+      // If the view has a custom rowOrderIds, insert the duplicate after source
       const currentOrder = rowOrderIdsRef.current;
-      if (ctx?.sourceRowId && currentOrder.length > 0) {
-        const order = [...currentOrder];
-        const sourceIdx = order.indexOf(ctx.sourceRowId);
+      if (currentOrder.length > 0) {
+        const sourceIdx = currentOrder.indexOf(vars.rowId);
         if (sourceIdx !== -1) {
+          const order = [...currentOrder];
           order.splice(sourceIdx + 1, 0, data.id);
           setRowOrderIdsTop(order);
         }
       }
-      void utils.row.infinite.invalidate();
+      refreshRows();
     },
   });
 
@@ -1817,8 +1780,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // Delete row — animated: mark as deleting → animate → remove from cache
   const deleteRowMut = api.row.delete.useMutation({
     onSuccess: () => {
-      // Re-sync with server to get accurate data after animation + removal
-      void utils.row.infinite.invalidate();
+      refreshRows();
     },
     onError: (_e, vars) => {
       // If the server fails, un-mark the row so it reappears
@@ -1890,26 +1852,42 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // Guard: suppress layout auto-save while a column creation is in-flight
   // (the optimistic columnOrderIds contains a temp ID that must NOT leak to the server).
   const isCreatingColumnRef = useRef(false);
+  // Columns currently being backfilled — cells show grey placeholder text
+  const [backfillingColumnIds, setBackfillingColumnIds] = useState<ReadonlySet<string>>(new Set());
 
-  // Create column — optimistic: add a placeholder column INSTANTLY, then reconcile with server
+  // Background backfill — writes default/source values to row cells.
+  // Runs AFTER column.create returns so the column appears instantly.
+  // getCellValue resolves values at render time while this runs.
+  const backfillMut = api.column.backfill.useMutation({
+    onSuccess: (_data, vars) => {
+      // Backfill complete — remove from backfilling set
+      setBackfillingColumnIds((prev) => {
+        const next = new Set(prev);
+        next.delete(vars.columnId);
+        return next;
+      });
+      // Refresh to pick up persisted data.
+      // Server has cleared sourceColumnId, so invalidate columns too.
+      refreshRows();
+      void utils.column.list.invalidate({ tableId });
+      void utils.view.list.invalidate({ tableId });
+    },
+  });
+
+  // Create column — optimistic for the COLUMN HEADER only.
+  // Row cell values are resolved at render time via getCellValue
+  // (defaults + duplication source), while the background backfill
+  // persists them to the database.
   const createColumnMut = api.column.create.useMutation({
     onMutate: async (vars) => {
-      // Suppress layout auto-save while temp IDs are in columnOrderIds
       isCreatingColumnRef.current = true;
-
-      // Generate a deterministic temporary ID
       const tempId = `__temp_col_${++tempColCounter.current}_${Date.now()}`;
 
-      // Cancel in-flight queries so our optimistic data isn't overwritten
       await utils.column.list.cancel({ tableId });
-      await utils.row.infinite.cancel(rowQueryInput);
-
-      // Snapshot previous state for rollback
       const prevCols = utils.column.list.getData({ tableId });
       const prevOrderIds = columnOrderIdsRef.current;
-      const prevRows = utils.row.infinite.getInfiniteData(rowQueryInput);
 
-      // Optimistically add the temp column to the column list cache
+      // Add temp column to column list cache (header appears instantly)
       const tempCol = {
         id: tempId,
         name: vars.name,
@@ -1917,14 +1895,14 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         order: 999999,
         defaultValue: vars.defaultValue ?? null,
         config: vars.numberConfig ? (vars.numberConfig as unknown as object) : null,
+        sourceColumnId: vars.sourceColumnId ?? null,
       };
       utils.column.list.setData({ tableId }, (old) => {
         if (!old) return [tempCol];
         return [...old, tempCol];
       });
 
-      // Append the temp column to the Zustand store's columnOrderIds
-      // (or insert it at the correct position if insert-field target is set)
+      // Insert into columnOrderIds at correct position
       const currentOrder = columnOrderIdsRef.current;
       if (currentOrder.length > 0) {
         const target = insertFieldTargetRef.current;
@@ -1944,70 +1922,23 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         }
       }
 
-      // ── Stamp row data for the CURRENT VIEW using tRPC setInfiniteData ──
-      // We only patch the active view's cache here.  Other views' stale
-      // caches will be removed in onSuccess so they refetch fresh from DB.
-      if (vars.defaultValue && vars.defaultValue.trim() !== "") {
-        const cellValue: string | number =
-          vars.type === "NUMBER" && !isNaN(Number(vars.defaultValue))
-            ? Number(vars.defaultValue)
-            : vars.defaultValue;
-
-        utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page) => ({
-              ...page,
-              items: page.items.map((r) => ({
-                ...r,
-                cells: { ...((r.cells ?? {}) as Record<string, unknown>), [tempId]: cellValue },
-              })),
-            })),
-          };
-        });
-
-        stampJumpCacheColumn(tempId, cellValue);
-        pendingColumnDefaultsRef.current.set(tempId, cellValue);
-      }
-
-      if (vars.sourceColumnId) {
-        utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page) => ({
-              ...page,
-              items: page.items.map((r) => {
-                const cells = ((r.cells ?? {}) as Record<string, unknown>);
-                const srcVal = cells[vars.sourceColumnId!];
-                if (srcVal === undefined) return r;
-                return { ...r, cells: { ...cells, [tempId]: srcVal } };
-              }),
-            })),
-          };
-        });
-
-        copyJumpCacheColumn(vars.sourceColumnId, tempId);
-      }
-
-      return { tempId, prevCols, prevOrderIds, prevRows };
+      return { tempId, prevCols, prevOrderIds };
     },
-    onSuccess: (newCol, _vars, ctx) => {
+    onSuccess: (newCol, vars, ctx) => {
       if (!ctx) return;
       const { tempId } = ctx;
 
-      // Replace the temp column with the real one in the column list cache
+      // Swap temp → real in column list
       utils.column.list.setData({ tableId }, (old) => {
         if (!old) return old;
         return old.map((c) =>
           c.id === tempId
-            ? { id: newCol.id, name: newCol.name, type: newCol.type, order: newCol.order, defaultValue: newCol.defaultValue, config: newCol.config }
+            ? { id: newCol.id, name: newCol.name, type: newCol.type, order: newCol.order, defaultValue: newCol.defaultValue, config: newCol.config, sourceColumnId: newCol.sourceColumnId }
             : c,
         );
       });
 
-      // Replace the temp ID with the real ID in the Zustand store's columnOrderIds
+      // Swap temp → real in columnOrderIds
       const currentOrder = columnOrderIdsRef.current;
       const idx = currentOrder.indexOf(tempId);
       if (idx !== -1) {
@@ -2016,114 +1947,47 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         setColumnOrderIds(updated);
       }
 
-      // ── Remap tempId → realId in the CURRENT VIEW's row cache ──
-      utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page) => ({
-            ...page,
-            items: page.items.map((r) => {
-              const cells = ((r.cells ?? {}) as Record<string, unknown>);
-              if (!(tempId in cells)) return r;
-              const { [tempId]: val, ...rest } = cells;
-              return { ...r, cells: { ...rest, [newCol.id]: val } };
-            }),
-          })),
-        };
-      });
-
-      // ── Jump cache: remap temp → real ID ──
-      remapJumpCacheColumnId(tempId, newCol.id);
-
-      // Re-stamp jump cache for default values
-      const hasDefault = newCol.defaultValue && String(newCol.defaultValue).trim() !== "";
-      if (hasDefault) {
-        const defaultCellVal: string | number =
-          newCol.type === "NUMBER" && !isNaN(Number(newCol.defaultValue))
-            ? Number(newCol.defaultValue)
-            : String(newCol.defaultValue);
-        stampJumpCacheColumn(newCol.id, defaultCellVal);
-      }
-
-      // Re-stamp jump cache for duplicate fields (copy source → new column)
-      if (_vars.sourceColumnId) {
-        copyJumpCacheColumn(_vars.sourceColumnId, newCol.id);
-      }
-
-      // Manage pending-defaults: remap tempId → realId so any in-flight
-      // windowFetch responses still get stamped, then remove after delay.
-      const pendingVal = pendingColumnDefaultsRef.current.get(tempId);
-      pendingColumnDefaultsRef.current.delete(tempId);
-      if (pendingVal !== undefined) {
-        pendingColumnDefaultsRef.current.set(newCol.id, pendingVal);
-        setTimeout(() => {
-          pendingColumnDefaultsRef.current.delete(newCol.id);
-        }, 5000);
-      }
-
-      // Also update the activeCell if it was referencing the temp column
+      // Update activeCell if it referenced the temp column
       const ac = activeCellRef.current;
       if (ac?.columnId === tempId) {
         setActiveCell({ rowId: ac.rowId, columnId: newCol.id });
       }
 
-      // Temp → real swap is complete; allow layout auto-save again
       isCreatingColumnRef.current = false;
 
-      // ── Cross-view consistency ──
-      // Remove all INACTIVE row.infinite caches (other views that aren't
-      // currently rendered).  When the user switches to those views, they
-      // will fetch fresh data from the DB, which by now has the correct
-      // backfilled values.  This avoids the fragile approach of trying
-      // to patch other views' caches with queryClient.setQueryData.
-      queryClient.removeQueries({
-        predicate: (query) => {
-          const key = query.queryKey;
-          return (
-            Array.isArray(key) &&
-            Array.isArray(key[0]) &&
-            (key[0] as string[])[0] === "row" &&
-            (key[0] as string[])[1] === "infinite"
-          );
-        },
-        type: "inactive",
-      });
-
-      // Re-fetch views so the persisted columnOrderIds are in sync
+      // View config is already updated by the server transaction.
       void utils.view.list.invalidate({ tableId });
 
-      // Background-refresh current view's row data so any rows fetched
-      // during the backfill window (MVCC old snapshots) get replaced
-      // with correct DB data.  keepPreviousData ensures no flash.
-      void utils.row.infinite.invalidate();
+      // Fire background backfill if the column has data to write.
+      // getCellValue already shows the values at render time, so the
+      // user never sees blank cells.
+      const needsBackfill = (vars.defaultValue && vars.defaultValue.trim() !== "") || vars.sourceColumnId;
+      if (needsBackfill) {
+        setBackfillingColumnIds((prev) => new Set(prev).add(newCol.id));
+        backfillMut.mutate({
+          tableId,
+          columnId: newCol.id,
+          defaultValue: vars.defaultValue ?? undefined,
+          type: vars.type as "TEXT" | "NUMBER",
+          sourceColumnId: vars.sourceColumnId ?? undefined,
+        });
+      }
     },
     onError: (_err, _vars, ctx) => {
-      // Column creation failed; allow layout auto-save again
       isCreatingColumnRef.current = false;
       if (!ctx) return;
-      // Rollback column cache
       if (ctx.prevCols) utils.column.list.setData({ tableId }, ctx.prevCols);
-      // Rollback Zustand store
       setColumnOrderIds(ctx.prevOrderIds);
-      // Rollback row cache
-      if (ctx.prevRows) utils.row.infinite.setInfiniteData(rowQueryInput, ctx.prevRows);
     },
   });
 
-  // Delete column (PERMANENT, table-level) — removes the column from the table
-  // and all views' configs. This is the correct "Delete field" action since
-  // field creation/deletion is table-level and affects ALL views.
+  // Delete column — optimistic for the COLUMN HEADER + STORE only.
+  // Row cell values are NOT patched — the server strips them, and the
+  // subsequent invalidation gets clean data.
   const deleteColumnMut = api.column.delete.useMutation({
     onMutate: async (vars) => {
-      // Cancel both queries
-      await Promise.all([
-        utils.column.list.cancel({ tableId }),
-        utils.row.infinite.cancel(rowQueryInput),
-      ]);
-
+      await utils.column.list.cancel({ tableId });
       const prevCols = utils.column.list.getData({ tableId });
-      const prevRows = utils.row.infinite.getInfiniteData(rowQueryInput);
 
       // Snapshot Zustand state for rollback
       const prevOrderIds = columnOrderIdsRef.current;
@@ -2138,25 +2002,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         return old.filter((c) => c.id !== vars.columnId);
       });
 
-      // Strip the column key from all rows' cells
-      utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page) => ({
-            ...page,
-            items: page.items.map((r) => {
-              const cells = r.cells as Record<string, unknown> | null;
-              if (!cells || !(vars.columnId in cells)) return r;
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              const { [vars.columnId]: _removed, ...rest } = cells;
-              return { ...r, cells: rest };
-            }),
-          })),
-        };
-      });
-
-      // Optimistically update Zustand store: remove from columnOrderIds & hiddenColumnIds
+      // Optimistically update Zustand store
       setColumnOrderIds(prevOrderIds.filter((id: string) => id !== vars.columnId));
       setHiddenColumnIds(prevHiddenIds.filter((id: string) => id !== vars.columnId));
 
@@ -2166,7 +2012,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       const newFilters = prevFilters.filter((f) => f.columnId !== vars.columnId);
       if (newFilters.length !== prevFilters.length) setFilters(newFilters);
 
-      // Clean filterTree referencing this column (condition groups)
+      // Clean filterTree referencing this column
       if (prevFilterTree) {
         type TreeItem = { kind?: string; columnId?: string; items?: TreeItem[]; [k: string]: unknown };
         const cleanTreeItems = (items: TreeItem[]): TreeItem[] =>
@@ -2184,17 +2030,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         setFilterTree(cleaned as typeof prevFilterTree);
       }
 
-      return { prevCols, prevRows, prevOrderIds, prevHiddenIds, prevSorts, prevFilters, prevFilterTree };
+      return { prevCols, prevOrderIds, prevHiddenIds, prevSorts, prevFilters, prevFilterTree };
     },
     onError: (_e, _v, ctx) => {
       if (!ctx) return;
-      if (ctx.prevCols) {
-        utils.column.list.setData({ tableId }, ctx.prevCols);
-      }
-      if (ctx.prevRows) {
-        utils.row.infinite.setInfiniteData(rowQueryInput, ctx.prevRows);
-      }
-      // Rollback Zustand store
+      if (ctx.prevCols) utils.column.list.setData({ tableId }, ctx.prevCols);
       setColumnOrderIds(ctx.prevOrderIds);
       setHiddenColumnIds(ctx.prevHiddenIds);
       setSorts(ctx.prevSorts);
@@ -2202,22 +2042,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       setFilterTree(ctx.prevFilterTree);
     },
     onSuccess: () => {
-      // Remove inactive views' stale row caches for cross-view consistency
-      queryClient.removeQueries({
-        predicate: (query) => {
-          const key = query.queryKey;
-          return (
-            Array.isArray(key) &&
-            Array.isArray(key[0]) &&
-            (key[0] as string[])[0] === "row" &&
-            (key[0] as string[])[1] === "infinite"
-          );
-        },
-        type: "inactive",
-      });
-      // Re-sync with server (column list, rows, and views since server cleans all view configs)
+      refreshRows();
       void utils.column.list.invalidate({ tableId });
-      void utils.row.infinite.invalidate();
       void utils.view.list.invalidate({ tableId });
     },
   });
@@ -2260,7 +2086,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     const atIndex = totalCount + 100;
     insertAtMut.mutate({ tableId, atIndex }, {
       onSuccess: (newRow) => {
-        void utils.row.infinite.invalidate();
+        refreshRows();
         // Scroll to the bottom so the new row is visible
         requestAnimationFrame(() => {
           const scroller = gridScrollerRef.current;
@@ -2288,43 +2114,15 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     if (!isValidTable || isBulkAdding) return;
     setIsBulkAdding(true);
     addRowMut.mutate({ tableId, count: 100_000 }, {
-      onSuccess: (data) => {
-        // Optimistically update the totalCount in the first page so the
-        // virtualizer immediately expands to the new row count (preserving
-        // the current scroll position). Then invalidate for a proper refetch.
-        utils.row.infinite.setInfiniteData(rowQueryInputRef.current, (old) => {
-          if (!old?.pages?.[0]) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page, i) =>
-              i === 0 ? { ...page, totalCount: (page.totalCount ?? 0) + data.count } : page,
-            ),
-          };
-        });
-        clearJumpCache();
-        // Remove inactive views' stale caches — they'll refetch fresh data
-        // when the user switches to them (avoids concurrent refetch storms).
-        queryClient.removeQueries({
-          predicate: (query) => {
-            const key = query.queryKey;
-            return (
-              Array.isArray(key) &&
-              Array.isArray(key[0]) &&
-              (key[0] as string[])[0] === "row" &&
-              (key[0] as string[])[1] === "infinite"
-            );
-          },
-          type: "inactive",
-        });
-        // Refetch only the active view's data
-        void utils.row.infinite.invalidate(rowQueryInputRef.current);
+      onSuccess: () => {
+        refreshRows();
         setIsBulkAdding(false);
       },
       onError: () => {
         setIsBulkAdding(false);
       },
     });
-  }, [isValidTable, isBulkAdding, tableId, addRowMut, utils, clearJumpCache]);
+  }, [isValidTable, isBulkAdding, tableId, addRowMut, refreshRows]);
 
   // When rows update after adding (+ button), find the new row by rowIndex and start editing
   useEffect(() => {
@@ -2361,8 +2159,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     insertAtMut.mutate({ tableId, atIndex: targetRow.rowIndex }, {
       onSuccess: (newRow) => {
-        void utils.row.infinite.invalidate();
-        clearJumpCache(); // Indexes shifted — stale
+        refreshRows();
         const firstCol = visibleColumnsRef.current[0];
         if (firstCol) {
           requestAnimationFrame(() => {
@@ -2372,7 +2169,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         }
       },
     });
-  }, [isValidTable, tableId, insertAtMut, utils, setActiveCell, startEditing, getRowById, clearJumpCache]);
+  }, [isValidTable, tableId, insertAtMut, setActiveCell, startEditing, getRowById, refreshRows]);
 
   // === INSERT RECORD BELOW ===
   const handleInsertRecordBelow = useCallback((rowId: string) => {
@@ -2382,8 +2179,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     insertAtMut.mutate({ tableId, atIndex: targetRow.rowIndex + 1 }, {
       onSuccess: (newRow) => {
-        void utils.row.infinite.invalidate();
-        clearJumpCache(); // Indexes shifted — stale
+        refreshRows();
         const firstCol = visibleColumnsRef.current[0];
         if (firstCol) {
           requestAnimationFrame(() => {
@@ -2393,9 +2189,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         }
       },
     });
-  }, [isValidTable, tableId, insertAtMut, utils, setActiveCell, startEditing, getRowById, clearJumpCache]);
+  }, [isValidTable, tableId, insertAtMut, setActiveCell, startEditing, getRowById, refreshRows]);
 
-  // === DUPLICATE RECORD (optimistic — clone appears instantly below) ===
+  // === DUPLICATE RECORD ===
   const handleDuplicateRecord = useCallback((rowId: string) => {
     if (!isValidTable) return;
     duplicateRowMut.mutate({ tableId, rowId });
@@ -2455,9 +2251,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
   const handleCreateField = useCallback((name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig, insertPosition?: { anchorColId: string; side: "left" | "right" }) => {
     if (!isValidTable) return;
-    // Store insert position for the optimistic handler (current view only)
     insertFieldTargetRef.current = insertPosition ?? null;
-    // Map UI type label to DB column type
     const dbType: "TEXT" | "NUMBER" = type === "Number" ? "NUMBER" : "TEXT";
     const fieldName = name.trim() || (dbType === "NUMBER" ? "Number" : "Field");
     createColumnMut.mutate({
@@ -2535,7 +2329,6 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     if (!col) return;
     const dbType: "TEXT" | "NUMBER" = col.type === "NUMBER" ? "NUMBER" : "TEXT";
     const copyName = `${col.name} copy`;
-    // Store insert position so the optimistic handler places it next to the original
     insertFieldTargetRef.current = { anchorColId: columnId, side: "right" };
     createColumnMut.mutate({
       tableId,
@@ -3173,6 +2966,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               isBulkAdding={isBulkAdding}
               baseColor={baseColor}
               baseTextColor={baseTextColor}
+              backfillingColumnIds={backfillingColumnIds}
             />
           </div>
         </div>

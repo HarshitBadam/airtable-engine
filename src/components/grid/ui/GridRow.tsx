@@ -77,6 +77,8 @@ export interface GridRowProps {
   canDragRows?: boolean;
   /** Dynamic data row height in px (default 32). */
   cellHeight?: number;
+  /** Columns currently being backfilled — cells show grey placeholder text */
+  backfillingColumnIds?: ReadonlySet<string>;
 }
 
 /**
@@ -100,6 +102,7 @@ export const GridRow = memo(function GridRow({
   onRowDragStart,
   canDragRows = false,
   cellHeight = 32,
+  backfillingColumnIds,
 }: GridRowProps) {
   // Subscribe to only this row's state — other rows won't re-render
   const activeColId = useGridStore(
@@ -147,6 +150,13 @@ export const GridRow = memo(function GridRow({
     extraStyle?: React.CSSProperties,
   ) {
     const isNumber = col.type === "NUMBER";
+    // Check if this cell's value is a fallback (backfill pending)
+    const isBackfilling = backfillingColumnIds?.has(col.id) ?? false;
+    const rawMissing = isBackfilling && (() => {
+      if (!row.cells || typeof row.cells !== "object") return true;
+      const v = (row.cells as Record<string, unknown>)[col.id];
+      return v === null || v === undefined;
+    })();
 
     // Search match detection (only when not editing)
     const cellHasMatch =
@@ -189,9 +199,11 @@ export const GridRow = memo(function GridRow({
           />
         ) : value ? (
           <div className={styles.gridCellContent}>
-            <div className={isNumber ? styles.gridCellNumber : styles.gridCellText}>
+            <div
+              className={isNumber ? styles.gridCellNumber : styles.gridCellText}
+              style={rawMissing ? { color: '#bbb' } : undefined}
+            >
               {(() => {
-                // For NUMBER columns, format the raw value using the column's config
                 const displayText = isNumber
                   ? formatCellValue(value, col.type, col.config as NumberFormatConfig | null | undefined)
                   : value;

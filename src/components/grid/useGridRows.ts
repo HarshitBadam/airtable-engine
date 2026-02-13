@@ -42,24 +42,32 @@ export function useGridRows(tableId: string) {
   );
 
   const activeViewId = useGridStore((s) => s.activeViewId);
+  const ranksComputing = useGridStore((s) => s.ranksComputing);
   const clearSelection = useGridStore((s) => s.clearSelection);
 
   const debouncedSearch = useDebouncedValue(search, 250);
+
+  // Only send viewId (which enables the Tier 2 ViewRowRank path) when:
+  // 1. We're using permanent sorts (not live autoSort preview)
+  // 2. Sorts exist
+  // 3. Ranks are NOT currently being computed — if they are, the ViewRowRank
+  //    table is being rebuilt.  Sending viewId would race with the INSERT and
+  //    either hit stale/empty data or contend for locks.  Suppressing viewId
+  //    forces Tier 3 (live ORDER BY), which is correct and fast for first-page loads.
+  const sendViewId = isUsingPermanentSorts && effectiveSorts.length > 0 && !ranksComputing;
 
   const input: RowInfiniteInput = useMemo(
     () => ({
       tableId,
       limit: 1000,
       search: debouncedSearch.trim() ? debouncedSearch.trim() : undefined,
-      // When filterTree is present, send it instead of flat filters
       filters: !filterTree && filters.length ? filters : undefined,
       conjunction: !filterTree && filters.length ? filterConjunction : undefined,
       filterTree: filterTree ?? undefined,
       sorts: effectiveSorts.length > 0 ? effectiveSorts : undefined,
-      // Pass viewId when using permanent sorts so backend can use ViewRowRank
-      viewId: isUsingPermanentSorts && effectiveSorts.length > 0 ? (activeViewId ?? undefined) : undefined,
+      viewId: sendViewId ? (activeViewId ?? undefined) : undefined,
     }),
-    [tableId, debouncedSearch, filters, filterConjunction, filterTree, effectiveSorts, isUsingPermanentSorts, activeViewId],
+    [tableId, debouncedSearch, filters, filterConjunction, filterTree, effectiveSorts, sendViewId, activeViewId],
   );
 
   // Clear cell selection whenever the actual query parameters change.
@@ -138,12 +146,6 @@ export function useGridRows(tableId: string) {
 
   const utils = api.useUtils();
 
-  // Pending column defaults — while a column-create mutation is in flight,
-  // any windowFetch response might return rows that don't have the default
-  // value yet (MVCC snapshot).  This map holds {columnId: value} pairs that
-  // should be injected into every newly-fetched row.
-  const pendingColumnDefaultsRef = useRef<Map<string, string | number>>(new Map());
-
   // Throttled jump fetch: fires immediately on first call, then at most once
   // per THROTTLE_MS during continuous scrolling, plus a trailing edge call.
   // This prevents the "skeleton gap" where continuous scrolling suppressed all fetches.
@@ -183,26 +185,14 @@ export function useGridRows(tableId: string) {
           conjunction: !filterTree && filters.length ? filterConjunction : undefined,
           filterTree: filterTree ? (filterTree as never) : undefined,
           sorts: effectiveSorts.length > 0 ? (effectiveSorts as never) : undefined,
-          viewId: isUsingPermanentSorts ? (activeViewId ?? undefined) : undefined,
+          viewId: sendViewId ? (activeViewId ?? undefined) : undefined,
         });
 
         setJumpCache((prev) => {
           const newCache = new Map(prev);
           if (newCache.size > 15000) newCache.clear();
-          const pending = pendingColumnDefaultsRef.current;
           (result.items as RowItem[]).forEach((item, idx) => {
-            // Stamp pending column defaults into newly-fetched rows so
-            // they show the correct value even if the DB backfill hasn't
-            // committed yet at the time of the windowFetch snapshot.
-            let stamped = item;
-            if (pending.size > 0) {
-              const cells = { ...(item.cells as Record<string, unknown> ?? {}) };
-              for (const [colId, val] of pending) {
-                if (!(colId in cells)) cells[colId] = val;
-              }
-              stamped = { ...item, cells };
-            }
-            newCache.set(fetchOffset + idx, stamped);
+            newCache.set(fetchOffset + idx, item);
           });
           return newCache;
         });
@@ -210,7 +200,7 @@ export function useGridRows(tableId: string) {
         console.error("windowFetch error:", err);
       }
     })();
-  }, [tableId, debouncedSearch, filters, filterConjunction, filterTree, effectiveSorts, activeViewId, isUsingPermanentSorts, utils]);
+  }, [tableId, debouncedSearch, filters, filterConjunction, filterTree, effectiveSorts, activeViewId, sendViewId, utils]);
 
   const triggerJumpFetch = useCallback((offset: number) => {
     // Already loaded sequentially?
@@ -305,68 +295,9 @@ export function useGridRows(tableId: string) {
     [],
   );
 
-  /** Stamp a value into a specific column for ALL jump-cached rows (default value backfill). */
-  const stampJumpCacheColumn = useCallback(
-    (columnId: string, value: string | number) => {
-      setJumpCache((prev) => {
-        if (prev.size === 0) return prev;
-        const next = new Map<number, RowItem>();
-        for (const [key, item] of prev) {
-          const cells = (item.cells ?? {}) as Record<string, unknown>;
-          next.set(key, { ...item, cells: { ...cells, [columnId]: value } });
-        }
-        return next;
-      });
-    },
-    [],
-  );
-
-  /** Rename a column ID in all jump-cached rows (temp → real ID swap). */
-  const remapJumpCacheColumnId = useCallback(
-    (oldColId: string, newColId: string) => {
-      setJumpCache((prev) => {
-        if (prev.size === 0) return prev;
-        const next = new Map<number, RowItem>();
-        for (const [key, item] of prev) {
-          const cells = (item.cells ?? {}) as Record<string, unknown>;
-          if (!(oldColId in cells)) {
-            next.set(key, item);
-          } else {
-            const { [oldColId]: val, ...rest } = cells;
-            next.set(key, { ...item, cells: { ...rest, [newColId]: val } });
-          }
-        }
-        return next;
-      });
-    },
-    [],
-  );
-
-  /** Copy a source column's value to a destination column for ALL jump-cached rows (field duplication). */
-  const copyJumpCacheColumn = useCallback(
-    (srcColId: string, dstColId: string) => {
-      setJumpCache((prev) => {
-        if (prev.size === 0) return prev;
-        const next = new Map<number, RowItem>();
-        for (const [key, item] of prev) {
-          const cells = (item.cells ?? {}) as Record<string, unknown>;
-          const srcVal = cells[srcColId];
-          if (srcVal === undefined || dstColId in cells) {
-            next.set(key, item);
-          } else {
-            next.set(key, { ...item, cells: { ...cells, [dstColId]: srcVal } });
-          }
-        }
-        return next;
-      });
-    },
-    [],
-  );
-
   return {
     q, rows, totalCount, input, debouncedSearch,
     getRowAtIndex, getRowById, triggerJumpFetch,
-    clearJumpCache, updateJumpCacheRow, stampJumpCacheColumn, remapJumpCacheColumnId,
-    copyJumpCacheColumn, pendingColumnDefaultsRef,
+    clearJumpCache, updateJumpCacheRow,
   };
 }

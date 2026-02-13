@@ -47,7 +47,7 @@ export const columnRouter = createTRPCRouter({
       return ctx.db.column.findMany({
         where: { tableId: input.tableId },
         orderBy: { order: "asc" },
-        select: { id: true, name: true, type: true, order: true, defaultValue: true, config: true },
+        select: { id: true, name: true, type: true, order: true, defaultValue: true, config: true, sourceColumnId: true },
       });
     }),
 
@@ -101,8 +101,9 @@ export const columnRouter = createTRPCRouter({
             order,
             defaultValue: input.defaultValue ?? null,
             config: input.numberConfig ? (input.numberConfig as unknown as object) : undefined,
+            sourceColumnId: input.sourceColumnId ?? null,
           },
-          select: { id: true, name: true, type: true, order: true, defaultValue: true, config: true },
+          select: { id: true, name: true, type: true, order: true, defaultValue: true, config: true, sourceColumnId: true },
         });
 
         // Column creation is table-level: the new column must appear in ALL views.
@@ -149,22 +150,46 @@ export const columnRouter = createTRPCRouter({
         return col;
       });
 
-      // ── Step 2: Bulk backfill (slow, OUTSIDE the transaction) ─────────
-      // A single UPDATE on 1M+ rows runs as one implicit PostgreSQL
-      // transaction.  Due to MVCC, concurrent readers (windowFetch) see
-      // the OLD data until the entire UPDATE commits (30-60s later).
-      // If the user scrolls or refreshes during that window, they see
-      // missing default values.
-      //
-      // FIX: batch the UPDATE into 100K-row chunks.  Each batch commits
-      // independently in 2-5s, so concurrent readers immediately see the
-      // completed batches.  Even a mid-backfill refresh shows most rows
-      // correctly.
-      const BACKFILL_BATCH = 100_000;
+      // Backfill is NOT done here — the client fires column.backfill
+      // as a separate mutation after receiving the column.  This makes
+      // column creation sub-200ms instead of 10-30s.
 
+      return col;
+    }),
+
+  /**
+   * Backfill cell values for a newly created column.
+   * Called by the client AFTER column.create returns, so the column
+   * header appears instantly and the heavy row-level writes happen
+   * in the background.  The client shows default/source values at
+   * render time, so the user never sees blank cells.
+   */
+  backfill: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        columnId: z.string(),
+        /** Default value to stamp into every row */
+        defaultValue: z.string().optional(),
+        /** Column type (needed to write numbers as JSONB numbers) */
+        type: z.enum(["TEXT", "NUMBER"]).optional(),
+        /** Source column to copy values from (field duplication) */
+        sourceColumnId: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true },
+      });
+      if (!table) throw new Error("Table not found");
+
+      const BATCH = 100_000;
+      const tId = input.tableId.replace(/'/g, "''");
+
+      // ── Default value backfill ──
       if (input.defaultValue && input.defaultValue.trim() !== "") {
-        const tId = input.tableId.replace(/'/g, "''");
-        const cId = col.id.replace(/'/g, "''");
+        const cId = input.columnId.replace(/'/g, "''");
         const dv = input.defaultValue.replace(/'/g, "''");
 
         const jsonbExpr =
@@ -174,75 +199,64 @@ export const columnRouter = createTRPCRouter({
 
         const searchAppend = `CASE WHEN "searchText" = '' THEN '${dv}' ELSE "searchText" || chr(31) || '${dv}' END`;
 
-        try {
-          let totalBackfilled = 0;
-          // eslint-disable-next-line no-constant-condition
-          while (true) {
-            const affected: number = await ctx.db.$executeRawUnsafe(`
-              UPDATE "Row"
-              SET "cells" = jsonb_set(COALESCE("cells", '{}'), '{${cId}}', ${jsonbExpr}),
-                  "searchText" = ${searchAppend},
-                  "updatedAt" = now()
-              WHERE "id" IN (
-                SELECT "id" FROM "Row"
-                WHERE "tableId" = '${tId}'
-                  AND NOT (COALESCE("cells", '{}') ? '${cId}')
-                ORDER BY "rowIndex"
-                LIMIT ${BACKFILL_BATCH}
-              )
-            `);
-            totalBackfilled += affected;
-            if (affected === 0) break;
-          }
-          console.log(`[column.create] Default value backfill: ${totalBackfilled} rows updated for column ${col.id}`);
-        } catch (err) {
-          console.error("[column.create] Default value backfill failed:", err);
+        let total = 0;
+        let batchStart = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const affected: number = await ctx.db.$executeRawUnsafe(`
+            UPDATE "Row"
+            SET "cells" = jsonb_set(COALESCE("cells", '{}'), '{${cId}}', ${jsonbExpr}),
+                "searchText" = ${searchAppend},
+                "updatedAt" = now()
+            WHERE "tableId" = '${tId}'
+              AND "rowIndex" >= ${batchStart}
+              AND "rowIndex" < ${batchStart + BATCH}
+          `);
+          total += affected;
+          if (affected === 0) break;
+          batchStart += BATCH;
         }
+        console.log(`[column.backfill] Default value: ${total} rows for ${input.columnId}`);
       }
 
+      // ── Duplication backfill ──
       if (input.sourceColumnId) {
-        const tId = input.tableId.replace(/'/g, "''");
         const srcId = input.sourceColumnId.replace(/'/g, "''");
-        const newId = col.id.replace(/'/g, "''");
+        const newId = input.columnId.replace(/'/g, "''");
 
-        try {
-          let totalBackfilled = 0;
-          // eslint-disable-next-line no-constant-condition
-          while (true) {
-            const affected: number = await ctx.db.$executeRawUnsafe(`
-              UPDATE "Row"
-              SET "cells" = CASE
-                    WHEN COALESCE("cells", '{}') ? '${srcId}'
-                    THEN jsonb_set(COALESCE("cells", '{}'), '{${newId}}', COALESCE("cells", '{}')->'${srcId}')
-                    ELSE "cells"
-                  END,
-                  "searchText" = CASE
-                    WHEN COALESCE("cells", '{}') ? '${srcId}'
-                    THEN CASE
-                      WHEN "searchText" = '' THEN (COALESCE("cells", '{}')->>'${srcId}')
-                      ELSE "searchText" || chr(31) || COALESCE(COALESCE("cells", '{}')->>'${srcId}', '')
-                    END
-                    ELSE "searchText"
-                  END,
-                  "updatedAt" = now()
-              WHERE "id" IN (
-                SELECT "id" FROM "Row"
-                WHERE "tableId" = '${tId}'
-                  AND NOT (COALESCE("cells", '{}') ? '${newId}')
-                ORDER BY "rowIndex"
-                LIMIT ${BACKFILL_BATCH}
-              )
-            `);
-            totalBackfilled += affected;
-            if (affected === 0) break;
-          }
-          console.log(`[column.create] Field duplication backfill: ${totalBackfilled} rows updated for column ${col.id}`);
-        } catch (err) {
-          console.error("[column.create] Field duplication backfill failed:", err);
+        let total = 0;
+        let batchStart = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const affected: number = await ctx.db.$executeRawUnsafe(`
+            UPDATE "Row"
+            SET "cells" = jsonb_set(COALESCE("cells", '{}'), '{${newId}}', COALESCE("cells", '{}')->'${srcId}'),
+                "searchText" = CASE
+                  WHEN "searchText" = '' THEN (COALESCE("cells", '{}')->>'${srcId}')
+                  ELSE "searchText" || chr(31) || COALESCE(COALESCE("cells", '{}')->>'${srcId}', '')
+                END,
+                "updatedAt" = now()
+            WHERE "tableId" = '${tId}'
+              AND "rowIndex" >= ${batchStart}
+              AND "rowIndex" < ${batchStart + BATCH}
+          `);
+          total += affected;
+          if (affected === 0) break;
+          batchStart += BATCH;
         }
+        console.log(`[column.backfill] Duplication: ${total} rows for ${input.columnId}`);
       }
 
-      return col;
+      // Clear sourceColumnId now that data is persisted — getCellValue
+      // no longer needs the fallback.
+      if (input.sourceColumnId) {
+        await ctx.db.column.update({
+          where: { id: input.columnId },
+          data: { sourceColumnId: null },
+        });
+      }
+
+      return { ok: true };
     }),
 
   /**
@@ -354,22 +368,20 @@ export const columnRouter = createTRPCRouter({
 
       try {
         let totalCleaned = 0;
+        let batchStart = 0;
         // eslint-disable-next-line no-constant-condition
         while (true) {
           const affected: number = await ctx.db.$executeRawUnsafe(`
             UPDATE "Row"
             SET "cells" = "cells" - '${colId}',
                 "updatedAt" = now()
-            WHERE "id" IN (
-              SELECT "id" FROM "Row"
-              WHERE "tableId" = '${tId}'
-                AND (COALESCE("cells", '{}') ? '${colId}')
-              ORDER BY "rowIndex"
-              LIMIT ${BATCH}
-            )
+            WHERE "tableId" = '${tId}'
+              AND "rowIndex" >= ${batchStart}
+              AND "rowIndex" < ${batchStart + BATCH}
           `);
           totalCleaned += affected;
           if (affected === 0) break;
+          batchStart += BATCH;
         }
         console.log(`[column.delete] Cell cleanup: ${totalCleaned} rows cleaned for column ${input.columnId}`);
       } catch (err) {
@@ -498,7 +510,7 @@ export const columnRouter = createTRPCRouter({
       return ctx.db.column.update({
         where: { id: input.columnId },
         data,
-        select: { id: true, name: true, type: true, order: true, defaultValue: true, config: true },
+        select: { id: true, name: true, type: true, order: true, defaultValue: true, config: true, sourceColumnId: true },
       });
     }),
 
