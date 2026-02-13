@@ -15,7 +15,6 @@
   width: 100%;
   margin-top: 4px;
   padding-left: 1px; /* Prevent left box-shadow from being clipped */
-  padding-right: 36px; /* Add to main's 16px to get 52px total - adjusted for cell width */
   box-sizing: border-box;
 }
 
@@ -841,10 +840,7 @@
   line-height: 18px;
   overflow-x: visible;
   overflow-y: visible;
-  padding: 0 4px 0 4px;
-  /* 48px right margin (32px padding + main's 16px) */
-  padding-right: 32px;
-  /* Use margin instead of padding so it clips with content when height shrinks */
+  padding: 0 4px;
   margin-bottom: 24px;
   text-align: center;
   width: 100%;

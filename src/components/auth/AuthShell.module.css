@@ -229,7 +229,8 @@
 @media (min-width: 1152px) {
   .layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 768px) minmax(0, 768px);
+    justify-content: center;
     width: 100%;
     min-height: 100vh;
   }

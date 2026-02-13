@@ -5,7 +5,6 @@ import {
   filterTreeSchema,
   type FilterTreeItem,
   type FilterTreeCondition,
-  type FilterTreeGroup,
   type FilterTree,
 } from "~/shared/grid";
 
@@ -227,11 +226,11 @@ function buildFilterTreeItemSql(
   params: SqlParam[],
 ): string | null {
   if (item.kind === "condition") {
-    return buildConditionClause(item as FilterTreeCondition, params);
+    return buildConditionClause(item, params);
   }
 
   // Group node
-  const group = item as FilterTreeGroup;
+  const group = item;
   const clauses: string[] = [];
 
   for (const child of group.items) {
@@ -273,9 +272,9 @@ function extractColumnIds(tree: FilterTree): string[] {
   const walk = (items: FilterTreeItem[]) => {
     for (const item of items) {
       if (item.kind === "condition") {
-        ids.add((item as FilterTreeCondition).columnId);
+        ids.add(item.columnId);
       } else {
-        walk((item as FilterTreeGroup).items);
+        walk(item.items);
       }
     }
   };
@@ -290,7 +289,7 @@ function filterTreeHasConditions(tree: FilterTree): boolean {
   const check = (items: FilterTreeItem[]): boolean => {
     for (const item of items) {
       if (item.kind === "condition") return true;
-      if (check((item as FilterTreeGroup).items)) return true;
+      if (check(item.items)) return true;
     }
     return false;
   };
@@ -512,12 +511,17 @@ export const rowRouter = createTRPCRouter({
     .input(
       z.object({
         tableId: z.string(),
-        limit: z.number().min(1).max(500).default(200),
+        limit: z.number().min(1).max(2000).default(1000),
 
         // cursor:
-        // - unsorted: number (rowIndex)
-        // - sorted: { rowIndex, sortValues }
-        cursor: z.union([z.number(), sortedCursorSchema]).nullable().default(null),
+        // - unsorted / unranked tail: number (rowIndex)
+        // - sorted (live ORDER BY): { rowIndex, sortValues }
+        // - ViewRowRank ranked phase: { rank: number }
+        cursor: z.union([
+          z.number(),
+          sortedCursorSchema,
+          z.object({ rank: z.number() }),
+        ]).nullable().default(null),
 
         search: z.string().max(200).optional(),
         filters: z.array(filterSchema).optional(),
@@ -525,21 +529,61 @@ export const rowRouter = createTRPCRouter({
         /** Tree-structured filters (condition groups). Takes precedence over flat filters. */
         filterTree: filterTreeSchema.optional(),
         sorts: z.array(sortSchema).optional(),
+        /** View ID — when provided, backend checks for fresh ViewRowRank and uses
+         *  rank-based ordering instead of live ORDER BY. */
+        viewId: z.string().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
-      const table = await ctx.db.table.findFirst({
-        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
-        select: { id: true, rowCount: true },
-      });
-      if (!table) throw new Error("Table not found");
-
       const search = input.search?.trim();
       const filters = input.filters ?? [];
       const conjunction = input.conjunction;
       const filterTree = input.filterTree;
       const useTree = filterTree && filterTreeHasConditions(filterTree);
       const sorts = input.sorts ?? [];
+      const hasQuery = sorts.length > 0 || filters.length > 0 || Boolean(search && search.length > 0) || Boolean(useTree);
+
+      // ── FAST PATH: no sorts/filters/search → parallelize auth + data ──
+      if (!hasQuery) {
+        const cursor = input.cursor;
+        const cursorRowIndex = typeof cursor === "number" ? cursor : 0;
+        const take = input.limit + 1;
+
+        const dataParams: SqlParam[] = [input.tableId, cursorRowIndex, take];
+        const dataSql = `
+          SELECT "Row"."id", "Row"."rowIndex", "Row"."cells", "Row"."createdAt", "Row"."updatedAt"
+          FROM "Row"
+          WHERE "Row"."tableId" = $1 AND "Row"."rowIndex" > $2
+          ORDER BY "Row"."rowIndex" ASC
+          LIMIT $3
+        `;
+
+        const [table, rows] = await Promise.all([
+          ctx.db.table.findFirst({
+            where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+            select: { id: true, rowCount: true },
+          }),
+          queryRawUnsafe<RowSelect[]>(ctx.db, dataSql, dataParams),
+        ]);
+        if (!table) throw new Error("Table not found");
+
+        const hasNextPage = rows.length > input.limit;
+        const items = hasNextPage ? rows.slice(0, input.limit) : rows;
+
+        let nextCursor: number | { rowIndex: number; sortValues: (string | number | null)[] } | null = null;
+        if (hasNextPage && items.length > 0) {
+          nextCursor = items[items.length - 1]!.rowIndex;
+        }
+
+        return { items, nextCursor, totalCount: table.rowCount };
+      }
+
+      // ── Shared auth check for sorted/filtered paths ──
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true, rowCount: true },
+      });
+      if (!table) throw new Error("Table not found");
 
       // Validate sort columns belong to this table + type matches DB
       if (sorts.length > 0) {
@@ -576,22 +620,167 @@ export const rowRouter = createTRPCRouter({
       }
 
       const take = input.limit + 1;
+      const isSorted = sorts.length > 0;
+      const hasFiltersOrSearch = filters.length > 0 || Boolean(useTree) || Boolean(search && search.length > 0);
+
+      // ── VIEWROWRANK PATH: materialized per-view ordering ──
+      // Used when viewId is provided, ranks are fresh, and no filters/search
+      // (ranks don't incorporate filter predicates).
+      if (input.viewId && isSorted && !hasFiltersOrSearch) {
+        const view = await ctx.db.view.findFirst({
+          where: { id: input.viewId },
+          select: { ranksStale: true },
+        });
+
+        if (view && !view.ranksStale) {
+          const rankCount = await ctx.db.viewRowRank.count({
+            where: { viewId: input.viewId },
+          });
+
+          if (rankCount > 0) {
+            const cursor = input.cursor;
+            // Detect cursor type → which phase we're in
+            const isRankCursor = cursor && typeof cursor === "object" && "rank" in cursor;
+            const isUnrankedTail = typeof cursor === "number";
+            // Guard: if cursor is from the standard sorted path ({ rowIndex, sortValues }),
+            // it can't be used with ViewRowRank. Fall through to the standard sorted path.
+            const isSortedCursor = cursor && typeof cursor === "object" && "sortValues" in cursor;
+
+            if (!isSortedCursor) {
+              if (isUnrankedTail) {
+                // ── Phase 2: Unranked tail (new rows after sort, natural order) ──
+                const tailCursor = cursor as number;
+                const tp: SqlParam[] = [input.viewId, input.tableId, tailCursor, take];
+                const tailSql = `
+                  SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
+                  FROM "Row" r
+                  LEFT JOIN "ViewRowRank" vrr ON vrr."rowId" = r."id" AND vrr."viewId" = $1
+                  WHERE r."tableId" = $2 AND vrr."rank" IS NULL AND r."rowIndex" > $3
+                  ORDER BY r."rowIndex" ASC
+                  LIMIT $4
+                `;
+                const rows = await queryRawUnsafe<RowSelect[]>(ctx.db, tailSql, tp);
+                const hasNext = rows.length > input.limit;
+                const items = hasNext ? rows.slice(0, input.limit) : rows;
+                let nextCursor: number | { rank: number } | { rowIndex: number; sortValues: (string | number | null)[] } | null = null;
+                if (hasNext && items.length > 0) {
+                  nextCursor = items[items.length - 1]!.rowIndex;
+                }
+
+                // Count unranked rows for totalCount
+                const ucParams: SqlParam[] = [input.viewId, input.tableId];
+                const ucSql = `
+                  SELECT COUNT(*)::int AS count FROM "Row" r
+                  LEFT JOIN "ViewRowRank" vrr ON vrr."rowId" = r."id" AND vrr."viewId" = $1
+                  WHERE r."tableId" = $2 AND vrr."rank" IS NULL
+                `;
+                const ucRes = await queryRawUnsafe<CountRow[]>(ctx.db, ucSql, ucParams);
+                const unrankedCount = ucRes[0]?.count ?? 0;
+
+                return { items, nextCursor, totalCount: rankCount + unrankedCount };
+              }
+
+              // ── Phase 1: Ranked rows (frozen sort order) ──
+              const cursorRank = isRankCursor ? (cursor as { rank: number }).rank : 0;
+              const rp: SqlParam[] = [input.viewId, cursorRank, take];
+              const rankedSql = `
+                SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
+                FROM "ViewRowRank" vrr
+                JOIN "Row" r ON r."id" = vrr."rowId"
+                WHERE vrr."viewId" = $1 AND vrr."rank" > $2
+                ORDER BY vrr."rank" ASC
+                LIMIT $3
+              `;
+
+              // Count unranked rows in parallel (for totalCount)
+              const ucParams: SqlParam[] = [input.viewId, input.tableId];
+              const ucSql = `
+                SELECT COUNT(*)::int AS count FROM "Row" r
+                LEFT JOIN "ViewRowRank" vrr ON vrr."rowId" = r."id" AND vrr."viewId" = $1
+                WHERE r."tableId" = $2 AND vrr."rank" IS NULL
+              `;
+
+              const [rankedRows, ucRes] = await Promise.all([
+                queryRawUnsafe<RowSelect[]>(ctx.db, rankedSql, rp),
+                queryRawUnsafe<CountRow[]>(ctx.db, ucSql, ucParams),
+              ]);
+              const unrankedCount = ucRes[0]?.count ?? 0;
+              const totalCount = rankCount + unrankedCount;
+
+              let items: RowSelect[] = rankedRows;
+              let hasNext = rankedRows.length > input.limit;
+              if (hasNext) items = rankedRows.slice(0, input.limit);
+
+              // If ranked rows exhausted, fill from unranked tail
+              if (!hasNext && unrankedCount > 0) {
+                const remaining = take - rankedRows.length;
+                if (remaining > 0) {
+                  const tp: SqlParam[] = [input.viewId, input.tableId, 0, remaining];
+                  const tailSql = `
+                    SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
+                    FROM "Row" r
+                    LEFT JOIN "ViewRowRank" vrr ON vrr."rowId" = r."id" AND vrr."viewId" = $1
+                    WHERE r."tableId" = $2 AND vrr."rank" IS NULL AND r."rowIndex" > $3
+                    ORDER BY r."rowIndex" ASC
+                    LIMIT $4
+                  `;
+                  const tailRows = await queryRawUnsafe<RowSelect[]>(ctx.db, tailSql, tp);
+                  const combined = [...rankedRows, ...tailRows];
+                  hasNext = combined.length > input.limit;
+                  items = hasNext ? combined.slice(0, input.limit) : combined;
+                }
+              }
+
+              // Determine nextCursor based on last item's zone
+              type InfiniteCursor = number | { rank: number } | { rowIndex: number; sortValues: (string | number | null)[] } | null;
+              let nextCursor: InfiniteCursor = null;
+              if (hasNext && items.length > 0) {
+                const last = items[items.length - 1]!;
+                // Check if this row has a rank (it's in the ranked zone)
+                if (items.length <= rankedRows.length) {
+                  // Last item is from ranked zone — find its rank
+                  const lastRankRes = await queryRawUnsafe<{ rank: number }[]>(ctx.db,
+                    `SELECT "rank" FROM "ViewRowRank" WHERE "viewId" = $1 AND "rowId" = $2`,
+                    [input.viewId, last.id],
+                  );
+                  if (lastRankRes.length > 0) {
+                    nextCursor = { rank: lastRankRes[0]!.rank };
+                  } else {
+                    nextCursor = last.rowIndex; // shouldn't happen, but fallback
+                  }
+                } else {
+                  // Last item is from unranked tail
+                  nextCursor = last.rowIndex;
+                }
+              } else if (!hasNext && items.length > 0 && items.length === rankedRows.length && unrankedCount > 0) {
+                // Ranked group ended exactly at page boundary, but unranked rows exist
+                // Set a number cursor (0) to start fetching unranked rows
+                nextCursor = 0;
+              }
+
+              return { items, nextCursor, totalCount };
+            }
+            // isSortedCursor === true → fall through to standard sorted path
+          }
+        }
+      }
+
+      // ── STANDARD SORTED/FILTERED PATH (live ORDER BY) ──
 
       // Cursor normalization
       const cursor = input.cursor;
-      const isSorted = sorts.length > 0;
 
       const cursorRowIndex =
         !isSorted
           ? typeof cursor === "number"
             ? cursor
             : 0
-          : typeof cursor === "object" && cursor
+          : typeof cursor === "object" && cursor && "rowIndex" in cursor
             ? cursor.rowIndex
             : 0;
 
       const sortedCursor =
-        isSorted && typeof cursor === "object" && cursor
+        isSorted && typeof cursor === "object" && cursor && "sortValues" in cursor
           ? cursor
           : null;
 
@@ -636,39 +825,13 @@ export const rowRouter = createTRPCRouter({
         LIMIT $${limitP}
       `;
 
-      const rows = await queryRawUnsafe<RowSelect[]>(ctx.db, sql, params);
-
-      const hasNextPage = rows.length > input.limit;
-      const items = hasNextPage ? rows.slice(0, input.limit) : rows;
-
-      let nextCursor:
-        | number
-        | { rowIndex: number; sortValues: (string | number | null)[] }
-        | null = null;
-
-      if (hasNextPage && items.length > 0) {
-        const last = items[items.length - 1]!;
-        if (sorts.length === 0) {
-          nextCursor = last.rowIndex;
-        } else {
-          nextCursor = {
-            rowIndex: last.rowIndex,
-            sortValues: normalizeSortValuesFromCells(sorts, last.cells),
-          };
-        }
-      }
-
       // COUNT:
-      // - Only compute on the first page (cursor === null) to avoid expensive
-      //   COUNT on every infinite-scroll page fetch.
-      // - If neither search nor filters → use cached table.rowCount.
-      // - The frontend reads totalCount from pages[0] only.
-      let totalCount = table.rowCount;
-
       const isFirstPage = input.cursor === null;
+      const hasFilters = Boolean(useTree) || filters.length > 0;
+      const needsCount = isFirstPage && (Boolean(search && search.length > 0) || hasFilters);
 
-      const hasFilters = useTree || filters.length > 0;
-      if (isFirstPage && ((search && search.length > 0) || hasFilters)) {
+      let countPromise: Promise<CountRow[]> | null = null;
+      if (needsCount) {
         const countParams: SqlParam[] = [];
         countParams.push(input.tableId);
         let countWhere = `WHERE "Row"."tableId" = $${countParams.length}`;
@@ -686,9 +849,39 @@ export const rowRouter = createTRPCRouter({
         }
 
         const countSql = `SELECT COUNT(*)::int AS count FROM "Row" ${countWhere}`;
-        const res = await queryRawUnsafe<CountRow[]>(ctx.db, countSql, countParams);
-        totalCount = res[0]?.count ?? 0;
+        countPromise = queryRawUnsafe<CountRow[]>(ctx.db, countSql, countParams);
       }
+
+      // Fire data + count queries in parallel
+      const [rows, countResult] = await Promise.all([
+        queryRawUnsafe<RowSelect[]>(ctx.db, sql, params),
+        countPromise,
+      ]);
+
+      const hasNextPage = rows.length > input.limit;
+      const items = hasNextPage ? rows.slice(0, input.limit) : rows;
+
+      let nextCursor:
+        | number
+        | { rank: number }
+        | { rowIndex: number; sortValues: (string | number | null)[] }
+        | null = null;
+
+      if (hasNextPage && items.length > 0) {
+        const last = items[items.length - 1]!;
+        if (sorts.length === 0) {
+          nextCursor = last.rowIndex;
+        } else {
+          nextCursor = {
+            rowIndex: last.rowIndex,
+            sortValues: normalizeSortValuesFromCells(sorts, last.cells),
+          };
+        }
+      }
+
+      const totalCount = countResult
+        ? (countResult[0]?.count ?? 0)
+        : table.rowCount;
 
       return { items, nextCursor, totalCount };
     }),
@@ -757,9 +950,86 @@ export const rowRouter = createTRPCRouter({
             updatedAt: new Date(),
           },
         });
-      });
+      }, { timeout: 120_000 });  // 120s for large tables (two full-table UPDATEs)
 
       return { ok: true };
+    }),
+
+  // =========================================================================
+  // computeViewRanks — materialize sort ranks into ViewRowRank for a view
+  // =========================================================================
+  computeViewRanks: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        viewId: z.string(),
+        sorts: z.array(sortSchema).min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true, rowCount: true },
+      });
+      if (!table) throw new Error("Table not found");
+
+      const view = await ctx.db.view.findFirst({
+        where: { id: input.viewId, tableId: input.tableId },
+        select: { id: true },
+      });
+      if (!view) throw new Error("View not found");
+
+      // Validate sort columns
+      const uniqueSortColIds = [...new Set(input.sorts.map((s) => s.columnId))];
+      const cols = await ctx.db.column.findMany({
+        where: { id: { in: uniqueSortColIds }, tableId: input.tableId },
+        select: { id: true, type: true },
+      });
+      const colMap = new Map(cols.map((c) => [c.id, c.type]));
+      for (const sort of input.sorts) {
+        const dbType = colMap.get(sort.columnId);
+        if (!dbType) throw new Error("Invalid sort column");
+        if (dbType !== sort.type) throw new Error("Sort type mismatch");
+      }
+
+      if (table.rowCount === 0) {
+        // Clear any existing ranks and mark fresh
+        await ctx.db.$transaction([
+          ctx.db.viewRowRank.deleteMany({ where: { viewId: input.viewId } }),
+          ctx.db.view.update({
+            where: { id: input.viewId },
+            data: { ranksStale: false },
+          }),
+        ]);
+        return { ok: true, rankCount: 0 };
+      }
+
+      const viewIdEscaped = escapeLiteral(input.viewId);
+      const tableIdEscaped = escapeLiteral(input.tableId);
+      const orderByClause = buildSortOrderByForAlias(input.sorts, "r");
+
+      await ctx.db.$transaction(async (tx) => {
+        // 1. Clear existing ranks for this view
+        await tx.$executeRawUnsafe(
+          `DELETE FROM "ViewRowRank" WHERE "viewId" = '${viewIdEscaped}'`,
+        );
+
+        // 2. Insert new ranks from ROW_NUMBER()
+        await tx.$executeRawUnsafe(`
+          INSERT INTO "ViewRowRank" ("viewId", "rank", "rowId")
+          SELECT '${viewIdEscaped}', ROW_NUMBER() OVER (ORDER BY ${orderByClause})::int, r."id"
+          FROM "Row" r
+          WHERE r."tableId" = '${tableIdEscaped}'
+        `);
+
+        // 3. Mark view as fresh
+        await tx.view.update({
+          where: { id: input.viewId },
+          data: { ranksStale: false },
+        });
+      }, { timeout: 120_000 }); // 120s for large tables (DELETE + INSERT with ROW_NUMBER)
+
+      return { ok: true, rankCount: table.rowCount };
     }),
 
   addMany: protectedProcedure
@@ -776,10 +1046,18 @@ export const rowRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
+      // Fetch table columns so we can generate visible cell data
+      const columns = await ctx.db.column.findMany({
+        where: { tableId: input.tableId },
+        orderBy: { order: "asc" },
+        select: { id: true, type: true },
+      });
+
       const count = input.count;
 
-      return ctx.db.$transaction(async (tx) => {
-        const updated = await tx.table.update({
+      // ── Step 1: Reserve the rowIndex range (fast, in transaction) ──
+      const updated = await ctx.db.$transaction(async (tx) => {
+        const t = await tx.table.update({
           where: { id: input.tableId },
           data: {
             nextRowIndex: { increment: count },
@@ -788,27 +1066,73 @@ export const rowRouter = createTRPCRouter({
           select: { nextRowIndex: true },
         });
 
-        const startRowIndex = updated.nextRowIndex - count;
+        // Mark all views for this table as stale (ranks invalidated)
+        await tx.view.updateMany({
+          where: { tableId: input.tableId },
+          data: { ranksStale: true },
+        });
 
-        await tx.$executeRaw`
+        return t;
+      });
+
+      const startRowIndex = updated.nextRowIndex - count;
+      const tableIdEscaped = escapeLiteral(input.tableId);
+
+      // ── Step 2: INSERT in batches (outside transaction) ───────────
+      // Splitting 100K rows into 25K batches reduces WAL pressure and
+      // B-tree index maintenance contention per statement, improving
+      // throughput on tables with 500K+ existing rows.
+      const INSERT_BATCH = 25_000;
+      for (let offset = 0; offset < count; offset += INSERT_BATCH) {
+        const batchCount = Math.min(INSERT_BATCH, count - offset);
+        const batchStart = startRowIndex + offset;
+
+        // Build jsonb_build_object per batch (batchStart changes each iteration)
+        const jsonbParts: string[] = [];
+        const searchParts: string[] = [];
+        for (const col of columns) {
+          const colId = escapeLiteral(col.id);
+          if (col.type === "NUMBER") {
+            jsonbParts.push(`'${colId}', (${batchStart} + gs)`);
+            searchParts.push(`(${batchStart} + gs)::text`);
+          } else {
+            jsonbParts.push(`'${colId}', 'Person ' || (${batchStart} + gs)`);
+            searchParts.push(`'Person ' || (${batchStart} + gs)`);
+          }
+        }
+
+        const cellsExpr = jsonbParts.length > 0
+          ? `jsonb_build_object(${jsonbParts.join(", ")})`
+          : `'{}'::jsonb`;
+        const searchExpr = searchParts.length > 0
+          ? searchParts.join(` || chr(31) || `)
+          : `''::text`;
+
+        await ctx.db.$executeRawUnsafe(`
           INSERT INTO "Row" ("tableId", "rowIndex", "cells", "searchText", "createdAt", "updatedAt")
           SELECT
-            ${input.tableId},
-            ${startRowIndex} + gs,
-            '{}'::jsonb,
-            ''::text,
+            '${tableIdEscaped}',
+            ${batchStart} + gs,
+            ${cellsExpr},
+            ${searchExpr},
             now(),
             now()
-          FROM generate_series(0, ${count} - 1) AS gs;
-        `;
+          FROM generate_series(0, ${batchCount - 1}) AS gs
+        `);
+      }
 
-        return { startRowIndex, count };
-      });
+      return { startRowIndex, count };
     }),
 
   /**
    * Insert a single empty row at a specific rowIndex position.
-   * Shifts existing rows at or after `atIndex` up by 1.
+   *
+   * Performance-optimised strategy:
+   * 1. If `atIndex` slot is free → insert directly (0 rows shifted).
+   * 2. Otherwise find the nearest gap ABOVE `atIndex` within a small window
+   *    and shift only the rows between the gap and `atIndex` (≤ WINDOW rows).
+   * 3. Fallback: use `nextRowIndex` (always free) as the gap so we shift at
+   *    most from `atIndex` to `nextRowIndex` — still better than unbounded.
    */
   insertAt: protectedProcedure
     .input(
@@ -820,31 +1144,57 @@ export const rowRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const table = await ctx.db.table.findFirst({
         where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
-        select: { id: true },
+        select: { id: true, nextRowIndex: true },
       });
       if (!table) throw new Error("Table not found");
 
       return ctx.db.$transaction(async (tx) => {
-        // Shift all rows at or after the target index up by 1.
-        // Two-pass negation trick to avoid unique constraint violations
-        // on (tableId, rowIndex): first negate, then restore with +1.
-        await tx.$executeRawUnsafe(`
-          UPDATE "Row"
-          SET "rowIndex" = -("rowIndex" + 1)
-          WHERE "tableId" = $1 AND "rowIndex" >= $2
-        `, input.tableId, input.atIndex);
+        let insertIndex = input.atIndex;
 
-        await tx.$executeRawUnsafe(`
-          UPDATE "Row"
-          SET "rowIndex" = -"rowIndex", "updatedAt" = now()
-          WHERE "tableId" = $1 AND "rowIndex" < 0
-        `, input.tableId);
 
-        // Insert the new empty row at the target index
+        // Check if the slot is already free (no row at atIndex)
+        const existing = await tx.$queryRawUnsafe<{ cnt: bigint }[]>(
+          `SELECT COUNT(*) AS cnt FROM "Row" WHERE "tableId" = $1 AND "rowIndex" = $2`,
+          input.tableId, insertIndex,
+        );
+        const slotTaken = Number(existing[0]?.cnt ?? 0) > 0;
+
+        if (slotTaken) {
+          // Strategy: shift only the minimal number of rows.
+          // `nextRowIndex` is guaranteed to be a free slot (no row exists there).
+          // We shift rows in [atIndex, nextRowIndex - 1] upward by 1.
+          // The two-pass negation trick avoids unique-constraint collisions.
+          //
+          // Cap: if more than SHIFT_CAP rows need shifting (e.g., insert at row 5
+          // in a 100K-row table), place the new row at nextRowIndex instead.
+          // The frontend invalidation/refetch will show it at the end; this is
+          // fast and avoids locking the DB for seconds.
+          const SHIFT_CAP = 5000;
+          const shiftSize = table.nextRowIndex - insertIndex;
+
+          if (shiftSize <= SHIFT_CAP) {
+            await tx.$executeRawUnsafe(`
+              UPDATE "Row"
+              SET "rowIndex" = -("rowIndex" + 1)
+              WHERE "tableId" = $1 AND "rowIndex" >= $2 AND "rowIndex" < $3
+            `, input.tableId, insertIndex, table.nextRowIndex);
+
+            await tx.$executeRawUnsafe(`
+              UPDATE "Row"
+              SET "rowIndex" = -"rowIndex", "updatedAt" = now()
+              WHERE "tableId" = $1 AND "rowIndex" < 0
+            `, input.tableId);
+          } else {
+            // Too many rows to shift — append at end instead
+            insertIndex = table.nextRowIndex;
+          }
+        }
+
+        // Insert the new empty row
         const newRow = await tx.row.create({
           data: {
             tableId: input.tableId,
-            rowIndex: input.atIndex,
+            rowIndex: insertIndex,
             cells: {},
             searchText: "",
           },
@@ -852,21 +1202,28 @@ export const rowRouter = createTRPCRouter({
         });
 
         // Update table counters
+        const newNextRowIndex = Math.max(table.nextRowIndex, insertIndex + 1);
         await tx.table.update({
           where: { id: input.tableId },
           data: {
-            nextRowIndex: { increment: 1 },
+            nextRowIndex: newNextRowIndex,
             rowCount: { increment: 1 },
           },
         });
 
+        // Mark view ranks stale
+        await tx.view.updateMany({
+          where: { tableId: input.tableId },
+          data: { ranksStale: true },
+        });
+
         return newRow;
-      });
+      }, { timeout: 30_000 });  // 30s for row shifting
     }),
 
   /**
    * Duplicate a row: copy its cells and insert the clone right below it.
-   * Shifts subsequent rows up by 1 (same two-pass trick as insertAt).
+   * Uses the same capped-shift strategy as insertAt.
    */
   duplicateAt: protectedProcedure
     .input(
@@ -878,7 +1235,7 @@ export const rowRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const table = await ctx.db.table.findFirst({
         where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
-        select: { id: true },
+        select: { id: true, nextRowIndex: true },
       });
       if (!table) throw new Error("Table not found");
 
@@ -888,43 +1245,66 @@ export const rowRouter = createTRPCRouter({
       });
       if (!sourceRow) throw new Error("Row not found");
 
-      const atIndex = sourceRow.rowIndex + 1;
+      let insertIndex = sourceRow.rowIndex + 1;
 
       return ctx.db.$transaction(async (tx) => {
-        // Shift rows at or after atIndex (same two-pass negation trick)
-        await tx.$executeRawUnsafe(`
-          UPDATE "Row"
-          SET "rowIndex" = -("rowIndex" + 1)
-          WHERE "tableId" = $1 AND "rowIndex" >= $2
-        `, input.tableId, atIndex);
+        // Check if slot is free
+        const existing = await tx.$queryRawUnsafe<{ cnt: bigint }[]>(
+          `SELECT COUNT(*) AS cnt FROM "Row" WHERE "tableId" = $1 AND "rowIndex" = $2`,
+          input.tableId, insertIndex,
+        );
+        const slotTaken = Number(existing[0]?.cnt ?? 0) > 0;
 
-        await tx.$executeRawUnsafe(`
-          UPDATE "Row"
-          SET "rowIndex" = -"rowIndex", "updatedAt" = now()
-          WHERE "tableId" = $1 AND "rowIndex" < 0
-        `, input.tableId);
+        if (slotTaken) {
+          const SHIFT_CAP = 5000;
+          const shiftSize = table.nextRowIndex - insertIndex;
+
+          if (shiftSize <= SHIFT_CAP) {
+            await tx.$executeRawUnsafe(`
+              UPDATE "Row"
+              SET "rowIndex" = -("rowIndex" + 1)
+              WHERE "tableId" = $1 AND "rowIndex" >= $2 AND "rowIndex" < $3
+            `, input.tableId, insertIndex, table.nextRowIndex);
+
+            await tx.$executeRawUnsafe(`
+              UPDATE "Row"
+              SET "rowIndex" = -"rowIndex", "updatedAt" = now()
+              WHERE "tableId" = $1 AND "rowIndex" < 0
+            `, input.tableId);
+          } else {
+            // Too many rows to shift — append at end
+            insertIndex = table.nextRowIndex;
+          }
+        }
 
         // Insert the duplicated row with the same cells
         const newRow = await tx.row.create({
           data: {
             tableId: input.tableId,
-            rowIndex: atIndex,
+            rowIndex: insertIndex,
             cells: sourceRow.cells ?? {},
             searchText: sourceRow.searchText ?? "",
           },
           select: { id: true, rowIndex: true, cells: true, createdAt: true, updatedAt: true },
         });
 
+        const newNextRowIndex = Math.max(table.nextRowIndex, insertIndex + 1);
         await tx.table.update({
           where: { id: input.tableId },
           data: {
-            nextRowIndex: { increment: 1 },
+            nextRowIndex: newNextRowIndex,
             rowCount: { increment: 1 },
           },
         });
 
+        // Mark view ranks stale
+        await tx.view.updateMany({
+          where: { tableId: input.tableId },
+          data: { ranksStale: true },
+        });
+
         return newRow;
-      });
+      }, { timeout: 30_000 });  // 30s for row shifting
     }),
 
   /**
@@ -956,6 +1336,12 @@ export const rowRouter = createTRPCRouter({
         await tx.table.update({
           where: { id: input.tableId },
           data: { rowCount: { decrement: 1 } },
+        });
+
+        // Mark view ranks stale
+        await tx.view.updateMany({
+          where: { tableId: input.tableId },
+          data: { ranksStale: true },
         });
 
         return { id: input.rowId };
@@ -1035,6 +1421,12 @@ export const rowRouter = createTRPCRouter({
           where: { id: input.rowId },
           data: { rowIndex: newIdx },
         });
+
+        // Mark view ranks stale
+        await tx.view.updateMany({
+          where: { tableId: input.tableId },
+          data: { ranksStale: true },
+        });
       });
 
       return { ok: true };
@@ -1085,7 +1477,7 @@ export const rowRouter = createTRPCRouter({
         })
         .join("\u001F");
 
-      return ctx.db.row.update({
+      const result = await ctx.db.row.update({
         where: { id: input.rowId },
         data: {
           cells: currentCells as unknown as object,
@@ -1093,5 +1485,279 @@ export const rowRouter = createTRPCRouter({
         },
         select: { id: true, rowIndex: true, cells: true, updatedAt: true },
       });
+
+      // Mark all views for this table as stale (cell change may affect sort order)
+      await ctx.db.view.updateMany({
+        where: { tableId: input.tableId },
+        data: { ranksStale: true },
+      });
+
+      return result;
+    }),
+
+  // =========================================================================
+  // windowFetch — positional window fetch for virtualized grid jumps
+  // =========================================================================
+  // Three-tier strategy:
+  //   Tier 1 (no sort/filter/search): rowIndex BETWEEN → O(log N), instant
+  //   Tier 2 (saved view with fresh ranks): JOIN ViewRowRank, rank BETWEEN → O(log N)
+  //   Tier 3 (temporary sort / stale ranks): OFFSET + LIMIT → O(offset)
+  windowFetch: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        offset: z.number().min(0),
+        limit: z.number().min(1).max(2000).default(1000),
+        search: z.string().max(200).optional(),
+        filters: z.array(filterSchema).optional(),
+        conjunction: z.enum(["and", "or"]).default("and"),
+        filterTree: filterTreeSchema.optional(),
+        sorts: z.array(sortSchema).optional(),
+        viewId: z.string().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const search = input.search?.trim();
+      const filters = input.filters ?? [];
+      const conjunction = input.conjunction;
+      const filterTree = input.filterTree;
+      const useTree = filterTree && filterTreeHasConditions(filterTree);
+      const sorts = input.sorts ?? [];
+      const hasQuery = sorts.length > 0 || filters.length > 0 || Boolean(search && search.length > 0) || Boolean(useTree);
+
+      // ── TIER 1 FAST PATH: No sort/filter/search → parallelize auth + data ──
+      if (!hasQuery) {
+        const startRowIndex = input.offset + 1; // rowIndex is 1-based
+        const endRowIndex = startRowIndex + input.limit - 1;
+
+        const params: SqlParam[] = [input.tableId, startRowIndex, endRowIndex];
+        const dataSql = `
+          SELECT "id", "rowIndex", "cells", "createdAt", "updatedAt"
+          FROM "Row"
+          WHERE "tableId" = $1 AND "rowIndex" BETWEEN $2 AND $3
+          ORDER BY "rowIndex" ASC
+        `;
+
+        // Fire ownership check + data query in parallel (data never leaves server if auth fails)
+        const [table, items] = await Promise.all([
+          ctx.db.table.findFirst({
+            where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+            select: { id: true, rowCount: true },
+          }),
+          queryRawUnsafe<RowSelect[]>(ctx.db, dataSql, params),
+        ]);
+        if (!table) throw new Error("Table not found");
+
+        let nextCursor: number | { rowIndex: number; sortValues: (string | number | null)[] } | null = null;
+        if (items.length > 0) {
+          nextCursor = items[items.length - 1]!.rowIndex;
+        }
+
+        return { items, totalCount: table.rowCount, nextCursor };
+      }
+
+      // ── Shared auth check for Tier 2/3 ──
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true, rowCount: true },
+      });
+      if (!table) throw new Error("Table not found");
+
+      // Validate sort columns
+      if (sorts.length > 0) {
+        const uniqueSortColIds = [...new Set(sorts.map((s) => s.columnId))];
+        const cols = await ctx.db.column.findMany({
+          where: { id: { in: uniqueSortColIds }, tableId: input.tableId },
+          select: { id: true, type: true },
+        });
+        const colMap = new Map(cols.map((c) => [c.id, c.type]));
+        for (const sort of sorts) {
+          const dbType = colMap.get(sort.columnId);
+          if (!dbType) throw new Error("Invalid sort column");
+          if (dbType !== sort.type) throw new Error("Sort type mismatch");
+        }
+      }
+
+      // Validate filter columns
+      {
+        const colIdsToValidate: string[] = useTree
+          ? extractColumnIds(filterTree)
+          : filters.map((f) => f.columnId);
+        const uniqueColIds = [...new Set(colIdsToValidate)];
+        if (uniqueColIds.length > 0) {
+          const count = await ctx.db.column.count({
+            where: { tableId: input.tableId, id: { in: uniqueColIds } },
+          });
+          if (count !== uniqueColIds.length) throw new Error("Invalid filter column");
+        }
+      }
+
+      // ── TIER 2: Saved view with fresh ViewRowRank → two-zone fetch ──
+      // Only usable when ONLY sorts are active (no filters or search), because
+      // ViewRowRank stores the full sorted order without any filter predicate.
+      const hasFiltersOrSearch = filters.length > 0 || Boolean(useTree) || Boolean(search && search.length > 0);
+      if (input.viewId && sorts.length > 0 && !hasFiltersOrSearch) {
+        const view = await ctx.db.view.findFirst({
+          where: { id: input.viewId },
+          select: { ranksStale: true },
+        });
+
+        if (view && !view.ranksStale) {
+          const rankCount = await ctx.db.viewRowRank.count({
+            where: { viewId: input.viewId },
+          });
+
+          if (rankCount > 0) {
+            // Count unranked rows (added after sort was applied)
+            const ucParams: SqlParam[] = [input.viewId, input.tableId];
+            const ucSql = `
+              SELECT COUNT(*)::int AS count FROM "Row" r
+              LEFT JOIN "ViewRowRank" vrr ON vrr."rowId" = r."id" AND vrr."viewId" = $1
+              WHERE r."tableId" = $2 AND vrr."rank" IS NULL
+            `;
+            const ucRes = await queryRawUnsafe<CountRow[]>(ctx.db, ucSql, ucParams);
+            const unrankedCount = ucRes[0]?.count ?? 0;
+            const totalCount = rankCount + unrankedCount;
+
+            let items: RowSelect[];
+
+            if (input.offset < rankCount) {
+              // Request starts in ranked zone
+              const startRank = input.offset + 1;
+              const endRank = startRank + input.limit - 1;
+
+              const rp: SqlParam[] = [input.viewId, startRank, endRank];
+              const rankedSql = `
+                SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
+                FROM "ViewRowRank" vrr
+                JOIN "Row" r ON r."id" = vrr."rowId"
+                WHERE vrr."viewId" = $1 AND vrr."rank" BETWEEN $2 AND $3
+                ORDER BY vrr."rank" ASC
+              `;
+              items = await queryRawUnsafe<RowSelect[]>(ctx.db, rankedSql, rp);
+
+              // If we need more from unranked tail
+              const remaining = input.limit - items.length;
+              if (remaining > 0 && unrankedCount > 0) {
+                const tp: SqlParam[] = [input.viewId, input.tableId, remaining];
+                const tailSql = `
+                  SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
+                  FROM "Row" r
+                  LEFT JOIN "ViewRowRank" vrr ON vrr."rowId" = r."id" AND vrr."viewId" = $1
+                  WHERE r."tableId" = $2 AND vrr."rank" IS NULL
+                  ORDER BY r."rowIndex" ASC
+                  LIMIT $3
+                `;
+                const tailRows = await queryRawUnsafe<RowSelect[]>(ctx.db, tailSql, tp);
+                items = [...items, ...tailRows];
+              }
+            } else {
+              // Request starts entirely in unranked tail
+              const tailOffset = input.offset - rankCount;
+              const tp: SqlParam[] = [input.viewId, input.tableId, input.limit, tailOffset];
+              const tailSql = `
+                SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
+                FROM "Row" r
+                LEFT JOIN "ViewRowRank" vrr ON vrr."rowId" = r."id" AND vrr."viewId" = $1
+                WHERE r."tableId" = $2 AND vrr."rank" IS NULL
+                ORDER BY r."rowIndex" ASC
+                LIMIT $3 OFFSET $4
+              `;
+              items = await queryRawUnsafe<RowSelect[]>(ctx.db, tailSql, tp);
+            }
+
+            // Build nextCursor from last item
+            let nextCursor: number | { rowIndex: number; sortValues: (string | number | null)[] } | null = null;
+            if (items.length > 0) {
+              const last = items[items.length - 1]!;
+              nextCursor = {
+                rowIndex: last.rowIndex,
+                sortValues: normalizeSortValuesFromCells(sorts, last.cells),
+              };
+            }
+
+            return { items, totalCount, nextCursor };
+          }
+        }
+      }
+
+      // ── TIER 3: Temporary sort / stale ranks → OFFSET + LIMIT ──
+      const params: SqlParam[] = [];
+      params.push(input.tableId);
+      let whereSql = `WHERE "Row"."tableId" = $${params.length}`;
+
+      if (search && search.length > 0) {
+        const escaped = escapeLikePattern(search);
+        params.push(`%${escaped}%`);
+        whereSql += ` AND "Row"."searchText" ILIKE $${params.length} ESCAPE '\\'`;
+      }
+
+      if (useTree) {
+        whereSql += buildFilterTreeSql(filterTree, params);
+      } else {
+        whereSql += buildFilterSql(filters, params, conjunction);
+      }
+
+      const orderBySql = buildMultiSortOrderBy(sorts);
+
+      // LIMIT + OFFSET
+      params.push(input.limit);
+      const limitP = params.length;
+      params.push(input.offset);
+      const offsetP = params.length;
+
+      const dataSql = `
+        SELECT "Row"."id", "Row"."rowIndex", "Row"."cells", "Row"."createdAt", "Row"."updatedAt"
+        FROM "Row"
+        ${whereSql}
+        ORDER BY ${orderBySql}
+        LIMIT $${limitP} OFFSET $${offsetP}
+      `;
+
+      // Count query (always needed for windowFetch since we need totalCount for the scrollbar)
+      const countParams: SqlParam[] = [];
+      countParams.push(input.tableId);
+      let countWhere = `WHERE "Row"."tableId" = $${countParams.length}`;
+
+      if (search && search.length > 0) {
+        const escaped = escapeLikePattern(search);
+        countParams.push(`%${escaped}%`);
+        countWhere += ` AND "Row"."searchText" ILIKE $${countParams.length} ESCAPE '\\'`;
+      }
+
+      if (useTree) {
+        countWhere += buildFilterTreeSql(filterTree, countParams);
+      } else {
+        countWhere += buildFilterSql(filters, countParams, conjunction);
+      }
+
+      const countSql = `SELECT COUNT(*)::int AS count FROM "Row" ${countWhere}`;
+
+      // Fire both in parallel
+      const [items, countRes] = await Promise.all([
+        queryRawUnsafe<RowSelect[]>(ctx.db, dataSql, params),
+        queryRawUnsafe<CountRow[]>(ctx.db, countSql, countParams),
+      ]);
+
+      const totalCount = countRes[0]?.count ?? 0;
+
+      // Build nextCursor from last item
+      let nextCursor:
+        | number
+        | { rowIndex: number; sortValues: (string | number | null)[] }
+        | null = null;
+      if (items.length > 0) {
+        const last = items[items.length - 1]!;
+        if (sorts.length === 0) {
+          nextCursor = last.rowIndex;
+        } else {
+          nextCursor = {
+            rowIndex: last.rowIndex,
+            sortValues: normalizeSortValuesFromCells(sorts, last.cells),
+          };
+        }
+      }
+
+      return { items, totalCount, nextCursor };
     }),
 });

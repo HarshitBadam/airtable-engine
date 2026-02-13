@@ -72,12 +72,13 @@ export function parseNumberInput(
 
   // Extract trailing suffix (e.g., "K", "M", "B", "T", "thousand", etc.)
   let multiplier = 1;
-  const suffixMatch = s.match(/([a-zA-Z]+)\s*$/);
+  const suffixMatch = /([a-zA-Z]+)\s*$/.exec(s);
   if (suffixMatch) {
-    const suffixKey = suffixMatch[1]!.toLowerCase();
-    if (SUFFIX_MAP[suffixKey] !== undefined) {
+    const suffixKey = suffixMatch[1]?.toLowerCase();
+    if (suffixKey && SUFFIX_MAP[suffixKey] !== undefined) {
       multiplier = SUFFIX_MAP[suffixKey]!;
-      s = s.slice(0, -suffixMatch[0]!.length).trim();
+      const fullMatch = suffixMatch[0] ?? "";
+      s = s.slice(0, -fullMatch.length).trim();
     }
   }
 
@@ -225,7 +226,13 @@ export function formatCellValue(
   config?: NumberFormatConfig | null,
 ): string {
   if (rawValue == null) return "";
-  const str = String(rawValue);
+  if (typeof rawValue === "object") return "";
+  const str =
+    typeof rawValue === "string"
+      ? rawValue
+      : typeof rawValue === "number" || typeof rawValue === "boolean"
+        ? String(rawValue)
+        : "";
   if (columnType !== "NUMBER") return str;
 
   // Try to parse the stored value as a number

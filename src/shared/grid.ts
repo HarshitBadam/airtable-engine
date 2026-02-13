@@ -56,7 +56,7 @@ const filterTreeGroupSchema: z.ZodType<FilterTreeGroup> = z.lazy(() =>
     kind: z.literal("group"),
     conjunction: z.enum(["and", "or"]),
     items: z.array(
-      z.union([filterTreeConditionSchema, filterTreeGroupSchema as z.ZodType<FilterTreeGroup>]),
+      z.union([filterTreeConditionSchema, filterTreeGroupSchema]),
     ),
   }),
 );

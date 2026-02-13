@@ -94,7 +94,7 @@ export function FindBar({
       {/* Result count "X of Y" */}
       {showResultNav && (
         <span className={styles.findResultCount}>
-          {matchIndex.toLocaleString()} of {totalMatches!.toLocaleString()}
+          {matchIndex.toLocaleString()} of {(totalMatches ?? 0).toLocaleString()}
         </span>
       )}
 

@@ -331,7 +331,7 @@ export function HideFieldsPanel({
             width: itemRectsRef.current[dragIndex]?.width ?? 288,
           }}
         >
-          {renderFieldContent(filteredColumns[dragIndex]!, dragIndex, true)}
+          {renderFieldContent(filteredColumns[dragIndex], dragIndex, true)}
         </div>,
         document.body,
       )}

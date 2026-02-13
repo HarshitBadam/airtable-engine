@@ -295,7 +295,7 @@ function ActiveSortPanel({
 
   const handleSubDirectionPick = useCallback(
     (direction: "asc" | "desc") => {
-      if (!openSubDropdown || openSubDropdown.kind !== "direction") return;
+      if (!openSubDropdown || openSubDropdown?.kind !== "direction") return;
       onChangeDirection(openSubDropdown.sortIndex, direction);
       setOpenSubDropdown(null);
     },

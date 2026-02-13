@@ -380,7 +380,7 @@ export function FieldConfigPanel({
   );
 
   // Compute display values
-  const presetDisplay = selectedPreset || "Select a preset";
+  const presetDisplay = selectedPreset ?? "Select a preset";
   const decimalOpt = decimalPlacesOptions.find(
     (o) => o.label === selectedDecimal,
   );
@@ -393,7 +393,7 @@ export function FieldConfigPanel({
   const thousandsDisplay = thousandsOpt
     ? `${thousandsOpt.label} (${thousandsOpt.value})`
     : "Local (1,000,000.00)";
-  const largeNumDisplay = selectedLargeNum || "None";
+  const largeNumDisplay = selectedLargeNum ?? "None";
 
   const isNumber = fieldType === "Number";
   const needsScroll = isNumber;

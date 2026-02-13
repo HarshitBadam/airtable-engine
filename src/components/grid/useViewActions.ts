@@ -16,7 +16,6 @@ export function useViewActions(tableId: string) {
   const filterConjunction = useGridStore((s) => s.filterConjunction);
   const filterTree = useGridStore((s) => s.filterTree);
   const sorts = useGridStore((s) => s.sorts);
-  const savedSorts = useGridStore((s) => s.savedSorts);
   const permanentSorts = useGridStore((s) => s.permanentSorts);
   const autoSort = useGridStore((s) => s.autoSort);
   const hiddenColumnIds = useGridStore((s) => s.hiddenColumnIds);
@@ -28,12 +27,26 @@ export function useViewActions(tableId: string) {
   const isDirty = saved !== cur;
 
   const utils = api.useUtils();
+
+  // Mutation to compute materialized ranks for saved sorted views
+  const computeRanks = api.row.computeViewRanks.useMutation();
+
   const update = api.view.update.useMutation({
     onSuccess: async () => {
       markSortsSaved();
       markFiltersSaved();
       markSaved();
       await utils.view.list.invalidate({ tableId });
+
+      // If the view has permanent sorts, compute materialized ranks
+      // so that windowFetch can use Tier 2 (rank BETWEEN) for instant jumps.
+      if (activeViewId && permanentSorts.length > 0) {
+        computeRanks.mutate({
+          tableId,
+          viewId: activeViewId,
+          sorts: permanentSorts,
+        });
+      }
     },
   });
 

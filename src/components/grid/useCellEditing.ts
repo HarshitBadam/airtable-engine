@@ -7,7 +7,7 @@ import { api } from "~/trpc/react";
 import type { AppRouter } from "~/server/api/root";
 
 import { useGridStore } from "./grid-store";
-import type { RowInfiniteInput } from "./useGridRows";
+import type { RowInfiniteInput, RowItem } from "./useGridRows";
 import { parseNumberInput } from "~/shared/numberUtils";
 import type { NumberFormatConfig } from "~/shared/numberUtils";
 
@@ -22,7 +22,12 @@ function asCellRecord(cells: unknown): Record<string, unknown> {
   return cells as Record<string, unknown>;
 }
 
-export function useCellEditing(tableId: string, rowQueryInput: RowInfiniteInput) {
+export function useCellEditing(
+  tableId: string,
+  rowQueryInput: RowInfiniteInput,
+  /** Optimistically update a row in the jump cache (for rows beyond infinite scroll range). */
+  updateJumpCacheRow?: (rowId: string, updater: (row: RowItem) => RowItem) => void,
+) {
   const editingCell = useGridStore((s) => s.editingCell);
   const editorValue = useGridStore((s) => s.editorValue);
   const stopEditing = useGridStore((s) => s.stopEditing);
@@ -39,6 +44,7 @@ export function useCellEditing(tableId: string, rowQueryInput: RowInfiniteInput)
 
       const prev = utils.row.infinite.getInfiniteData(rowQueryInput);
 
+      // 1. Optimistic update for infinite query pages
       utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
         if (!old) return old;
 
@@ -67,6 +73,19 @@ export function useCellEditing(tableId: string, rowQueryInput: RowInfiniteInput)
         };
       });
 
+      // 2. Optimistic update for jump-cached rows (rows loaded via windowFetch)
+      if (updateJumpCacheRow) {
+        updateJumpCacheRow(vars.rowId, (row) => {
+          const nextCells = { ...asCellRecord(row.cells) };
+          if (vars.value === null || vars.value === "") {
+            delete nextCells[vars.columnId];
+          } else {
+            nextCells[vars.columnId] = vars.value;
+          }
+          return { ...row, cells: nextCells, updatedAt: new Date() };
+        });
+      }
+
       return { prev };
     },
 
@@ -74,6 +93,8 @@ export function useCellEditing(tableId: string, rowQueryInput: RowInfiniteInput)
       if (ctx?.prev) {
         utils.row.infinite.setInfiniteData(rowQueryInput, ctx.prev);
       }
+      // Note: jump cache rollback is not critical — a stale value will be
+      // refreshed on next scroll or page navigation.
     },
 
     onSuccess: async () => {

@@ -823,7 +823,7 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
           ) {
             // Don't drop a group into itself
             const draggedItem = rootItems[index];
-            if (isGroup(draggedItem!) && draggedItem!.id === gid) continue;
+            if (!draggedItem || (isGroup(draggedItem) && draggedItem.id === gid)) continue;
             foundGroupId = gid;
             break;
           }
@@ -1008,7 +1008,7 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
     groupId: string,
     childIdx: number,
   ): React.CSSProperties | undefined => {
-    if (!inGroupDrag || inGroupDrag.groupId !== groupId) return undefined;
+    if (!inGroupDrag || inGroupDrag?.groupId !== groupId) return undefined;
     const { fromIdx, overIdx } = inGroupDrag;
     const rects = inGroupItemRectsRef.current;
     const draggedHeight = rects[fromIdx]?.height ?? ROW_HEIGHT;
@@ -1661,7 +1661,7 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
         dragPos &&
         rootItems[dragIndex] &&
         (() => {
-          const draggedItem = rootItems[dragIndex]!;
+          const draggedItem = rootItems[dragIndex];
           // Find the actual filterRowRight / groupBox DOM element for width reference
           const baseRect = itemRectsRef.current[dragIndex];
 
@@ -1712,7 +1712,7 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
           }
 
           // Condition drag ghost — show ONLY the 5-box strip (no Where/And label)
-          const cond = draggedItem as FilterTreeCondition;
+          const cond = draggedItem;
           const LEFT_COL_WIDTH = 72; // filterRowLeft fixed width
           return createPortal(
             <div
@@ -1846,7 +1846,7 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
           }
 
           // Condition ghost inside group — strip only
-          const cond = child as FilterTreeCondition;
+          const cond = child;
           const LEFT_W = 72; // filterRowLeft width
           return createPortal(
             <div

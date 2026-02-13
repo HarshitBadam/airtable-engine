@@ -83,8 +83,8 @@ export function ViewsSidebar({
   setContextMenuViewId,
   contextMenuPosition,
   setContextMenuPosition,
-  setRenameViewValue,
-  setIsRenamingView,
+  setRenameViewValue: _setRenameViewValue,
+  setIsRenamingView: _setIsRenamingView,
   setIsViewDropdownOpen,
   deleteViewMut,
   renamingSidebarViewId,
@@ -115,8 +115,8 @@ export function ViewsSidebar({
   useEffect(() => {
     if (!isCreateNewDropdownOpen) return;
     const handler = (event: MouseEvent) => {
-      if (createNewDropdownRef.current && createNewDropdownRef.current.contains(event.target as Node)) return;
-      if (createNewButtonRef.current && createNewButtonRef.current.contains(event.target as Node)) return;
+      if (createNewDropdownRef.current?.contains(event.target as Node)) return;
+      if (createNewButtonRef.current?.contains(event.target as Node)) return;
       setIsCreateNewDropdownOpen(false);
     };
     document.addEventListener('mousedown', handler);
@@ -127,7 +127,7 @@ export function ViewsSidebar({
   useEffect(() => {
     if (!isCreateViewBoxOpen) return;
     const handler = (event: MouseEvent) => {
-      if (createViewBoxRef.current && createViewBoxRef.current.contains(event.target as Node)) return;
+      if (createViewBoxRef.current?.contains(event.target as Node)) return;
       setIsCreateViewBoxOpen(false);
     };
     document.addEventListener('mousedown', handler);
@@ -138,7 +138,7 @@ export function ViewsSidebar({
   useEffect(() => {
     if (!contextMenuViewId) return;
     const handler = (event: MouseEvent) => {
-      if (viewItemContextMenuRef.current && viewItemContextMenuRef.current.contains(event.target as Node)) return;
+      if (viewItemContextMenuRef.current?.contains(event.target as Node)) return;
       setContextMenuViewId(null);
       setContextMenuPosition(null);
     };
@@ -166,7 +166,7 @@ export function ViewsSidebar({
   useEffect(() => {
     if (!renamingSidebarViewId) return;
     const handler = (event: MouseEvent) => {
-      if (sidebarRenameInputRef.current && sidebarRenameInputRef.current.contains(event.target as Node)) return;
+      if (sidebarRenameInputRef.current?.contains(event.target as Node)) return;
       commitSidebarRename();
     };
     document.addEventListener('mousedown', handler);

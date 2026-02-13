@@ -373,6 +373,7 @@
   background: #F7F8FC;
   box-sizing: border-box;
   z-index: 1;
+  will-change: scroll-position;
   /* Hide native vertical scrollbar — replaced by custom overlay thumb */
   scrollbar-width: none; /* Firefox */
 }
@@ -411,9 +412,8 @@
 }
 /* Inner wrapper — min-width set via inline style to match header scroll extent */
 .gridContentScrollerInner {
-  display: flex;
-  flex-direction: column;
   position: relative;
+  contain: layout style;
 }
 
 /* Frozen cell group within each row — sticks to left during horizontal scroll */
@@ -484,9 +484,8 @@
 }
 
 .gridAddRowFrozenInner {
-  width: 32px;
+  width: 83px;
   height: 30px;
-  margin-left: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -543,6 +542,7 @@
   display: flex;
   flex-direction: row;
   flex-shrink: 0;
+  contain: layout style paint;
 }
 
 /* --- Row container (scrollable pane) --- */
@@ -596,16 +596,16 @@
 }
 
 .gridRowNumOuter {
-  width: 44px;
+  width: 100%;
   height: 25px;
   padding-top: 7px;
+  padding-right: 8px;
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
   box-sizing: border-box;
 }
 
 .gridRowNumInner {
-  width: 32px;
   height: 25px;
   display: flex;
   justify-content: flex-end;
@@ -617,7 +617,8 @@
   font-variant-numeric: tabular-nums;
   font-weight: 400;
   line-height: 18px;
-  text-align: center;
+  text-align: right;
+  white-space: nowrap;
   user-select: none;
 }
 
@@ -768,6 +769,7 @@
   cursor: default;
   overflow: hidden;
   transition: height 0.15s ease-out;
+  contain: layout style paint;
 }
 
 /* Last cell in each scrollable row gets a right border */
@@ -2037,4 +2039,336 @@
 }
 .dupFieldConfirmBtn:hover {
   background-color: rgb(18, 96, 196);
+}
+
+/* =============================================
+   BULK ADD ROWS — FLOATING FOOTER PILL
+   ============================================= */
+
+/* Single unified pill button — floats above the footer, anchored bottom-left.
+   Default: subtle grey text, thin border, no shadow.
+   Hover: border disappears, shadow lifts in. */
+.bulkAddPill {
+  position: absolute;
+  bottom: 38px; /* sits above the 34px footer + 4px gap */
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 9999px;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  box-shadow: none;
+  z-index: 5;
+  cursor: pointer;
+  user-select: none;
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: rgb(97, 102, 112);
+  white-space: nowrap;
+  transition: border-color 0.15s ease, box-shadow 0.2s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.bulkAddPill:hover {
+  border-color: transparent;
+  background: #FFFFFF;
+  color: rgb(29, 31, 37);
+  box-shadow:
+    rgba(0, 0, 0, 0.1) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.08) 0px -4px 8px 0px,
+    rgba(0, 0, 0, 0.12) 0px 4px 8px 0px,
+    rgba(0, 0, 0, 0.06) 0px 8px 24px 0px;
+}
+
+.bulkAddPill:active {
+  background: #F8F8F8;
+  box-shadow:
+    rgba(0, 0, 0, 0.08) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.04) 0px 1px 2px 0px;
+}
+
+.bulkAddPill svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Divider between + and text */
+.bulkAddPillDivider {
+  width: 1px;
+  height: 18px;
+  background: rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.bulkAddPill:hover .bulkAddPillDivider {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* + icon: grey by default, transitions to base color on hover */
+.bulkAddPillIcon {
+  color: rgb(97, 102, 112);
+  transition: color 0.15s ease;
+}
+
+.bulkAddPill:hover .bulkAddPillIcon {
+  color: var(--pill-base-color, rgb(29, 31, 37));
+}
+
+/* Loading state — disabled look with pulse */
+.bulkAddPillLoading {
+  cursor: default;
+  pointer-events: none;
+  color: rgb(150, 150, 150);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Tooltip — appears to the right of the pill on hover */
+.bulkAddTooltip {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 10px);
+  transform: translateY(-50%);
+  padding: 5px 10px;
+  border-radius: 4px;
+  background: rgb(29, 31, 37);
+  color: #FFFFFF;
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease 0s;
+  box-shadow: rgba(0, 0, 0, 0.16) 0px 2px 6px 0px;
+}
+
+/* Small arrow pointing left */
+.bulkAddTooltip::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-right-color: rgb(29, 31, 37);
+}
+
+.bulkAddPill:hover .bulkAddTooltip {
+  opacity: 1;
+  transition-delay: 1s;
+}
+
+/* Spinner icon animation */
+@keyframes bulkAddSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.bulkAddSpinner {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  animation: bulkAddSpin 0.8s linear infinite;
+}
+
+/* Pulse animation for "Adding..." text */
+@keyframes bulkAddPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 0.4; }
+}
+
+.bulkAddPulseText {
+  animation: bulkAddPulse 1.5s ease-in-out infinite;
+}
+
+/* =============================================
+   BULK ADD ROWS — CONFIRMATION DIALOG
+   ============================================= */
+
+@keyframes bulkAddBounceIn {
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Full-screen overlay */
+.bulkAddOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Dialog card */
+.bulkAddDialog {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 420px;
+  max-width: 420px;
+  padding: 28px 32px 24px;
+  overflow: hidden;
+  background-color: rgb(255, 255, 255);
+  border-radius: 8px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19.5px;
+  pointer-events: all;
+  animation: bulkAddBounceIn 0.2s ease;
+  box-shadow:
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+}
+
+/* Close button (X) — top right */
+.bulkAddCloseBtn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  color: rgb(97, 102, 112);
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.bulkAddCloseBtn:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: rgb(29, 31, 37);
+}
+
+.bulkAddCloseBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Title */
+.bulkAddTitle {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 26px;
+  color: rgb(29, 31, 37);
+}
+
+/* Description text */
+.bulkAddDescription {
+  margin: 0 0 24px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  color: rgb(97, 102, 112);
+}
+
+/* Count badge — inline colored pill, e.g. "100,000 rows" */
+.bulkAddCountBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+/* Button row */
+.bulkAddActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 0;
+}
+
+/* Cancel button */
+.bulkAddCancelBtn {
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 22px;
+  text-align: center;
+  border: none;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.05);
+  color: rgb(29, 31, 37);
+  transition: background-color 0.1s ease;
+}
+
+.bulkAddCancelBtn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Confirm button — colored with base color */
+.bulkAddConfirmBtn {
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 18px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 22px;
+  text-align: center;
+  border: none;
+  border-radius: 6px;
+  color: rgb(255, 255, 255);
+  transition: filter 0.1s ease, box-shadow 0.1s ease;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+}
+
+.bulkAddConfirmBtn:hover {
+  filter: brightness(0.9);
+}
+
+.bulkAddConfirmBtn:active {
+  filter: brightness(0.82);
+}
+
+/* === Skeleton row loading animation === */
+.skeletonBar {
+  background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }

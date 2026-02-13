@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import type { VirtualItem } from "@tanstack/react-virtual";
 import styles from "./GridContainer.module.css";
 import { GridRow, HighlightedText } from "./GridRow";
 import type { GridColumnDef } from "./GridRow";
@@ -7,6 +8,7 @@ import { useGridStore } from "~/components/grid/grid-store";
 import { useShallow } from "zustand/react/shallow";
 import { CreateFieldPanel } from "./CreateFieldPanel";
 import type { NumberFormatConfig } from "~/shared/numberUtils";
+import type { RowItem } from "~/components/grid/useGridRows";
 
 interface GridContainerProps {
   // Refs passed from parent
@@ -34,9 +36,13 @@ interface GridContainerProps {
 
   // Row data
   rows: { id: string; cells: unknown }[];
-  virtualRange: { start: number; end: number };
+  virtualItems: VirtualItem[];
+  totalSize: number;
   totalCount: number;
   DATA_ROW_HEIGHT: number;
+  /** Map virtual index → actual row index (proportional when totalCount > max virtual rows). */
+  mapToActualIndex: (virtualIndex: number) => number;
+  getRowAtIndex: (index: number) => RowItem | null;
 
   // Cell editing
   getCellValue: (cells: unknown, colId: string) => string;
@@ -85,6 +91,12 @@ interface GridContainerProps {
 
   // Wrap headers toggle — when true, header cell text wraps instead of truncating
   wrapHeaders?: boolean;
+
+  // Bulk add rows (100k)
+  onAddBulkRows?: () => void;
+  isBulkAdding?: boolean;
+  baseColor?: string;
+  baseTextColor?: string;
 }
 
 export function GridContainer({
@@ -106,9 +118,12 @@ export function GridContainer({
   scrollableColumns,
   getColWidth,
   rows,
-  virtualRange,
+  virtualItems,
+  totalSize,
   totalCount,
   DATA_ROW_HEIGHT,
+  mapToActualIndex,
+  getRowAtIndex,
   getCellValue,
   stableCommit,
   stableCancel,
@@ -133,6 +148,10 @@ export function GridContainer({
   onReorderRow,
   canDragRows = false,
   wrapHeaders = false,
+  onAddBulkRows,
+  isBulkAdding = false,
+  baseColor = "#7D37EF",
+  baseTextColor = "#FFFFFF",
 }: GridContainerProps) {
   // Sorted column IDs — for tinting sorted column headers orange.
   // ONLY for autoSort=true (temporary/reversible sorts). autoSort=false = no orange ever.
@@ -335,7 +354,7 @@ export function GridContainer({
     if (!recordMenuRowId) return;
 
     function handleClickOutside(event: MouseEvent) {
-      if (recordMenuRef.current && recordMenuRef.current.contains(event.target as Node)) {
+      if (recordMenuRef.current?.contains(event.target as Node)) {
         return;
       }
       setRecordMenuRowId(null);
@@ -391,7 +410,7 @@ export function GridContainer({
       if (!scroller) return;
 
       // Find the .gridRow DOM element from the event target (the drag handle SVG)
-      const rowEl = (e.target as HTMLElement).closest(`.${styles.gridRow}`) as HTMLElement | null;
+      const rowEl = (e.target as HTMLElement).closest(`.${styles.gridRow}`);
       if (!rowEl) return;
 
       // --- Create a ghost clone that follows the cursor ---
@@ -412,7 +431,7 @@ export function GridContainer({
       document.body.appendChild(ghost);
 
       // Dim the original row while dragging
-      rowEl.style.opacity = "0.35";
+      (rowEl as HTMLElement).style.opacity = "0.35";
 
       // Track drop index via a local mutable variable (avoids async React state issues)
       let currentDropIdx = rowIndex;
@@ -478,13 +497,13 @@ export function GridContainer({
           const finalDropIdx = currentDropIdx;
           setTimeout(() => {
             ghost.remove();
-            if (rowEl.parentElement) rowEl.style.opacity = "";
+            if (rowEl.parentElement) (rowEl as HTMLElement).style.opacity = "";
             onReorderRow?.(rowId, rowIndex, finalDropIdx);
           }, 150);
         } else {
           // No movement — just clean up
           ghost.remove();
-          if (rowEl.parentElement) rowEl.style.opacity = "";
+          if (rowEl.parentElement) (rowEl as HTMLElement).style.opacity = "";
         }
       };
 
@@ -505,6 +524,9 @@ export function GridContainer({
   const [dupFieldDialog, setDupFieldDialog] = useState<{ colId: string; colName: string } | null>(null);
   const [dupCells, setDupCells] = useState(true);
   const allColumns = [...frozenColumns, ...scrollableColumns];
+
+  // === BULK ADD ROWS DIALOG ===
+  const [showBulkAddDialog, setShowBulkAddDialog] = useState(false);
 
   const handleHeaderMenuToggle = useCallback((e: React.MouseEvent, colId: string) => {
     if (headerMenuColId === colId) {
@@ -529,7 +551,7 @@ export function GridContainer({
     if (!headerMenuColId) return;
 
     function handleClickOutside(event: MouseEvent) {
-      if (headerMenuRef.current && headerMenuRef.current.contains(event.target as Node)) {
+      if (headerMenuRef.current?.contains(event.target as Node)) {
         return;
       }
       setHeaderMenuColId(null);
@@ -842,41 +864,110 @@ export function GridContainer({
         >
           <div
             className={styles.gridContentScrollerInner}
-            style={{ minWidth: freezeWidth + scrollableColumnsWidth + 93 + 60 }}
+            style={{
+              minWidth: freezeWidth + scrollableColumnsWidth + 93 + 60,
+              height: totalSize + DATA_ROW_HEIGHT + 103,
+              position: "relative",
+            }}
           >
-            {/* Virtual scroll spacer — top */}
-            {virtualRange.start > 0 && (
-              <div style={{ height: virtualRange.start * DATA_ROW_HEIGHT, flexShrink: 0 }} aria-hidden />
-            )}
-
-            {/* Visible rows (virtualized + memoized) */}
-            {rows.slice(virtualRange.start, virtualRange.end).map((row, i) => (
-              <GridRow
-                key={row.id}
-                row={row}
-                rowIndex={virtualRange.start + i}
-                frozenColumns={frozenColumns}
-                scrollableColumns={scrollableColumns}
-                freezeWidth={freezeWidth}
-                noFrozenColumns={frozenColumns.length === 0}
-                getColWidth={getColWidth}
-                getCellValue={getCellValue}
-                commit={stableCommit}
-                cancel={stableCancel}
-                onCellContextMenu={handleCellContextMenu}
-                isDeleting={deletingRowIds?.has(row.id) ?? false}
-                searchTerm={searchTerm}
-                onRowDragStart={handleRowDragStart}
-                canDragRows={canDragRows}
-                cellHeight={DATA_ROW_HEIGHT}
-              />
-            ))}
+            {/* TanStack Virtual rows — absolutely positioned for true 1M row virtualization */}
+            {virtualItems.map((vi) => {
+              const actualIndex = mapToActualIndex(vi.index);
+              const row = getRowAtIndex(actualIndex);
+              return (
+                <div
+                  key={vi.key}
+                  data-index={vi.index}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: vi.size,
+                    transform: `translateY(${vi.start}px)`,
+                    contain: "layout style paint",
+                  }}
+                >
+                  {row ? (
+                    <GridRow
+                      key={row.id}
+                      row={row}
+                      rowIndex={actualIndex}
+                      frozenColumns={frozenColumns}
+                      scrollableColumns={scrollableColumns}
+                      freezeWidth={freezeWidth}
+                      noFrozenColumns={frozenColumns.length === 0}
+                      getColWidth={getColWidth}
+                      getCellValue={getCellValue}
+                      commit={stableCommit}
+                      cancel={stableCancel}
+                      onCellContextMenu={handleCellContextMenu}
+                      isDeleting={deletingRowIds?.has(row.id) ?? false}
+                      searchTerm={searchTerm}
+                      onRowDragStart={handleRowDragStart}
+                      canDragRows={canDragRows}
+                      cellHeight={DATA_ROW_HEIGHT}
+                    />
+                  ) : (
+                    /* Skeleton row — shown while data is being fetched */
+                    <div className={styles.gridRow}>
+                      <div className={styles.gridRowFrozenGroup} style={{ width: freezeWidth }}>
+                        <div className={styles.gridRowNumCell} style={{ height: DATA_ROW_HEIGHT }}>
+                          <div className={styles.gridRowNumOuter}>
+                            <div className={styles.gridRowNumInner} style={{ color: "#ccc" }}>
+                              {actualIndex + 1}
+                            </div>
+                          </div>
+                        </div>
+                        {frozenColumns.map((col, colIdx) => (
+                          <div
+                            key={col.id}
+                            className={styles.gridDataCell}
+                            style={{ width: getColWidth(col.id), height: DATA_ROW_HEIGHT }}
+                          >
+                            <div className={styles.gridCellContent}>
+                              <div
+                                className={styles.skeletonBar}
+                                style={{
+                                  width: `${40 + ((actualIndex * 7 + colIdx * 13) % 40)}%`,
+                                  height: 10,
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {scrollableColumns.map((col, colIdx) => (
+                        <div
+                          key={col.id}
+                          className={styles.gridDataCell}
+                          style={{ width: getColWidth(col.id), height: DATA_ROW_HEIGHT }}
+                        >
+                          <div className={styles.gridCellContent}>
+                            <div
+                              className={styles.skeletonBar}
+                              style={{
+                                width: `${40 + ((actualIndex * 11 + colIdx * 17) % 40)}%`,
+                                height: 10,
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {/* Drop indicator line (visible during row drag) — highlights the grid line where the top of the row will go */}
             {dragState && dragState.currentDropIndex !== dragState.fromIndex && (
               <div
                 className={styles.gridDropIndicator}
                 style={{
+                  position: "absolute",
                   top: dragState.currentDropIndex > dragState.fromIndex
                     ? (dragState.currentDropIndex + 1) * DATA_ROW_HEIGHT - 1
                     : dragState.currentDropIndex * DATA_ROW_HEIGHT - 1,
@@ -885,13 +976,17 @@ export function GridContainer({
               />
             )}
 
-            {/* Virtual scroll spacer — bottom */}
-            {virtualRange.end < rows.length && (
-              <div style={{ height: (rows.length - virtualRange.end) * DATA_ROW_HEIGHT, flexShrink: 0 }} aria-hidden />
-            )}
-
             {/* Add row (unified: sticky frozen + button + scrollable slab) */}
-            <div className={styles.gridRow} style={{ background: 'transparent' }}>
+            <div
+              className={styles.gridRow}
+              style={{
+                background: 'transparent',
+                position: 'absolute',
+                top: totalSize,
+                left: 0,
+                width: '100%',
+              }}
+            >
               <div className={styles.gridAddRowFrozen} style={{ width: freezeWidth, position: 'sticky', left: 0, zIndex: 2, background: '#FFFFFF' }}>
                 <div className={styles.gridAddRowFrozenInner} onClick={onAddRow}>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -902,9 +997,6 @@ export function GridContainer({
               {/* Scrollable slab next to + button */}
               <div className={styles.gridAddRowScrollable} style={{ width: scrollableColumnsWidth + 1, ...(frozenColumns.length === 0 ? { borderLeftColor: 'transparent' } : {}) }} />
             </div>
-
-            {/* Bottom spacer (distance between add-row and footer) */}
-            <div style={{ height: 103, flexShrink: 0 }} />
           </div>
         </div>
 
@@ -926,7 +1018,7 @@ export function GridContainer({
           style={{ width: freezeWidth }}
         >
           <span className={styles.gridFooterRecordCount}>
-            {totalCount} record{totalCount !== 1 ? "s" : ""}
+            {totalCount.toLocaleString()} record{totalCount !== 1 ? "s" : ""}
           </span>
         </div>
 
@@ -1400,6 +1492,96 @@ export function GridContainer({
                 }}
               >
                 Duplicate field
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* === BULK ADD ROWS — Floating Footer Pill === */}
+      <div
+        className={`${styles.bulkAddPill}${isBulkAdding ? ` ${styles.bulkAddPillLoading}` : ""}`}
+        style={{ '--pill-base-color': baseColor } as React.CSSProperties}
+        onClick={isBulkAdding ? undefined : () => setShowBulkAddDialog(true)}
+      >
+        {isBulkAdding ? (
+          <>
+            <svg className={styles.bulkAddSpinner} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="8" cy="8" r="6" opacity="0.25" />
+              <path d="M14 8a6 6 0 0 0-6-6" strokeLinecap="round" />
+            </svg>
+            <span className={styles.bulkAddPulseText}>Adding records…</span>
+          </>
+        ) : (
+          <>
+            {/* + icon — grey by default, base color on hover (via CSS) */}
+            <svg className={styles.bulkAddPillIcon} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <line x1="8" y1="3" x2="8" y2="13" />
+              <line x1="3" y1="8" x2="13" y2="8" />
+            </svg>
+            <span className={styles.bulkAddPillDivider} />
+            <span>100,000 rows</span>
+            {/* Tooltip */}
+            <span className={styles.bulkAddTooltip}>Generate 100,000 rows of sample data</span>
+          </>
+        )}
+      </div>
+
+      {/* === BULK ADD ROWS — Confirmation Dialog (portal) === */}
+      {showBulkAddDialog && createPortal(
+        <div
+          className={styles.bulkAddOverlay}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowBulkAddDialog(false);
+          }}
+        >
+          <div className={styles.bulkAddDialog}>
+            {/* Close X */}
+            <button
+              type="button"
+              className={styles.bulkAddCloseBtn}
+              onClick={() => setShowBulkAddDialog(false)}
+            >
+              <svg viewBox="0 0 16 16" fill="currentColor">
+                <path fillRule="nonzero" d="M12.3536 3.64645C12.1583 3.45118 11.8417 3.45118 11.6464 3.64645L8 7.29289L4.35355 3.64645C4.15829 3.45118 3.84171 3.45118 3.64645 3.64645C3.45118 3.84171 3.45118 4.15829 3.64645 4.35355L7.29289 8L3.64645 11.6464C3.45118 11.8417 3.45118 12.1583 3.64645 12.3536C3.84171 12.5488 4.15829 12.5488 4.35355 12.3536L8 8.70711L11.6464 12.3536C11.8417 12.5488 12.1583 12.5488 12.3536 12.3536C12.5488 12.1583 12.5488 11.8417 12.3536 11.6464L8.70711 8L12.3536 4.35355C12.5488 4.15829 12.5488 3.84171 12.3536 3.64645Z" />
+              </svg>
+            </button>
+
+            {/* Title */}
+            <h2 className={styles.bulkAddTitle}>Add 100,000 records</h2>
+
+            {/* Description */}
+            <p className={styles.bulkAddDescription}>
+              This will generate{" "}
+              <span
+                className={styles.bulkAddCountBadge}
+                style={{ backgroundColor: `${baseColor}14`, color: baseColor }}
+              >
+                100,000 rows
+              </span>{" "}
+              of records populated with sample data in this table. This may take a moment depending on table size.
+            </p>
+
+            {/* Action buttons */}
+            <div className={styles.bulkAddActions}>
+              <button
+                type="button"
+                className={styles.bulkAddCancelBtn}
+                onClick={() => setShowBulkAddDialog(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.bulkAddConfirmBtn}
+                style={{ backgroundColor: baseColor, color: baseTextColor }}
+                onClick={() => {
+                  setShowBulkAddDialog(false);
+                  onAddBulkRows?.();
+                }}
+              >
+                Add records
               </button>
             </div>
           </div>

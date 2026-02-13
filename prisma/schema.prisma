@@ -142,10 +142,27 @@ model View {
   // search / filters / sort / hiddenColumnIds
   config Json @db.JsonB
 
+  // Whether the precomputed ViewRowRank entries are stale (need recompute)
+  ranksStale Boolean @default(true)
+
+  ranks ViewRowRank[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([tableId])
+}
+
+/// Precomputed positional ranks for a view's sorted/filtered result set.
+/// Enables O(log N) jump-to-position in saved sorted views via `rank BETWEEN`.
+model ViewRowRank {
+  viewId String
+  view   View   @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  rank   Int
+  rowId  String @db.Uuid
+
+  @@id([viewId, rank])
+  @@unique([viewId, rowId]) // enables efficient rowId lookups for anti-join queries
 }
 
 model Row {
@@ -168,5 +185,4 @@ model Row {
   updatedAt DateTime @updatedAt
 
   @@unique([tableId, rowIndex])
-  @@index([tableId, rowIndex])
 }

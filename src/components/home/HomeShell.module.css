@@ -1,6 +1,6 @@
 /**
  * HomeShell.module.css
- * Base styles = sidebar closed, .mainShifted = sidebar open
+ * Sidebar overlays main content (no shift needed)
  */
 
 /* ========================================
@@ -54,7 +54,6 @@
   padding-right: 16px;
   text-align: center;
   width: 100%;
-  max-width: 1470px;
   overflow: visible;
 }
 
@@ -515,6 +514,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  background: var(--home-bg-main);
 }
 
 /* ========================================
@@ -528,6 +528,12 @@
   width: 47px; /* Width of collapsed rail */
   height: 100%;
   min-height: 0;
+  transition: width 200ms ease;
+}
+
+/* When toggled open, widen to push main content right */
+.sidebarContainerExpanded {
+  width: 300px;
 }
 
 /* ========================================
@@ -786,18 +792,21 @@
   z-index: 60;
 }
 
-.sidebarContainer:hover .sidebar,
-.sidebar:hover,
-.sidebarExpanded {
+/* Hover: overlay via absolute positioning */
+.sidebarContainer:hover .sidebar:not(.sidebarExpanded),
+.sidebar:hover:not(.sidebarExpanded) {
   visibility: visible;
   transform: translateX(0);
   transition: transform 100ms ease-out, visibility 0ms linear 0ms;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.12) 0px 2px 8px 0px, var(--home-border) 0px 4px 14px 0px;
 }
 
-/* Shadow only for hover-opened sidebar (not toggle-opened) */
-.sidebarContainer:hover .sidebar:not(.sidebarExpanded),
-.sidebar:hover:not(.sidebarExpanded) {
-  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.12) 0px 2px 8px 0px, var(--home-border) 0px 4px 14px 0px;
+/* Toggled open: in-flow, fills the expanded sidebarContainer */
+.sidebarExpanded {
+  position: relative;
+  visibility: visible;
+  transform: none;
+  transition: none;
 }
 
 .sidebarHidden {
@@ -1287,10 +1296,8 @@
    ======================================== */
 
 .main {
-  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   box-sizing: border-box;
   color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -1301,56 +1308,21 @@
   margin: 0;
   max-width: 1920px;
   min-width: 0;
-  padding: 0;
-  padding-left: 0px;
-  padding-right: 16px;
-  padding-top: 32px;
+  padding: 32px 48px 0 48px;
   text-align: center;
-  flex: 1 1 0;
-  margin-left: auto;
-  margin-right: auto;
+  flex: 1 1 auto;
   background: var(--home-bg-main);
-  transition: padding-left 100ms ease-out;
   /* Clip content at bottom when viewport height shrinks */
   overflow: hidden;
-}
-
-/* ========================================
-   Sidebar Open State
-   ======================================== */
-
-/* When sidebar is expanded, shift main content */
-.mainShifted {
-  padding-left: calc(var(--home-sidebar-width) - var(--home-rail-width));
-}
-
-/* When sidebar is expanded: Home and Opened - minimal shift */
-.mainShifted .title {
-  transform: translate(13px, -1px);
-}
-
-.mainShifted .subheader {
-  margin-left: 13px;
-}
-
-
-/* When sidebar is expanded: reduce padding */
-.mainShifted .mainInner {
-  padding-left: 36px;
-  transform: none;
 }
 
 .mainInner {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   width: 100%;
-  max-width: 1400px;
   min-width: 0;
-  padding-left: 43px;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
-  transform: translateX(8px);
 }
 
 .title {
@@ -1368,10 +1340,7 @@
   padding-bottom: 24px;
   text-align: left;
   width: 100%;
-  max-width: 1327px;
-  min-width: 0;
   -webkit-font-smoothing: antialiased;
-  transform: translate(-3px, -1px);
   /* Don't shrink - stay in place */
   flex-shrink: 0;
 }
@@ -1389,16 +1358,13 @@
   height: 48px;
   line-height: 18px;
   margin: 0;
-  margin-left: -3px;
   padding: 0;
   padding-bottom: 20px;
   position: relative;
   text-align: center;
   white-space: nowrap;
   width: 100%;
-  max-width: 1327px;
-  min-width: 0;
-  z-index: 2;
+  z-index: 1;
   overflow: visible;
   /* Don't shrink - stay in place */
   flex-shrink: 0;
@@ -1409,8 +1375,8 @@
 .subheader::after {
   content: "";
   position: absolute;
-  left: -6px;
-  right: -4px;
+  left: 0;
+  right: 0;
   bottom: -12px;
   height: 12px;
   background: linear-gradient(to bottom, var(--home-border) 0%, rgba(0, 0, 0, 0.03) 50%, rgba(0, 0, 0, 0) 100%);
@@ -1424,12 +1390,6 @@
 /* Show shadow only when scrolled */
 .subheaderScrolled::after {
   opacity: 1;
-}
-
-/* When sidebar is expanded: extend 2px left and right from base */
-.mainShifted .subheader::after {
-  left: -2px;
-  right: 44px;
 }
 
 .filterButton {
@@ -1465,11 +1425,8 @@
   height: 16px;
 }
 
-/* View Toggle - position fixed to viewport, aligned with account button */
+/* View Toggle - sits inside subheader, pushed right by justify-content: space-between */
 .viewToggle {
-  position: fixed;
-  right: 48px;
-  top: 146px;
   display: flex;
   align-items: center;
   box-sizing: border-box;
@@ -1483,8 +1440,6 @@
   padding: 0;
   text-align: center;
   white-space: nowrap;
-  width: 56px;
-  z-index: 100;
 }
 
 .viewToggleButton {
@@ -1523,25 +1478,20 @@
    ======================================== */
 
 .contentArea {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  display: block;
   box-sizing: border-box;
   color: var(--home-text-primary);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 13px;
   font-weight: 400;
-  flex: 1 1 0;
-  min-height: 0;
-  /* Prevent content from expanding container */
+  flex: 1 1 auto;
+  min-height: 500px;
   min-width: 0;
   line-height: 18px;
   margin: 0;
-  padding: 0;
+  padding: 0 4px;
   text-align: center;
   width: 100%;
-  max-width: 1400px;
   overflow-y: auto;
   /* Hide scrollbar */
   scrollbar-width: none; /* Firefox */
@@ -1552,137 +1502,25 @@
   display: none; /* Chrome/Safari */
 }
 
-/* Override centering when content exists (bases grid) */
+/* Override when content exists (bases grid) */
 .contentAreaWithBases {
-  align-items: flex-start;
-  justify-content: flex-start;
   text-align: left;
-  padding-left: 0;
   /* Clip horizontal overflow so list view doesn't push layout */
   overflow-x: clip;
-}
-
-/* ========================================
-   Grid View: Sidebar Open Overrides
-   ======================================== */
-
-/* Grid wrapper adjustments - sidebar OPEN */
-.mainShifted [class*="basesGridWrapper"] {
-  padding-left: 17px;
-}
-
-/* Starred list scroll area - sidebar OPEN */
-.sidebarExpanded .starredList {
-  max-height: 379px;
-}
-
-/* Card icon square - sidebar OPEN */
-.mainShifted [class*="baseCardIconSquare"] {
-  margin-left: 1px;
-}
-
-/* Card base name - sidebar OPEN */
-.mainShifted [class*="baseCardName"] {
-  margin-top: 1px;
-  margin-left: 0px;
-}
-
-/* Card opened time - sidebar OPEN */
-.mainShifted [class*="baseCardTime"] {
-  margin-left: 0px;
-}
-
-/* Card initials text - sidebar OPEN */
-.mainShifted [class*="baseCardInitials"] {
-  transform: translate(-1.5px, 0.5px);
-}
-
-/* Delete confirmation panel - sidebar OPEN */
-.mainShifted [class*="deleteConfirmDialog"] {
-  transform: translate(-4px, -6px);
-}
-
-/* ========================================
-   List View: Sidebar Open Overrides
-   ======================================== */
-
-/* Move entire list view table 16px right - sidebar OPEN */
-.mainShifted [class*="listViewContainer"] {
-  transform: translateX(15px);
-}
-
-/* Header column shifts - sidebar OPEN */
-.mainShifted [class*="listViewHeaderNameShift"] {
-  margin-left: -10px;
-}
-
-.mainShifted [class*="listViewHeaderColumnShift"] {
-  margin-left: -10px;
-}
-
-.mainShifted [class*="listViewHeaderWorkspaceShift"] {
-  margin-left: -39px;
-}
-
-/* List item column shifts - sidebar OPEN */
-.mainShifted [class*="listItemNameColumnShift"] {
-  margin-left: -10px;
-}
-
-.mainShifted [class*="listItemColumnShift"] {
-  margin-left: -10px;
-}
-
-.mainShifted [class*="listItemWorkspaceShift"] {
-  margin-left: -39px;
-}
-
-/* Divider line - sidebar OPEN */
-.mainShifted [class*="listViewDivider"] {
-  width: calc(100% - 18px);
-  margin-left: -2px;
-  margin-right: 8px;
-}
-
-/* Hover highlight - sidebar OPEN */
-.mainShifted [class*="listItemHoverHighlight"] {
-  left: -3px;
-  right: 20px;
-}
-
-/* List view menu regular - sidebar OPEN */
-.mainShifted [class*="listItemOverflowWrap"] ul[class*="listItemMenu"] {
-  left: 0px;
-  margin-top: 8px;
-}
-
-/* List view menu opens up - sidebar OPEN */
-.mainShifted [class*="listItemOverflowWrap"] ul[class*="listItemMenuUp"] {
-  bottom: calc(100% + 9px);
-}
-
-/* Delete dialog - sidebar OPEN */
-.mainShifted [class*="listItemDeleteDialog"] {
-  left: 6px;
 }
 
 /* ========================================
    Empty State
    ======================================== */
 
-/* Base: sidebar closed – central area */
 .emptyState {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  transform: translate(-16px, -4px);
-}
-
-/* Empty state - sidebar OPEN */
-.mainShifted .emptyState {
-  transform: translate(-8px, -4px);
+  height: 100%;
+  min-height: 400px;
 }
 
 .emptyTitle {
@@ -1692,13 +1530,11 @@
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   font-size: 21px;
   font-weight: 400;
-  height: 26.25px;
   line-height: 26.25px;
   margin: 0;
+  margin-bottom: 8px;
   padding: 0;
   text-align: center;
-  width: 342.594px;
-  transform: translateX(-1px);
 }
 
 .emptySubtitle {
@@ -1721,8 +1557,6 @@
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-  width: 321.008px;
-  transform: translate(-1px, 8px);
 }
 
 .emptyCta {
@@ -1747,8 +1581,6 @@
   padding: 0 12px;
   text-align: center;
   text-decoration: none;
-  width: 149.562px;
-  transform: translate(-1px, 8px);
 }
 
 .emptyCta:hover {
@@ -1870,8 +1702,13 @@
     margin-left: 0;
   }
 
-  /* Disable JS-toggled expanded state - sidebar only opens on hover */
+  /* Disable JS-toggled expanded state on small screens */
+  .sidebarContainerExpanded {
+    width: 47px; /* Don't widen container on small screens */
+  }
+
   .sidebar.sidebarExpanded {
+    position: absolute;
     visibility: hidden;
     transform: translateX(-100%);
     transition: transform 100ms ease-out, visibility 0ms linear 100ms;

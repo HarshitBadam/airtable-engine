@@ -7,6 +7,10 @@
 
 # testing
 /coverage
+/e2e/.auth/state.json
+/e2e/.auth/test-meta.json
+/test-results/
+/playwright-report/
 
 # database
 /prisma/db.sqlite

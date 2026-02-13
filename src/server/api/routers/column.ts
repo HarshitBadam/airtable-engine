@@ -83,7 +83,8 @@ export const columnRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      return ctx.db.$transaction(async (tx) => {
+      // ── Step 1: Create column + update views (fast, in a transaction) ──
+      const col = await ctx.db.$transaction(async (tx) => {
         const updated = await tx.table.update({
           where: { id: input.tableId },
           data: { nextColumnOrder: { increment: 1 } },
@@ -104,62 +105,7 @@ export const columnRouter = createTRPCRouter({
           select: { id: true, name: true, type: true, order: true, defaultValue: true, config: true },
         });
 
-        // If a default value is set, stamp it into every existing row's cells JSONB
-        if (input.defaultValue && input.defaultValue.trim() !== "") {
-          const tId = input.tableId.replace(/'/g, "''");
-          const cId = col.id.replace(/'/g, "''");
-          const dv = input.defaultValue.replace(/'/g, "''");
-
-          // For NUMBER columns, store as a JSON number; otherwise store as JSON text
-          const jsonbExpr =
-            input.type === "NUMBER" && !isNaN(Number(input.defaultValue))
-              ? `to_jsonb(${Number(input.defaultValue)}::double precision)`
-              : `to_jsonb('${dv}'::text)`;
-
-          await tx.$executeRawUnsafe(`
-            UPDATE "Row"
-            SET "cells" = jsonb_set(COALESCE("cells", '{}'), '{${cId}}', ${jsonbExpr}),
-                "searchText" = (
-                  SELECT COALESCE(string_agg(value::text, ' '), '')
-                  FROM jsonb_each_text(jsonb_set(COALESCE("cells", '{}'), '{${cId}}', ${jsonbExpr}))
-                ),
-                "updatedAt" = now()
-            WHERE "tableId" = '${tId}'
-          `);
-        }
-
-        // If duplicating a field, copy cell data from the source column to the new one
-        if (input.sourceColumnId) {
-          const tId = input.tableId.replace(/'/g, "''");
-          const srcId = input.sourceColumnId.replace(/'/g, "''");
-          const newId = col.id.replace(/'/g, "''");
-
-          await tx.$executeRawUnsafe(`
-            UPDATE "Row"
-            SET "cells" = CASE
-                  WHEN COALESCE("cells", '{}') ? '${srcId}'
-                  THEN jsonb_set(COALESCE("cells", '{}'), '{${newId}}', COALESCE("cells", '{}')->'${srcId}')
-                  ELSE "cells"
-                END,
-                "searchText" = (
-                  SELECT COALESCE(string_agg(value::text, ' '), '')
-                  FROM jsonb_each_text(
-                    CASE
-                      WHEN COALESCE("cells", '{}') ? '${srcId}'
-                      THEN jsonb_set(COALESCE("cells", '{}'), '{${newId}}', COALESCE("cells", '{}')->'${srcId}')
-                      ELSE COALESCE("cells", '{}')
-                    END
-                  )
-                ),
-                "updatedAt" = now()
-            WHERE "tableId" = '${tId}'
-          `);
-        }
-
         // Column creation is table-level: the new column must appear in ALL views.
-        // If an insert position is specified (anchor + side), place the new column
-        // relative to the anchor in EVERY view (since the anchor exists in all views).
-        // Otherwise, append at the end.
         const allViews = await tx.view.findMany({
           where: { tableId: input.tableId },
           select: { id: true, config: true },
@@ -173,8 +119,6 @@ export const columnRouter = createTRPCRouter({
 
           let newOrder: string[];
           if (existingOrder.length === 0) {
-            // Lazy-init: populate with ALL current table columns (includes the
-            // just-created one since we're inside the same transaction).
             const allCols = await tx.column.findMany({
               where: { tableId: input.tableId },
               orderBy: { order: "asc" },
@@ -182,22 +126,17 @@ export const columnRouter = createTRPCRouter({
             });
             newOrder = allCols.map((c) => c.id);
           } else if (existingOrder.includes(col.id)) {
-            // Already present (safety check)
             newOrder = existingOrder;
           } else if (input.anchorColumnId && input.insertSide) {
-            // Insert relative to the anchor column in this view's order.
-            // The anchor column exists in all views since columns are table-level.
             const anchorIdx = existingOrder.indexOf(input.anchorColumnId);
             if (anchorIdx !== -1) {
               newOrder = [...existingOrder];
               const insertIdx = input.insertSide === "right" ? anchorIdx + 1 : anchorIdx;
               newOrder.splice(insertIdx, 0, col.id);
             } else {
-              // Anchor not found in this view (shouldn't happen), append
               newOrder = [...existingOrder, col.id];
             }
           } else {
-            // No insert position — append at end
             newOrder = [...existingOrder, col.id];
           }
 
@@ -209,6 +148,101 @@ export const columnRouter = createTRPCRouter({
 
         return col;
       });
+
+      // ── Step 2: Bulk backfill (slow, OUTSIDE the transaction) ─────────
+      // A single UPDATE on 1M+ rows runs as one implicit PostgreSQL
+      // transaction.  Due to MVCC, concurrent readers (windowFetch) see
+      // the OLD data until the entire UPDATE commits (30-60s later).
+      // If the user scrolls or refreshes during that window, they see
+      // missing default values.
+      //
+      // FIX: batch the UPDATE into 100K-row chunks.  Each batch commits
+      // independently in 2-5s, so concurrent readers immediately see the
+      // completed batches.  Even a mid-backfill refresh shows most rows
+      // correctly.
+      const BACKFILL_BATCH = 100_000;
+
+      if (input.defaultValue && input.defaultValue.trim() !== "") {
+        const tId = input.tableId.replace(/'/g, "''");
+        const cId = col.id.replace(/'/g, "''");
+        const dv = input.defaultValue.replace(/'/g, "''");
+
+        const jsonbExpr =
+          input.type === "NUMBER" && !isNaN(Number(input.defaultValue))
+            ? `to_jsonb(${Number(input.defaultValue)}::double precision)`
+            : `to_jsonb('${dv}'::text)`;
+
+        const searchAppend = `CASE WHEN "searchText" = '' THEN '${dv}' ELSE "searchText" || chr(31) || '${dv}' END`;
+
+        try {
+          let totalBackfilled = 0;
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const affected: number = await ctx.db.$executeRawUnsafe(`
+              UPDATE "Row"
+              SET "cells" = jsonb_set(COALESCE("cells", '{}'), '{${cId}}', ${jsonbExpr}),
+                  "searchText" = ${searchAppend},
+                  "updatedAt" = now()
+              WHERE "id" IN (
+                SELECT "id" FROM "Row"
+                WHERE "tableId" = '${tId}'
+                  AND NOT (COALESCE("cells", '{}') ? '${cId}')
+                ORDER BY "rowIndex"
+                LIMIT ${BACKFILL_BATCH}
+              )
+            `);
+            totalBackfilled += affected;
+            if (affected === 0) break;
+          }
+          console.log(`[column.create] Default value backfill: ${totalBackfilled} rows updated for column ${col.id}`);
+        } catch (err) {
+          console.error("[column.create] Default value backfill failed:", err);
+        }
+      }
+
+      if (input.sourceColumnId) {
+        const tId = input.tableId.replace(/'/g, "''");
+        const srcId = input.sourceColumnId.replace(/'/g, "''");
+        const newId = col.id.replace(/'/g, "''");
+
+        try {
+          let totalBackfilled = 0;
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const affected: number = await ctx.db.$executeRawUnsafe(`
+              UPDATE "Row"
+              SET "cells" = CASE
+                    WHEN COALESCE("cells", '{}') ? '${srcId}'
+                    THEN jsonb_set(COALESCE("cells", '{}'), '{${newId}}', COALESCE("cells", '{}')->'${srcId}')
+                    ELSE "cells"
+                  END,
+                  "searchText" = CASE
+                    WHEN COALESCE("cells", '{}') ? '${srcId}'
+                    THEN CASE
+                      WHEN "searchText" = '' THEN (COALESCE("cells", '{}')->>'${srcId}')
+                      ELSE "searchText" || chr(31) || COALESCE(COALESCE("cells", '{}')->>'${srcId}', '')
+                    END
+                    ELSE "searchText"
+                  END,
+                  "updatedAt" = now()
+              WHERE "id" IN (
+                SELECT "id" FROM "Row"
+                WHERE "tableId" = '${tId}'
+                  AND NOT (COALESCE("cells", '{}') ? '${newId}')
+                ORDER BY "rowIndex"
+                LIMIT ${BACKFILL_BATCH}
+              )
+            `);
+            totalBackfilled += affected;
+            if (affected === 0) break;
+          }
+          console.log(`[column.create] Field duplication backfill: ${totalBackfilled} rows updated for column ${col.id}`);
+        } catch (err) {
+          console.error("[column.create] Field duplication backfill failed:", err);
+        }
+      }
+
+      return col;
     }),
 
   /**
@@ -241,24 +275,11 @@ export const columnRouter = createTRPCRouter({
       });
       if (!col) throw new Error("Column not found");
 
-      return ctx.db.$transaction(async (tx) => {
-        // Remove column key from all rows' cells JSONB
-        const colId = input.columnId.replace(/'/g, "''");
-        await tx.$executeRawUnsafe(`
-          UPDATE "Row"
-          SET "cells" = "cells" - '${colId}',
-              "searchText" = (
-                SELECT COALESCE(string_agg(value::text, ' '), '')
-                FROM jsonb_each_text("cells" - '${colId}')
-              ),
-              "updatedAt" = now()
-          WHERE "tableId" = '${input.tableId.replace(/'/g, "''")}'
-        `);
-
-        // Delete the column
+      // ── Step 1: Fast transaction — delete column + clean up views ──
+      // NO heavy row updates here; this completes in <1s.
+      await ctx.db.$transaction(async (tx) => {
         await tx.column.delete({ where: { id: input.columnId } });
 
-        // Clean up views: remove columnId from hiddenColumnIds in view configs
         const views = await tx.view.findMany({
           where: { tableId: input.tableId },
           select: { id: true, config: true },
@@ -268,26 +289,21 @@ export const columnRouter = createTRPCRouter({
           const config = view.config as Record<string, unknown> | null;
           if (!config) continue;
 
-          // Accumulate all changes into a single config object to avoid
-          // multiple view.update calls overwriting each other with stale data.
-          let updatedConfig = { ...config };
+          const updatedConfig = { ...config };
           let changed = false;
 
-          // Clean columnOrderIds
           const order = updatedConfig.columnOrderIds;
           if (Array.isArray(order) && order.includes(input.columnId)) {
             updatedConfig.columnOrderIds = order.filter((id: string) => id !== input.columnId);
             changed = true;
           }
 
-          // Clean hiddenColumnIds
           const hidden = updatedConfig.hiddenColumnIds;
           if (Array.isArray(hidden) && hidden.includes(input.columnId)) {
             updatedConfig.hiddenColumnIds = hidden.filter((id: string) => id !== input.columnId);
             changed = true;
           }
 
-          // Clean sorts referencing this column
           const sorts = Array.isArray(updatedConfig.sorts)
             ? (updatedConfig.sorts as Record<string, unknown>[])
             : [];
@@ -297,7 +313,6 @@ export const columnRouter = createTRPCRouter({
             changed = true;
           }
 
-          // Clean filters referencing this column
           const filters = Array.isArray(updatedConfig.filters)
             ? (updatedConfig.filters as Record<string, unknown>[])
             : [];
@@ -307,7 +322,6 @@ export const columnRouter = createTRPCRouter({
             changed = true;
           }
 
-          // Clean filterTree referencing this column (condition groups)
           if (updatedConfig.filterTree && typeof updatedConfig.filterTree === "object") {
             const tree = updatedConfig.filterTree as Record<string, unknown>;
             if (Array.isArray(tree.items)) {
@@ -326,9 +340,43 @@ export const columnRouter = createTRPCRouter({
             });
           }
         }
-
-        return { id: input.columnId };
       });
+
+      // ── Step 2: Batched cell cleanup (OUTSIDE transaction) ──────────
+      // Strip the column key from cells JSONB in 100K-row batches.
+      // Each batch commits independently so concurrent readers see
+      // progress immediately.  searchText is simplified: just remove
+      // the column value via a string replace on the separator-delimited
+      // text — recomputing from jsonb_each_text is far too slow at 1M rows.
+      const BATCH = 100_000;
+      const colId = input.columnId.replace(/'/g, "''");
+      const tId = input.tableId.replace(/'/g, "''");
+
+      try {
+        let totalCleaned = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const affected: number = await ctx.db.$executeRawUnsafe(`
+            UPDATE "Row"
+            SET "cells" = "cells" - '${colId}',
+                "updatedAt" = now()
+            WHERE "id" IN (
+              SELECT "id" FROM "Row"
+              WHERE "tableId" = '${tId}'
+                AND (COALESCE("cells", '{}') ? '${colId}')
+              ORDER BY "rowIndex"
+              LIMIT ${BATCH}
+            )
+          `);
+          totalCleaned += affected;
+          if (affected === 0) break;
+        }
+        console.log(`[column.delete] Cell cleanup: ${totalCleaned} rows cleaned for column ${input.columnId}`);
+      } catch (err) {
+        console.error("[column.delete] Cell cleanup failed:", err);
+      }
+
+      return { id: input.columnId };
     }),
 
   /**

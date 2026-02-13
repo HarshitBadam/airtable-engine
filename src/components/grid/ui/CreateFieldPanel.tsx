@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import styles from "./CreateFieldPanel.module.css";
 import { FieldConfigPanel } from "./FieldConfigPanel";
@@ -374,7 +374,7 @@ const ChevronRight = () => (
 
 interface EditFieldInfo {
   fieldName: string;
-  fieldType: "Single line text" | "Number" | string;
+  fieldType: string;
   numberConfig?: NumberFormatConfig;
 }
 

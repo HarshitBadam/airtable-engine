@@ -176,8 +176,8 @@ export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar(
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
       if (
-        rowHeightDropdownRef.current && !rowHeightDropdownRef.current.contains(target) &&
-        rowHeightButtonRef.current && !rowHeightButtonRef.current.contains(target)
+        !rowHeightDropdownRef.current?.contains(target) &&
+        !rowHeightButtonRef.current?.contains(target)
       ) {
         setIsRowHeightOpen(false);
       }
@@ -244,16 +244,10 @@ export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar(
     if (!isHideFieldsOpen) return;
 
     function handleClickOutside(event: MouseEvent) {
-      if (
-        hideFieldsPanelRef.current &&
-        hideFieldsPanelRef.current.contains(event.target as Node)
-      ) {
+      if (hideFieldsPanelRef.current?.contains(event.target as Node)) {
         return;
       }
-      if (
-        hideFieldsButtonRef.current &&
-        hideFieldsButtonRef.current.contains(event.target as Node)
-      ) {
+      if (hideFieldsButtonRef.current?.contains(event.target as Node)) {
         return;
       }
       setIsHideFieldsOpen(false);
@@ -291,16 +285,10 @@ export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar(
     if (!isSortOpen) return;
 
     function handleClickOutside(event: MouseEvent) {
-      if (
-        sortPanelRef.current &&
-        sortPanelRef.current.contains(event.target as Node)
-      ) {
+      if (sortPanelRef.current?.contains(event.target as Node)) {
         return;
       }
-      if (
-        sortButtonRef.current &&
-        sortButtonRef.current.contains(event.target as Node)
-      ) {
+      if (sortButtonRef.current?.contains(event.target as Node)) {
         return;
       }
       // Don't close sort panel when clicking inside a portal sub-dropdown
@@ -363,16 +351,10 @@ export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar(
 
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as HTMLElement;
-      if (
-        filterPanelRef.current &&
-        filterPanelRef.current.contains(target)
-      ) {
+      if (filterPanelRef.current?.contains(target)) {
         return;
       }
-      if (
-        filterButtonRef.current &&
-        filterButtonRef.current.contains(target)
-      ) {
+      if (filterButtonRef.current?.contains(target)) {
         return;
       }
       // FilterPanel renders sub-dropdowns (field/operator/conjunction) as

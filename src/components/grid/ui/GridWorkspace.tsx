@@ -4,10 +4,11 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { skipToken } from "@tanstack/react-query";
+import { skipToken, useQueryClient } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
 import type { inferProcedureOutput } from "@trpc/server";
 import type { AppRouter } from "~/server/api/root";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import styles from "./GridWorkspace.module.css";
 import { api } from "~/trpc/react";
 import { getBaseColor, getBaseBorderColor, getBaseTextColor, getBaseToolbarColor } from "~/components/bases/useBases";
@@ -27,8 +28,10 @@ import {
   ChevronDownIcon,
 } from "~/components/home/Icons";
 import { useGridRows } from "~/components/grid/useGridRows";
+import type { RowItem } from "~/components/grid/useGridRows";
 import { useCellEditing } from "~/components/grid/useCellEditing";
 import { useGridStore } from "~/components/grid/grid-store";
+import { useGridTable } from "~/components/grid/useGridTable";
 import { normalizeViewConfig } from "~/shared/grid";
 import { reconcileColumnOrder } from "~/components/grid/useGridMeta";
 import type { NumberFormatConfig } from "~/shared/numberUtils";
@@ -116,6 +119,7 @@ interface TableItem {
 export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const router = useRouter();
   const utils = api.useUtils();
+  const queryClient = useQueryClient();
 
   // === LOCAL STATE ===
   const [isTableDropdownOpen, setIsTableDropdownOpen] = useState(false);
@@ -422,12 +426,17 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   columnsRef.current = columns;
 
   // === ROW DATA ===
-  const { rows, totalCount, q: rowsQ, input: rowQueryInput, debouncedSearch } = useGridRows(tableId);
+  const {
+    rows, totalCount, q: rowsQ, input: rowQueryInput, debouncedSearch,
+    getRowAtIndex, getRowById, triggerJumpFetch,
+    clearJumpCache, updateJumpCacheRow, stampJumpCacheColumn, remapJumpCacheColumnId,
+    copyJumpCacheColumn, pendingColumnDefaultsRef,
+  } = useGridRows(tableId);
   rowsRef.current = rows;
   // Stable ref so async callbacks (e.g. insert above/below onSuccess) always read the latest input
   const rowQueryInputRef = useRef(rowQueryInput);
   rowQueryInputRef.current = rowQueryInput;
-  const { commit, cancel } = useCellEditing(tableId, rowQueryInput);
+  const { commit, cancel } = useCellEditing(tableId, rowQueryInput, updateJumpCacheRow);
 
   // Search state for FindBar wiring
   const search = useGridStore((s) => s.search);
@@ -480,6 +489,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   );
   visibleColumnsRef.current = visibleColumns;
 
+  // === TanStack Table integration ===
+  // Provides a proper column model with visibility/ordering state.
+  // The table instance is used for column defs and could drive flexRender for cells.
+  const _table = useGridTable(columns, rows as RowItem[]);
+
   // ================================================================
   // FIND-IN-VIEW: client-side match list + navigation
   // ================================================================
@@ -508,7 +522,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       const cells = (row.cells ?? {}) as Record<string, unknown>;
       for (const col of visibleColumns) {
         const val = cells[col.id];
-        if (val != null && String(val).toLowerCase().includes(termLower)) {
+        const strVal = typeof val === "object" && val !== null ? JSON.stringify(val) : String(val);
+        if (val != null && strVal.toLowerCase().includes(termLower)) {
           result.push({ rowId: row.id, columnId: col.id });
         }
       }
@@ -658,6 +673,22 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const markFiltersSaved = useGridStore((s) => s.markFiltersSaved);
   const activeViewIdFromStore = useGridStore((s) => s.activeViewId);
 
+  // When switching views, invalidate all row caches so the new view
+  // always loads fresh data (picks up rows/columns added in other views).
+  // Also reset scroll position to top and clear jump cache so each view
+  // feels independent (no position/data leakage between views).
+  const prevViewIdRef = useRef(activeViewIdFromStore);
+  useEffect(() => {
+    if (prevViewIdRef.current !== activeViewIdFromStore) {
+      prevViewIdRef.current = activeViewIdFromStore;
+      void utils.row.infinite.invalidate();
+      clearJumpCache();
+      // Reset scroll to top on view switch
+      const scroller = gridScrollerRef.current;
+      if (scroller) scroller.scrollTop = 0;
+    }
+  }, [activeViewIdFromStore, utils, clearJumpCache]);
+
   // Visual indicators: ONLY when autoSort=true AND there are live sorts
   const effectiveSortCount = autoSort ? currentSorts.length : 0;
   const hasTemporarySorts = autoSort && currentSorts.length > 0;
@@ -670,7 +701,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     },
   });
 
-  // Toggle autoSort — persists the toggle + current state immediately
+  // Toggle autoSort — persists the toggle + current state immediately.
   const handleToggleAutoSort = useCallback(() => {
     const newAutoSort = !autoSort;
     setAutoSort(newAutoSort);
@@ -697,12 +728,39 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     }
   }, [autoSort, setAutoSort, activeViewIdFromStore, sortSaveMut, searchForSave, filtersForSave, filterConjunctionForSave, filterTreeForSave, currentSorts, permanentSorts, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave]);
 
-  // "Sort" button (autoSort=false): apply staged entries as permanent sorts
+  // Mutation to compute materialized ViewRowRank for one-time sort (autoSort=OFF).
+  // When ranks finish computing, onSuccess invalidates the infinite query so
+  // subsequent fetches seamlessly transition from live ORDER BY → ViewRowRank.
+  // We intentionally do NOT clear the jump cache here — the data already in the
+  // cache is valid (same sort order) and clearing it would cause a disruptive
+  // second round of skeletons after the user has already loaded data.
+  const computeRanksMut = api.row.computeViewRanks.useMutation({
+    onSuccess: () => {
+      // Ranks now ready — invalidate so next page fetch uses ViewRowRank path.
+      // Don't clearJumpCache — existing jump cache data is still correct.
+      void utils.row.infinite.invalidate();
+    },
+  });
+
+  // "Sort" button (autoSort=false): materialize sort into ViewRowRank.
+  // Rank computation is fire-and-forget; the grid immediately shows sorted data
+  // via the standard live ORDER BY path. Once ranks are ready, the onSuccess
+  // handler above triggers a seamless transition to the ViewRowRank path.
   const handleSaveSorts = useCallback(() => {
     if (!activeViewIdFromStore) return;
     const newPermanentSorts = currentSorts;
     setPermanentSorts(newPermanentSorts);
-    // Entries stay visible in panel — only removed via X
+
+    // 1. Fire-and-forget rank materialization (onSuccess handles cache refresh)
+    if (newPermanentSorts.length > 0) {
+      computeRanksMut.mutate({
+        tableId,
+        viewId: activeViewIdFromStore,
+        sorts: newPermanentSorts,
+      });
+    }
+
+    // 2. Save permanentSorts in view config (for display in sort panel)
     sortSaveMut.mutate({
       viewId: activeViewIdFromStore,
       config: {
@@ -718,7 +776,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         rowOrderIds: rowOrderIdsForSave,
       },
     });
-  }, [activeViewIdFromStore, currentSorts, searchForSave, filtersForSave, filterConjunctionForSave, filterTreeForSave, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave, setPermanentSorts, sortSaveMut]);
+
+    // 3. Immediately invalidate so grid shows sorted data via live ORDER BY
+    clearJumpCache();
+    void utils.row.infinite.invalidate();
+  }, [activeViewIdFromStore, currentSorts, tableId, searchForSave, filtersForSave, filterConjunctionForSave, filterTreeForSave, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave, setPermanentSorts, computeRanksMut, sortSaveMut, clearJumpCache, utils]);
 
   // "Cancel" button (autoSort=false): revert staged entries to permanentSorts
   const handleCancelSorts = useCallback(() => {
@@ -927,7 +989,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       const record = cells as Record<string, unknown>;
       const val = record[columnId];
       if (val === null || val === undefined) return "";
-      return String(val);
+      if (typeof val === "object") return JSON.stringify(val);
+      return typeof val === "string" ? val : String(val as number | boolean | bigint | symbol);
     },
     [],
   );
@@ -995,9 +1058,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       cellX -= scrollLeft;
     }
 
-    // Cell Y relative to .gridBody
+    // Cell Y relative to .gridBody (use virtual index for scroll-mapped position)
     const drh = dataRowHeightRef.current;
-    const cellY = headerH + rowIdx * drh - scrollTop;
+    const virtualRowIdxForOverlay = mapToVirtualIndexRef.current(rowIdx);
+    const cellY = headerH + virtualRowIdxForOverlay * drh - scrollTop;
 
     // Fill handle — first child of overlay
     const handle = overlay.firstElementChild as HTMLElement | null;
@@ -1067,9 +1131,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     const frozenCount = frozenColumnCountRef.current;
     const fw = freezeWidthRef.current;
 
-    // --- Vertical ---
+    // --- Vertical --- (use virtual index when scroll is scaled)
     const drhScroll = dataRowHeightRef.current;
-    const cellTop = rowIdx * drhScroll;
+    const virtualRowIdx = mapToVirtualIndexRef.current(rowIdx);
+    const cellTop = virtualRowIdx * drhScroll;
     const cellBottom = cellTop + drhScroll;
     if (cellTop < scroller.scrollTop) {
       scroller.scrollTop = cellTop;
@@ -1429,48 +1494,111 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     };
   }, []);
 
-  // === ROW VIRTUALIZATION ===
-  // Only renders visible rows + overscan buffer. Spacer divs maintain correct scroll height.
-  const [virtualRange, setVirtualRange] = useState({ start: 0, end: 50 });
+  // === ROW VIRTUALIZATION (TanStack Virtual) ===
+  // Browser max scrollable height is limited (macOS Retina ≈ 2^24 = 16,777,216px).
+  // At 32px/row that's only ~524K rows. For larger datasets we CAP the virtualizer's
+  // item count and map virtual indices to actual row indices proportionally.
+  // This keeps the scroll container within browser limits while rendering rows at
+  // full height with correct positions.
+  const MAX_SCROLL_HEIGHT = 15_000_000; // conservative cross-browser limit
+  const maxVirtualRows = Math.floor(MAX_SCROLL_HEIGHT / dataRowHeight);
+  const virtualCount = Math.min(totalCount, maxVirtualRows);
+  const isScaled = totalCount > maxVirtualRows;
 
+  /** Map a virtual index (0..virtualCount-1) to an actual row index (0..totalCount-1). */
+  const mapToActualIndex = useCallback((virtualIndex: number): number => {
+    if (!isScaled || virtualCount <= 1) return virtualIndex;
+    return Math.round(virtualIndex * (totalCount - 1) / (virtualCount - 1));
+  }, [isScaled, totalCount, virtualCount]);
+
+  /** Inverse: map an actual row index to the nearest virtual index. */
+  const mapToVirtualIndex = useCallback((actualIndex: number): number => {
+    if (!isScaled || totalCount <= 1) return actualIndex;
+    return Math.round(actualIndex * (virtualCount - 1) / (totalCount - 1));
+  }, [isScaled, totalCount, virtualCount]);
+
+  // Ref so scrollCellIntoView (which is created before the virtualizer) can
+  // convert actual → virtual row index for scroll-position math.
+  const mapToVirtualIndexRef = useRef(mapToVirtualIndex);
+  mapToVirtualIndexRef.current = mapToVirtualIndex;
+
+  const rowVirtualizer = useVirtualizer({
+    count: virtualCount,
+    getScrollElement: () => gridScrollerRef.current,
+    estimateSize: () => dataRowHeight,
+    overscan: OVERSCAN_COUNT,
+  });
+
+  // Re-measure when row height changes, and adjust scrollTop so the user
+  // stays at approximately the same row.
+  const prevDataRowHeightRef = useRef(dataRowHeight);
   useEffect(() => {
-    const scroller = gridScrollerRef.current;
-    if (!scroller) return;
-
-    let rafId = 0;
-    const calcRange = () => {
-      const st = scroller.scrollTop;
-      const vh = scroller.clientHeight;
-      const drhCalc = dataRowHeightRef.current;
-      const start = Math.max(0, Math.floor(st / drhCalc) - OVERSCAN_COUNT);
-      const end = Math.min(rows.length, Math.ceil((st + vh) / drhCalc) + OVERSCAN_COUNT);
-      setVirtualRange((prev) =>
-        prev.start === start && prev.end === end ? prev : { start, end },
-      );
-      // Infinite scroll: fetch next page when near bottom
-      const q = rowsQRef.current;
-      if (st + vh >= scroller.scrollHeight - 500 && q.hasNextPage && !q.isFetchingNextPage) {
-        void q.fetchNextPage();
+    const prevH = prevDataRowHeightRef.current;
+    if (prevH !== dataRowHeight && prevH > 0) {
+      const scroller = gridScrollerRef.current;
+      if (scroller) {
+        // Preserve the row the user was looking at
+        const ratio = scroller.scrollTop / prevH;
+        scroller.scrollTop = ratio * dataRowHeight;
       }
-    };
+    }
+    prevDataRowHeightRef.current = dataRowHeight;
+    rowVirtualizer.measure();
+  }, [dataRowHeight, rowVirtualizer]);
 
-    const onScroll = () => {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(calcRange);
-    };
+  const virtualItems = rowVirtualizer.getVirtualItems();
 
-    calcRange(); // initial measurement
+  // Infinite scroll: fetch next page when approaching end of loaded data
+  useEffect(() => {
+    if (virtualItems.length === 0) return;
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (!lastItem) return;
 
-    scroller.addEventListener("scroll", onScroll, { passive: true });
-    const ro = new ResizeObserver(onScroll);
-    ro.observe(scroller);
+    // Map virtual indices → actual row indices (identity when not scaled)
+    const lastActual = mapToActualIndex(lastItem.index);
 
-    return () => {
-      cancelAnimationFrame(rafId);
-      scroller.removeEventListener("scroll", onScroll);
-      ro.disconnect();
-    };
-  }, [rows.length]);
+    // If the last visible virtual item is close to the end of loaded pages, fetch more
+    if (lastActual >= rows.length - 50 && rowsQ.hasNextPage && !rowsQ.isFetchingNextPage) {
+      void rowsQ.fetchNextPage();
+    }
+
+    // Jump detection: trigger windowFetch for visible skeleton rows AND
+    // pre-fetch when approaching the edge of a cached block.
+    if (totalCount > rows.length) {
+      const firstVis = virtualItems[0];
+      const lastVis = virtualItems[virtualItems.length - 1];
+      if (firstVis && lastVis) {
+        const firstActual = mapToActualIndex(firstVis.index);
+        const lastActualVis = mapToActualIndex(lastVis.index);
+
+        // 1. Direct skeleton detection: find ANY visible item that is a skeleton
+        for (const vItem of virtualItems) {
+          const actualIdx = mapToActualIndex(vItem.index);
+          if (actualIdx >= rows.length && !getRowAtIndex(actualIdx)) {
+            triggerJumpFetch(actualIdx);
+            break;
+          }
+        }
+
+        // 2. Pre-fetch: approaching the edge of a cached region
+        const PREFETCH_DIST = 40;
+        if (firstActual >= rows.length) {
+          const topIdx = firstActual;
+          const hasAbove = getRowAtIndex(topIdx - PREFETCH_DIST);
+          if (!hasAbove && topIdx - PREFETCH_DIST >= rows.length) {
+            triggerJumpFetch(topIdx - PREFETCH_DIST);
+          }
+        }
+        if (lastActualVis >= rows.length) {
+          const botIdx = lastActualVis;
+          const hasBelow = getRowAtIndex(botIdx + PREFETCH_DIST);
+          if (!hasBelow && botIdx + PREFETCH_DIST < totalCount) {
+            triggerJumpFetch(botIdx + PREFETCH_DIST);
+          }
+        }
+      }
+    }
+  }, [virtualItems, rows.length, rowsQ.hasNextPage, rowsQ.isFetchingNextPage, totalCount, triggerJumpFetch, getRowAtIndex, mapToActualIndex]);
 
   // Fetch views for this table (skip if tableId is the "default" sentinel)
   const viewsQ = api.view.list.useQuery(
@@ -1675,7 +1803,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           setRowOrderIdsTop(order);
         }
       }
-      void utils.row.infinite.invalidate(rowQueryInput);
+      void utils.row.infinite.invalidate();
     },
   });
 
@@ -1686,7 +1814,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const deleteRowMut = api.row.delete.useMutation({
     onSuccess: () => {
       // Re-sync with server to get accurate data after animation + removal
-      void utils.row.infinite.invalidate(rowQueryInput);
+      void utils.row.infinite.invalidate();
     },
     onError: (_e, vars) => {
       // If the server fails, un-mark the row so it reappears
@@ -1712,7 +1840,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
       // Build the current display-order row IDs.
       // If rowOrderIds is empty (no custom order yet), lazy-initialize from loaded rows.
-      let currentOrder = rowOrderIdsForSave.length > 0
+      const currentOrder = rowOrderIdsForSave.length > 0
         ? [...rowOrderIdsForSave]
         : rows.map((r) => r.id);
 
@@ -1770,6 +1898,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
       // Cancel in-flight queries so our optimistic data isn't overwritten
       await utils.column.list.cancel({ tableId });
+      await utils.row.infinite.cancel(rowQueryInput);
 
       // Snapshot previous state for rollback
       const prevCols = utils.column.list.getData({ tableId });
@@ -1811,39 +1940,42 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         }
       }
 
-      // If a default value is provided, stamp it into every cached row
+      // ── Stamp row data for the CURRENT VIEW using tRPC setInfiniteData ──
+      // We only patch the active view's cache here.  Other views' stale
+      // caches will be removed in onSuccess so they refetch fresh from DB.
       if (vars.defaultValue && vars.defaultValue.trim() !== "") {
-        // For NUMBER columns, store the value as an actual number if possible
         const cellValue: string | number =
           vars.type === "NUMBER" && !isNaN(Number(vars.defaultValue))
             ? Number(vars.defaultValue)
             : vars.defaultValue;
 
-        utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
+        utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
           if (!old) return old;
           return {
             ...old,
             pages: old.pages.map((page) => ({
               ...page,
-              items: page.items.map((r) => {
-                const cells = (r.cells ?? {}) as Record<string, unknown>;
-                return { ...r, cells: { ...cells, [tempId]: cellValue } };
-              }),
+              items: page.items.map((r) => ({
+                ...r,
+                cells: { ...((r.cells ?? {}) as Record<string, unknown>), [tempId]: cellValue },
+              })),
             })),
           };
         });
+
+        stampJumpCacheColumn(tempId, cellValue);
+        pendingColumnDefaultsRef.current.set(tempId, cellValue);
       }
 
-      // If duplicating a field, optimistically copy cell values from the source column
       if (vars.sourceColumnId) {
-        utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
+        utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
           if (!old) return old;
           return {
             ...old,
             pages: old.pages.map((page) => ({
               ...page,
               items: page.items.map((r) => {
-                const cells = (r.cells ?? {}) as Record<string, unknown>;
+                const cells = ((r.cells ?? {}) as Record<string, unknown>);
                 const srcVal = cells[vars.sourceColumnId!];
                 if (srcVal === undefined) return r;
                 return { ...r, cells: { ...cells, [tempId]: srcVal } };
@@ -1851,6 +1983,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             })),
           };
         });
+
+        copyJumpCacheColumn(vars.sourceColumnId, tempId);
       }
 
       return { tempId, prevCols, prevOrderIds, prevRows };
@@ -1878,8 +2012,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         setColumnOrderIds(updated);
       }
 
-      // Remap temp column ID → real column ID in cached row data (avoids
-      // a full refetch which would flash default values out then back in).
+      // ── Remap tempId → realId in the CURRENT VIEW's row cache ──
       utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
         if (!old) return old;
         return {
@@ -1887,7 +2020,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           pages: old.pages.map((page) => ({
             ...page,
             items: page.items.map((r) => {
-              const cells = (r.cells ?? {}) as Record<string, unknown>;
+              const cells = ((r.cells ?? {}) as Record<string, unknown>);
               if (!(tempId in cells)) return r;
               const { [tempId]: val, ...rest } = cells;
               return { ...r, cells: { ...rest, [newCol.id]: val } };
@@ -1896,17 +2029,70 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         };
       });
 
+      // ── Jump cache: remap temp → real ID ──
+      remapJumpCacheColumnId(tempId, newCol.id);
+
+      // Re-stamp jump cache for default values
+      const hasDefault = newCol.defaultValue && String(newCol.defaultValue).trim() !== "";
+      if (hasDefault) {
+        const defaultCellVal: string | number =
+          newCol.type === "NUMBER" && !isNaN(Number(newCol.defaultValue))
+            ? Number(newCol.defaultValue)
+            : String(newCol.defaultValue);
+        stampJumpCacheColumn(newCol.id, defaultCellVal);
+      }
+
+      // Re-stamp jump cache for duplicate fields (copy source → new column)
+      if (_vars.sourceColumnId) {
+        copyJumpCacheColumn(_vars.sourceColumnId, newCol.id);
+      }
+
+      // Manage pending-defaults: remap tempId → realId so any in-flight
+      // windowFetch responses still get stamped, then remove after delay.
+      const pendingVal = pendingColumnDefaultsRef.current.get(tempId);
+      pendingColumnDefaultsRef.current.delete(tempId);
+      if (pendingVal !== undefined) {
+        pendingColumnDefaultsRef.current.set(newCol.id, pendingVal);
+        setTimeout(() => {
+          pendingColumnDefaultsRef.current.delete(newCol.id);
+        }, 5000);
+      }
+
       // Also update the activeCell if it was referencing the temp column
       const ac = activeCellRef.current;
-      if (ac && ac.columnId === tempId) {
+      if (ac?.columnId === tempId) {
         setActiveCell({ rowId: ac.rowId, columnId: newCol.id });
       }
 
       // Temp → real swap is complete; allow layout auto-save again
       isCreatingColumnRef.current = false;
 
+      // ── Cross-view consistency ──
+      // Remove all INACTIVE row.infinite caches (other views that aren't
+      // currently rendered).  When the user switches to those views, they
+      // will fetch fresh data from the DB, which by now has the correct
+      // backfilled values.  This avoids the fragile approach of trying
+      // to patch other views' caches with queryClient.setQueryData.
+      queryClient.removeQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return (
+            Array.isArray(key) &&
+            Array.isArray(key[0]) &&
+            (key[0] as string[])[0] === "row" &&
+            (key[0] as string[])[1] === "infinite"
+          );
+        },
+        type: "inactive",
+      });
+
       // Re-fetch views so the persisted columnOrderIds are in sync
       void utils.view.list.invalidate({ tableId });
+
+      // Background-refresh current view's row data so any rows fetched
+      // during the backfill window (MVCC old snapshots) get replaced
+      // with correct DB data.  keepPreviousData ensures no flash.
+      void utils.row.infinite.invalidate();
     },
     onError: (_err, _vars, ctx) => {
       // Column creation failed; allow layout auto-save again
@@ -2012,9 +2198,22 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       setFilterTree(ctx.prevFilterTree);
     },
     onSuccess: () => {
+      // Remove inactive views' stale row caches for cross-view consistency
+      queryClient.removeQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return (
+            Array.isArray(key) &&
+            Array.isArray(key[0]) &&
+            (key[0] as string[])[0] === "row" &&
+            (key[0] as string[])[1] === "infinite"
+          );
+        },
+        type: "inactive",
+      });
       // Re-sync with server (column list, rows, and views since server cleans all view configs)
       void utils.column.list.invalidate({ tableId });
-      void utils.row.infinite.invalidate(rowQueryInput);
+      void utils.row.infinite.invalidate();
       void utils.view.list.invalidate({ tableId });
     },
   });
@@ -2046,16 +2245,82 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // Stores the rowIndex of the newly created row so we can identify it after refetch
   const newRowTargetIndexRef = useRef<number | null>(null);
 
+  // === INSERT AT POSITION (used by add row +, insert above/below) ===
+  const insertAtMut = api.row.insertAt.useMutation();
+
   const handleAddRow = useCallback(() => {
     if (!isValidTable) return;
-    addRowMut.mutate({ tableId, count: 1 }, {
-      onSuccess: (data) => {
-        // data.startRowIndex is the rowIndex of the newly inserted row
-        newRowTargetIndexRef.current = data.startRowIndex;
-        void utils.row.infinite.invalidate({ tableId });
+    // Use insertAt at the end of the table to create a blank row.
+    // We use a very large atIndex to guarantee the slot is free (no row
+    // shifting needed). The server clamps to nextRowIndex if needed.
+    const atIndex = totalCount + 100;
+    insertAtMut.mutate({ tableId, atIndex }, {
+      onSuccess: (newRow) => {
+        void utils.row.infinite.invalidate();
+        // Scroll to the bottom so the new row is visible
+        requestAnimationFrame(() => {
+          const scroller = gridScrollerRef.current;
+          if (scroller) scroller.scrollTop = scroller.scrollHeight;
+        });
+        // Focus the new row for editing
+        const firstCol = visibleColumnsRef.current[0];
+        if (firstCol) {
+          // Double rAF to wait for scroll + render
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              setActiveCell({ rowId: newRow.id, columnId: firstCol.id });
+              startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
+            });
+          });
+        }
       },
     });
-  }, [isValidTable, tableId, addRowMut, utils]);
+  }, [isValidTable, tableId, totalCount, insertAtMut, utils, setActiveCell, startEditing]);
+
+  // === BULK ADD 100k ROWS ===
+  const [isBulkAdding, setIsBulkAdding] = useState(false);
+
+  const handleAddBulkRows = useCallback(() => {
+    if (!isValidTable || isBulkAdding) return;
+    setIsBulkAdding(true);
+    addRowMut.mutate({ tableId, count: 100_000 }, {
+      onSuccess: (data) => {
+        // Optimistically update the totalCount in the first page so the
+        // virtualizer immediately expands to the new row count (preserving
+        // the current scroll position). Then invalidate for a proper refetch.
+        utils.row.infinite.setInfiniteData(rowQueryInputRef.current, (old) => {
+          if (!old?.pages?.[0]) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page, i) =>
+              i === 0 ? { ...page, totalCount: (page.totalCount ?? 0) + data.count } : page,
+            ),
+          };
+        });
+        clearJumpCache();
+        // Remove inactive views' stale caches — they'll refetch fresh data
+        // when the user switches to them (avoids concurrent refetch storms).
+        queryClient.removeQueries({
+          predicate: (query) => {
+            const key = query.queryKey;
+            return (
+              Array.isArray(key) &&
+              Array.isArray(key[0]) &&
+              (key[0] as string[])[0] === "row" &&
+              (key[0] as string[])[1] === "infinite"
+            );
+          },
+          type: "inactive",
+        });
+        // Refetch only the active view's data
+        void utils.row.infinite.invalidate(rowQueryInputRef.current);
+        setIsBulkAdding(false);
+      },
+      onError: () => {
+        setIsBulkAdding(false);
+      },
+    });
+  }, [isValidTable, isBulkAdding, tableId, addRowMut, utils, clearJumpCache]);
 
   // When rows update after adding (+ button), find the new row by rowIndex and start editing
   useEffect(() => {
@@ -2083,77 +2348,48 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     }
   }, [rows, visibleColumns, setActiveCell, startEditing]);
 
-  // Helper: after addMany creates a row at the end of the table, refetch the data,
-  // then update rowOrderIds to position it correctly in the current view.
-  // Other views naturally show it at the end (highest rowIndex, not in their rowOrderIds).
-  const insertRowAndPosition = useCallback(
-    async (targetRowId: string, direction: "above" | "below", newRowIndex: number) => {
-      // Wait for server data to be refetched
-      await utils.row.infinite.invalidate({ tableId });
-
-      // Read the fresh data directly from the TanStack Query cache
-      const freshData = utils.row.infinite.getInfiniteData(rowQueryInputRef.current);
-      if (!freshData) return;
-
-      const flat = freshData.pages.flatMap((p) => p.items);
-      const newRow = flat.find((r) => r.rowIndex === newRowIndex);
-      if (!newRow) return;
-
-      // Build rowOrderIds, placing the new row at the correct position.
-      // If rowOrderIds is empty (no custom order), lazy-init from current rows.
-      const currentOrder = rowOrderIdsRef.current;
-      const baseOrder =
-        currentOrder.length > 0
-          ? [...currentOrder]
-          : flat.filter((r) => r.id !== newRow.id).map((r) => r.id);
-
-      // Remove the new row if already present (safety)
-      const cleaned = baseOrder.filter((id) => id !== newRow.id);
-
-      // Insert adjacent to the target row
-      const targetIdx = cleaned.indexOf(targetRowId);
-      if (targetIdx !== -1) {
-        const insertAt = direction === "above" ? targetIdx : targetIdx + 1;
-        cleaned.splice(insertAt, 0, newRow.id);
-      } else {
-        // Target not found (edge case) — append at end
-        cleaned.push(newRow.id);
-      }
-
-      setRowOrderIdsTop(cleaned);
-
-      // Auto-edit: focus the first visible cell of the NEW row.
-      // Use requestAnimationFrame so React renders the repositioned row first.
-      const firstCol = visibleColumnsRef.current[0];
-      if (firstCol) {
-        requestAnimationFrame(() => {
-          setActiveCell({ rowId: newRow.id, columnId: firstCol.id });
-          startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
-        });
-      }
-    },
-    [tableId, utils, setRowOrderIdsTop, setActiveCell, startEditing],
-  );
-
   // === INSERT RECORD ABOVE ===
   const handleInsertRecordAbove = useCallback((rowId: string) => {
     if (!isValidTable) return;
-    addRowMut.mutate({ tableId, count: 1 }, {
-      onSuccess: (data) => {
-        void insertRowAndPosition(rowId, "above", data.startRowIndex);
+    // Search both infinite pages AND jump cache for the target row
+    const targetRow = getRowById(rowId);
+    if (!targetRow) return;
+
+    insertAtMut.mutate({ tableId, atIndex: targetRow.rowIndex }, {
+      onSuccess: (newRow) => {
+        void utils.row.infinite.invalidate();
+        clearJumpCache(); // Indexes shifted — stale
+        const firstCol = visibleColumnsRef.current[0];
+        if (firstCol) {
+          requestAnimationFrame(() => {
+            setActiveCell({ rowId: newRow.id, columnId: firstCol.id });
+            startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
+          });
+        }
       },
     });
-  }, [isValidTable, tableId, addRowMut, insertRowAndPosition]);
+  }, [isValidTable, tableId, insertAtMut, utils, setActiveCell, startEditing, getRowById, clearJumpCache]);
 
   // === INSERT RECORD BELOW ===
   const handleInsertRecordBelow = useCallback((rowId: string) => {
     if (!isValidTable) return;
-    addRowMut.mutate({ tableId, count: 1 }, {
-      onSuccess: (data) => {
-        void insertRowAndPosition(rowId, "below", data.startRowIndex);
+    const targetRow = getRowById(rowId);
+    if (!targetRow) return;
+
+    insertAtMut.mutate({ tableId, atIndex: targetRow.rowIndex + 1 }, {
+      onSuccess: (newRow) => {
+        void utils.row.infinite.invalidate();
+        clearJumpCache(); // Indexes shifted — stale
+        const firstCol = visibleColumnsRef.current[0];
+        if (firstCol) {
+          requestAnimationFrame(() => {
+            setActiveCell({ rowId: newRow.id, columnId: firstCol.id });
+            startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
+          });
+        }
       },
     });
-  }, [isValidTable, tableId, addRowMut, insertRowAndPosition]);
+  }, [isValidTable, tableId, insertAtMut, utils, setActiveCell, startEditing, getRowById, clearJumpCache]);
 
   // === DUPLICATE RECORD (optimistic — clone appears instantly below) ===
   const handleDuplicateRecord = useCallback((rowId: string) => {
@@ -2359,15 +2595,15 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       // Don't close if clicking inside the table dropdown
-      if (tableDropdownRef.current && tableDropdownRef.current.contains(event.target as Node)) {
+      if (tableDropdownRef.current?.contains(event.target as Node)) {
         return;
       }
       // Don't close if clicking the table dropdown button
-      if (tableDropdownButtonRef.current && tableDropdownButtonRef.current.contains(event.target as Node)) {
+      if (tableDropdownButtonRef.current?.contains(event.target as Node)) {
         return;
       }
       // Don't close if clicking inside the Add or Import dropdown
-      if (addOrImportDropdownRef.current && addOrImportDropdownRef.current.contains(event.target as Node)) {
+      if (addOrImportDropdownRef.current?.contains(event.target as Node)) {
         return;
       }
       setIsTableDropdownOpen(false);
@@ -2385,15 +2621,15 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     function handleClickOutside(event: MouseEvent) {
       // Don't close if clicking inside the Add or Import dropdown
-      if (addOrImportDropdownRef.current && addOrImportDropdownRef.current.contains(event.target as Node)) {
+      if (addOrImportDropdownRef.current?.contains(event.target as Node)) {
         return;
       }
       // Don't close if clicking the Add or Import button
-      if (addOrImportButtonRef.current && addOrImportButtonRef.current.contains(event.target as Node)) {
+      if (addOrImportButtonRef.current?.contains(event.target as Node)) {
         return;
       }
       // Don't close if clicking inside the table dropdown
-      if (tableDropdownRef.current && tableDropdownRef.current.contains(event.target as Node)) {
+      if (tableDropdownRef.current?.contains(event.target as Node)) {
         return;
       }
       setIsAddOrImportDropdownOpen(false);
@@ -2418,11 +2654,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     function handleClickOutside(event: MouseEvent) {
       // Don't close if clicking inside the table title dropdown
-      if (tableTitleDropdownRef.current && tableTitleDropdownRef.current.contains(event.target as Node)) {
+      if (tableTitleDropdownRef.current?.contains(event.target as Node)) {
         return;
       }
       // Don't close if clicking the table title dropdown button
-      if (tableTitleDropdownButtonRef.current && tableTitleDropdownButtonRef.current.contains(event.target as Node)) {
+      if (tableTitleDropdownButtonRef.current?.contains(event.target as Node)) {
         return;
       }
       setIsTableTitleDropdownOpen(false);
@@ -2444,11 +2680,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     function handleClickOutside(event: MouseEvent) {
       // Don't close if clicking inside the view dropdown
-      if (viewDropdownRef.current && viewDropdownRef.current.contains(event.target as Node)) {
+      if (viewDropdownRef.current?.contains(event.target as Node)) {
         return;
       }
       // Don't close if clicking the view dropdown button
-      if (viewDropdownButtonRef.current && viewDropdownButtonRef.current.contains(event.target as Node)) {
+      if (viewDropdownButtonRef.current?.contains(event.target as Node)) {
         return;
       }
       setIsViewDropdownOpen(false);
@@ -2470,7 +2706,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     function handleClickOutside(event: MouseEvent) {
       // Don't close if clicking inside the rename popup
-      if (renamePopupRef.current && renamePopupRef.current.contains(event.target as Node)) {
+      if (renamePopupRef.current?.contains(event.target as Node)) {
         return;
       }
       handleCancelRename();
@@ -2899,9 +3135,12 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               scrollableColumns={scrollableColumns}
               getColWidth={getColWidth}
               rows={rows}
-              virtualRange={virtualRange}
+              virtualItems={virtualItems}
+              totalSize={rowVirtualizer.getTotalSize()}
               totalCount={totalCount}
               DATA_ROW_HEIGHT={dataRowHeight}
+              mapToActualIndex={mapToActualIndex}
+              getRowAtIndex={getRowAtIndex}
               wrapHeaders={wrapHeaders}
               getCellValue={getCellValue}
               stableCommit={stableCommit}
@@ -2926,6 +3165,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               searchTerm={activeSearchTerm}
               onReorderRow={handleReorderRow}
               canDragRows={canDragRows}
+              onAddBulkRows={handleAddBulkRows}
+              isBulkAdding={isBulkAdding}
+              baseColor={baseColor}
+              baseTextColor={baseTextColor}
             />
           </div>
         </div>

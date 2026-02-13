@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { faker } from "@faker-js/faker";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import type { ViewConfig } from "../types/view";
 
@@ -75,18 +74,18 @@ export const tableRouter = createTRPCRouter({
           },
         });
 
-        // Seed 20 rows with auto-number ID and a faker name
+        // Seed rows with auto-number only — Name column left blank so the user
+        // starts with a clean slate (matching Airtable's behavior).
         const rowsData = Array.from({ length: seedCount }, (_, i) => {
           const cells: Record<string, string | number> = {
             [cols[0]!.id]: i + 1,
-            [cols[1]!.id]: faker.person.fullName(),
           };
 
           return {
             tableId: table.id,
             rowIndex: i + 1,
             cells: cells as unknown as object,
-            searchText: Object.values(cells).map(String).join("\u001F"),
+            searchText: String(i + 1),
           };
         });
 

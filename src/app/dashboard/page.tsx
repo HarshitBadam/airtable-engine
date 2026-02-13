@@ -241,7 +241,7 @@ export default function DashboardPage() {
           ======================================== */}
       <div className={styles.body}>
         {/* Sidebar Container (Rail + Expandable Panel) */}
-        <div className={styles.sidebarContainer}>
+        <div className={`${styles.sidebarContainer} ${sidebarExpanded ? styles.sidebarContainerExpanded : ''}`}>
           {/* Left icon rail (always visible) */}
           <aside className={styles.rail} aria-label="Primary navigation">
             <nav className={styles.railNav}>
@@ -481,7 +481,7 @@ export default function DashboardPage() {
         {/* ========================================
             Main Content
             ======================================== */}
-        <main className={`${styles.main} ${sidebarExpanded ? styles.mainShifted : ''}`} role="region" aria-label="Home">
+        <main className={styles.main} role="region" aria-label="Home">
           <div className={styles.mainInner}>
             <h1 className={styles.title}>Home</h1>
 
@@ -527,6 +527,39 @@ export default function DashboardPage() {
                 )}
               </div>
 
+              {/* View Toggle - right side of subheader via justify-content: space-between */}
+              <div
+                className={styles.viewToggle}
+                role="radiogroup"
+                aria-label="View mode"
+              >
+                <div className={styles.tooltipWrapper}>
+                  <button
+                    type="button"
+                    className={styles.viewToggleButton}
+                    role="radio"
+                    aria-checked={viewMode === "list"}
+                    aria-label="List view"
+                    onClick={() => setViewMode("list")}
+                  >
+                    <ListViewIcon size={20} />
+                  </button>
+                  <span className={styles.hoverTooltip} role="tooltip">View items in a list</span>
+                </div>
+                <div className={styles.tooltipWrapper}>
+                  <button
+                    type="button"
+                    className={styles.viewToggleButton}
+                    role="radio"
+                    aria-checked={viewMode === "grid"}
+                    aria-label="Grid view"
+                    onClick={() => setViewMode("grid")}
+                  >
+                    <GridViewIcon size={20} />
+                  </button>
+                  <span className={styles.hoverTooltip} role="tooltip">View items in a grid</span>
+                </div>
+              </div>
             </div>
 
             {/* Content: Empty state or bases list */}
@@ -558,39 +591,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* View Toggle - positioned fixed, outside mainInner to avoid transform issues */}
-          <div
-            className={styles.viewToggle}
-            role="radiogroup"
-            aria-label="View mode"
-          >
-            <div className={styles.tooltipWrapper}>
-              <button
-                type="button"
-                className={styles.viewToggleButton}
-                role="radio"
-                aria-checked={viewMode === "list"}
-                aria-label="List view"
-                onClick={() => setViewMode("list")}
-              >
-                <ListViewIcon size={20} />
-              </button>
-              <span className={styles.hoverTooltip} role="tooltip">View items in a list</span>
-            </div>
-            <div className={styles.tooltipWrapper}>
-              <button
-                type="button"
-                className={styles.viewToggleButton}
-                role="radio"
-                aria-checked={viewMode === "grid"}
-                aria-label="Grid view"
-                onClick={() => setViewMode("grid")}
-              >
-                <GridViewIcon size={20} />
-              </button>
-              <span className={styles.hoverTooltip} role="tooltip">View items in a grid</span>
-            </div>
-          </div>
         </main>
       </div>
 
