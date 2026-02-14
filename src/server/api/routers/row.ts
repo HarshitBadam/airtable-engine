@@ -1088,10 +1088,110 @@ export const rowRouter = createTRPCRouter({
         const batchStart = startRowIndex + offset;
 
         // Build jsonb_build_object per batch (batchStart changes each iteration).
-        // Use column names to generate appropriate data patterns.
+        // Use column names to pick realistic SQL array-cycling expressions.
+        // Each array has a prime-ish length so combinations don't repeat quickly.
         const jsonbParts: string[] = [];
         const searchParts: string[] = [];
         const colNameLower = (n: string) => n.toLowerCase().trim();
+
+        // ── Realistic data pools (used in SQL ARRAY[...][1 + (idx % N)] ) ──
+        const FIRST_NAMES = [
+          'James','Mary','Robert','Patricia','John','Jennifer','Michael','Linda',
+          'David','Elizabeth','William','Barbara','Richard','Susan','Joseph','Jessica',
+          'Thomas','Sarah','Christopher','Karen','Charles','Lisa','Daniel','Nancy',
+          'Matthew','Betty','Anthony','Margaret','Mark','Sandra','Donald','Ashley',
+          'Steven','Kimberly','Paul','Emily','Andrew','Donna','Joshua','Michelle',
+          'Kenneth','Carol','Kevin','Amanda','Brian','Dorothy','George','Melissa',
+          'Timothy','Deborah','Ronald','Stephanie','Edward','Rebecca','Jason','Sharon',
+          'Jeffrey','Laura','Ryan','Cynthia','Jacob','Kathleen','Gary','Amy',
+          'Nicholas','Angela','Eric','Shirley','Jonathan','Anna','Stephen','Brenda',
+          'Larry','Pamela','Justin','Emma','Scott','Nicole','Brandon','Helen',
+          'Benjamin','Samantha','Samuel','Katherine','Raymond','Christine','Gregory','Debra',
+          'Frank','Rachel','Alexander','Carolyn','Patrick','Janet','Jack','Catherine',
+          'Dennis','Maria','Jerry','Heather','Tyler','Diane',
+        ]; // 100
+
+        const LAST_NAMES = [
+          'Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis',
+          'Rodriguez','Martinez','Hernandez','Lopez','Gonzalez','Wilson','Anderson',
+          'Thomas','Taylor','Moore','Jackson','Martin','Lee','Perez','Thompson',
+          'White','Harris','Sanchez','Clark','Ramirez','Lewis','Robinson','Walker',
+          'Young','Allen','King','Wright','Scott','Torres','Nguyen','Hill',
+          'Flores','Green','Adams','Nelson','Baker','Hall','Rivera','Campbell',
+          'Mitchell','Carter','Roberts','Gomez','Phillips','Evans','Turner','Diaz',
+          'Parker','Cruz','Edwards','Collins','Reyes','Stewart','Morris','Morales',
+          'Murphy','Cook','Rogers','Gutierrez','Ortiz','Morgan','Cooper','Peterson',
+          'Bailey','Reed','Kelly','Howard','Ramos','Kim','Cox','Ward',
+          'Richardson','Watson','Brooks','Chavez','Wood','James','Bennett','Gray',
+          'Mendoza','Ruiz','Hughes','Price','Alvarez','Castillo','Sanders','Patel',
+          'Myers','Long','Ross','Foster','Jimenez',
+        ]; // 97
+
+        const CATCH_PHRASES = [
+          'Adaptive bandwidth-monitored hub','Ameliorated cohesive framework',
+          'Business-focused zero-defect architecture','Centralized empowering methodology',
+          'Compatible multimedia intranet','Cross-platform scalable data-warehouse',
+          'Customizable real-time paradigm','De-engineered multimedia toolset',
+          'Digitized content-based matrix','Distributed hybrid benchmark',
+          'Enhanced systemic forecast','Enterprise-wide responsive capacity',
+          'Ergonomic human-resource migration','Expanded asymmetric circuit',
+          'Face-to-face heuristic instruction set','Front-line demand-driven service-desk',
+          'Fully-configurable background leverage','Function-based homogeneous model',
+          'Fundamental composite application','Future-proofed tertiary strategy',
+          'Horizontal secondary monitoring','Implemented zero-tolerance definition',
+          'Innovative upward-trending matrix','Integrated reciprocal core',
+          'Intuitive background archive','Managed logistical analyzer',
+          'Multi-lateral holistic groupware','Networked directional forecast',
+          'Object-based interactive portal','Open-architected optimal protocol',
+          'Operative executive info-mediaries','Optimized executive algorithm',
+          'Organic coherent database','Persevering motivating projection',
+          'Phased foreground benchmark','Polarized demand-driven analyzer',
+          'Pre-emptive full-range neural-net','Proactive multi-state migration',
+          'Profound zero-administration time-frame','Programmable incremental core',
+          'Progressive value-added infrastructure','Quality-focused directional capacity',
+          'Reactive asymmetric encryption','Realigned neutral architecture',
+          'Reduced hybrid interface','Re-engineered transitional policy',
+          'Reverse-engineered composite groupware','Right-sized intermediate structure',
+          'Robust exuding product','Seamless interactive success',
+          'Secured eco-centric paradigm','Self-enabling cohesive contingency',
+          'Sharable contextually-based hierarchy','Streamlined stable model',
+          'Switchable clear-thinking monitoring','Synergized zero-tolerance middleware',
+          'Team-oriented 24-hour leverage','Total multi-tasking concept',
+          'Triple-buffered global service-desk','Universal coherent adapter',
+          'Up-sized systemic complexity','User-friendly demand-driven knowledge-base',
+          'Versatile bi-directional throughput','Virtual motivating algorithm',
+          'Visionary multimedia framework','Vision-oriented incremental task-force',
+          'Automated modular circuit','Balanced systematic orchestration',
+          'Cloned global standardization','Configurable bifurcated hierarchy',
+          'Decentralized cohesive middleware','Devolved didactic protocol',
+          'Diverse exuding utilization','Dynamic full-range superstructure',
+          'Exclusive uniform adapter','Extended grid-enabled projection',
+          'Focused logistical initiative','Grass-roots value-added groupware',
+        ]; // 79
+
+        const EMAIL_PROVIDERS = [
+          'gmail.com','yahoo.com','hotmail.com','outlook.com','icloud.com',
+          'protonmail.com','aol.com','mail.com','zoho.com','fastmail.com',
+          'yandex.com','tutanota.com','gmx.com',
+        ]; // 13
+
+        const FILE_EXTS = ['pdf','docx','xlsx','png','jpg','csv','txt','pptx','zip','svg']; // 10
+        const FILE_PREFIXES = [
+          'report','invoice','presentation','document','spreadsheet','summary',
+          'analysis','proposal','contract','memo','brief','overview','review',
+          'draft','plan','notes','agenda','schedule','budget','forecast',
+        ]; // 20
+
+        // SQL helper: builds ARRAY[...][1 + ((idx) % len)]
+        const sqlArrayPick = (arr: string[], idxExpr: string) => {
+          const escaped = arr.map(s => `'${s.replace(/'/g, "''")}'`).join(',');
+          return `(ARRAY[${escaped}])[1 + ((${idxExpr}) % ${arr.length})]`;
+        };
+
+        // Use different prime multipliers per field so combinations don't align.
+        // idx is the absolute row index: batchStart + gs
+        const idx = `(${batchStart} + gs)`;
+
         for (const col of columns) {
           const colId = escapeLiteral(col.id);
           const name = colNameLower(col.name);
@@ -1100,25 +1200,32 @@ export const rowRouter = createTRPCRouter({
             jsonbParts.push(`'${colId}', (${batchStart} + gs)`);
             searchParts.push(`(${batchStart} + gs)::text`);
           } else if (name === "name") {
-            jsonbParts.push(`'${colId}', 'Person ' || (${batchStart} + gs)`);
-            searchParts.push(`'Person ' || (${batchStart} + gs)`);
+            // "FirstName LastName" — prime multipliers stagger the cycling
+            const expr = `${sqlArrayPick(FIRST_NAMES, idx)} || ' ' || ${sqlArrayPick(LAST_NAMES, `${idx} * 7 + 3`)}`;
+            jsonbParts.push(`'${colId}', ${expr}`);
+            searchParts.push(expr);
           } else if (name === "notes") {
-            jsonbParts.push(`'${colId}', 'Note for record ' || (${batchStart} + gs)`);
-            searchParts.push(`'Note for record ' || (${batchStart} + gs)`);
+            const expr = sqlArrayPick(CATCH_PHRASES, `${idx} * 3 + 1`);
+            jsonbParts.push(`'${colId}', ${expr}`);
+            searchParts.push(expr);
           } else if (name === "assignee") {
-            jsonbParts.push(`'${colId}', 'user' || (${batchStart} + gs) || '@example.com'`);
-            searchParts.push(`'user' || (${batchStart} + gs) || '@example.com'`);
+            // "firstname.lastname@provider" — different multipliers than the Name column
+            const expr = `lower(${sqlArrayPick(FIRST_NAMES, `${idx} * 11 + 5`)}) || '.' || lower(${sqlArrayPick(LAST_NAMES, `${idx} * 13 + 7`)}) || '@' || ${sqlArrayPick(EMAIL_PROVIDERS, `${idx} * 17 + 2`)}`;
+            jsonbParts.push(`'${colId}', ${expr}`);
+            searchParts.push(expr);
           } else if (name === "status") {
-            // Cycle through statuses deterministically: Todo, In progress, In review, Done, Blocked
-            jsonbParts.push(`'${colId}', (ARRAY['Todo','In progress','In review','Done','Blocked'])[1 + ((${batchStart} + gs) % 5)]`);
-            searchParts.push(`(ARRAY['Todo','In progress','In review','Done','Blocked'])[1 + ((${batchStart} + gs) % 5)]`);
+            const expr = sqlArrayPick(['Todo','In progress','In review','Done','Blocked'], idx);
+            jsonbParts.push(`'${colId}', ${expr}`);
+            searchParts.push(expr);
           } else if (name === "attachments") {
-            jsonbParts.push(`'${colId}', 'https://storage.example.com/file-' || (${batchStart} + gs) || '.pdf'`);
-            searchParts.push(`'https://storage.example.com/file-' || (${batchStart} + gs) || '.pdf'`);
+            const expr = `'https://storage.example.com/' || ${sqlArrayPick(FILE_PREFIXES, `${idx} * 3`)} || '-' || ${idx} || '.' || ${sqlArrayPick(FILE_EXTS, `${idx} * 7`)}`;
+            jsonbParts.push(`'${colId}', ${expr}`);
+            searchParts.push(expr);
           } else {
-            // Generic fallback for any other TEXT column
-            jsonbParts.push(`'${colId}', 'Person ' || (${batchStart} + gs)`);
-            searchParts.push(`'Person ' || (${batchStart} + gs)`);
+            // Generic fallback for any other TEXT column — still use realistic names
+            const expr = `${sqlArrayPick(FIRST_NAMES, `${idx} * 3`)} || ' ' || ${sqlArrayPick(LAST_NAMES, `${idx} * 5 + 1`)}`;
+            jsonbParts.push(`'${colId}', ${expr}`);
+            searchParts.push(expr);
           }
         }
 

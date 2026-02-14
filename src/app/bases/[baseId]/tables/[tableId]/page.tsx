@@ -98,12 +98,26 @@ function ResolvedWorkspace({ baseId, tableId }: { baseId: string; tableId: strin
 
   const tablesQ = api.table.listByBase.useQuery(
     { baseId },
-    { staleTime: 60_000, enabled: needsResolve },
+    {
+      staleTime: 60_000,
+      enabled: needsResolve,
+      // Retry on failure (base may not exist yet during optimistic navigation)
+      retry: (failureCount) => failureCount < 20,
+      retryDelay: 500,
+      // Keep polling every 500ms while we have no tables (creation in-flight)
+      refetchInterval: (query) => {
+        const data = query.state.data;
+        return (!data || data.length === 0) ? 500 : false;
+      },
+    },
   );
 
   // If we need to resolve "default" → real table ID
   if (needsResolve) {
-    if (tablesQ.isLoading) {
+    // Show skeleton while loading OR if the query succeeded but returned
+    // no tables yet (base creation transaction still in-flight).
+    const tables = tablesQ.data ?? [];
+    if (tablesQ.isLoading || (tablesQ.isSuccess && tables.length === 0)) {
       return <BaseLoadingSkeleton />;
     }
 
@@ -111,7 +125,6 @@ function ResolvedWorkspace({ baseId, tableId }: { baseId: string; tableId: strin
     const lastTableId = typeof window !== "undefined"
       ? localStorage.getItem(`base-lastTable-${baseId}`)
       : null;
-    const tables = tablesQ.data ?? [];
     const resolvedId = (lastTableId && tables.some(t => t.id === lastTableId))
       ? lastTableId
       : tables[0]?.id;

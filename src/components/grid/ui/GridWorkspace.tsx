@@ -437,7 +437,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const {
     rows, totalCount, q: rowsQ, input: rowQueryInput, debouncedSearch,
     getRowAtIndex, getRowById, triggerJumpFetch,
-    clearJumpCache, updateJumpCacheRow, removeFromJumpCache, addToJumpCache,
+    clearJumpCache, updateJumpCacheRow, addToJumpCache, insertIntoJumpCache,
+    removeByIdNoShift, removeFromJumpCache, doJumpFetch,
     jumpCacheRef,
   } = useGridRows(tableId);
   rowsRef.current = rows;
@@ -1101,7 +1102,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const editingCellRef = useRef(editingCell);
   editingCellRef.current = editingCell;
 
-  // === SELECTION OVERLAY — imperatively positioned at .gridBody level ===
+  // === SELECTION OVERLAY — imperatively positioned inside the scroll content ===
+  //
+  // The overlay lives inside gridContentScrollerInner so it scrolls with the
+  // rows at compositor speed (no JS-driven repositioning on vertical scroll).
+  // Only horizontal scroll (for non-frozen columns) requires a JS update.
 
   /** Compute cell position and update the overlay div's inline styles. */
   const updateSelectionOverlay = useCallback(() => {
@@ -1138,18 +1143,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       return;
     }
 
-    const scroller = gridScrollerRef.current;
     const hScroll = hScrollRef.current;
-    if (!scroller) return;
-
     const scrollLeft = hScroll?.scrollLeft ?? 0;
-    const scrollTop = scroller.scrollTop;
-    const headerH = rowHeightRef.current;
     const widths = columnWidthsRef.current;
     const colWidth = widths[targetCell.columnId] ?? COLUMN_WIDTH;
     const isFrozen = colIdx < frozenCount;
 
-    // Cell X in viewport coords (relative to .gridBody)
+    // Cell X — viewport-relative (horizontal scroll is a separate element)
     let cellX = ROW_NUM_WIDTH;
     for (let i = 0; i < colIdx; i++) {
       cellX += widths[cols[i]!.id] ?? COLUMN_WIDTH;
@@ -1158,10 +1158,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       cellX -= scrollLeft;
     }
 
-    // Cell Y relative to .gridBody (use virtual index for scroll-mapped position)
+    // Cell Y — content-relative (overlay is inside the scroll content,
+    // so it moves with the rows at compositor speed — no scrollTop needed).
     const drh = dataRowHeightRef.current;
     const virtualRowIdxForOverlay = mapToVirtualIndexRef.current(rowIdx);
-    const cellY = headerH + virtualRowIdxForOverlay * drh - scrollTop;
+    const cellY = virtualRowIdxForOverlay * drh;
 
     // Fill handle — first child of overlay
     const handle = overlay.firstElementChild as HTMLElement | null;
@@ -1170,54 +1171,37 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     let overlayTop: number;
     let overlayHeight: number;
+    let overlayLeft: number;
+    let overlayWidth: number;
 
     if (ec) {
       // --- Editing mode: hide fill handle, 3px border, expand outward ---
       if (handle) handle.style.display = "none";
       overlay.style.borderWidth = "3px";
 
-      const col = cols[colIdx];
-      const isNumber = col?.type === "NUMBER";
-
-      if (isNumber) {
-        // NUMBER: top/left/right outward, bottom flush with cell bottom
-        // so the 3px border eats inward (upward).
-        overlayTop = cellY - 3;
-        overlay.style.left = `${cellX - 3}px`;
-        overlay.style.width = `${colWidth + 6}px`;
-        overlayHeight = drh + 3;
-      } else {
-        // TEXT: all sides outward including bottom (downward).
-        overlayTop = cellY - 3;
-        overlay.style.left = `${cellX - 3}px`;
-        overlay.style.width = `${colWidth + 6}px`;
-        overlayHeight = drh + 6;
-      }
+      overlayTop = cellY - 3;
+      overlayLeft = cellX - 3;
+      overlayWidth = colWidth + 6;
+      overlayHeight = drh + 6;
     } else {
       // --- Active (non-editing) mode: show fill handle, 2px border ---
       if (handle) handle.style.display = "";
       overlay.style.borderWidth = "2px";
 
       overlayTop = cellY - 2;
-      overlay.style.left = `${cellX - 1}px`;
-      overlay.style.width = `${colWidth + 2}px`;
+      overlayLeft = cellX - 1;
+      overlayWidth = colWidth + 2;
       overlayHeight = drh + 3;
     }
 
-    overlay.style.top = `${overlayTop}px`;
+    // Use transform for GPU-accelerated positioning.  The overlay lives inside
+    // the scroll content so Y scrolls naturally with the compositor.  Only X
+    // needs JS adjustment (for horizontal scroll of non-frozen columns).
+    overlay.style.transform = `translate(${overlayLeft}px, ${overlayTop}px)`;
+    overlay.style.width = `${overlayWidth}px`;
     overlay.style.height = `${overlayHeight}px`;
-
-    // Clip overlay so it doesn't paint above the column headers.
-    // Allow the border to extend slightly above the header (Airtable behavior
-    // for the first row) — only clip when the cell body itself is behind the header.
-    // Use negative insets for bottom/right so the fill handle is never clipped.
-    const borderW = ec ? 3 : 2;
-    if (overlayTop + borderW < headerH) {
-      const clipTop = headerH - overlayTop;
-      overlay.style.clipPath = `inset(${clipTop}px -10px -10px 0)`;
-    } else {
-      overlay.style.clipPath = "";
-    }
+    // No clipPath needed — the scroller's overflow: hidden clips automatically.
+    overlay.style.clipPath = "";
   }, []);
 
   /** Scroll horizontally/vertically so a cell is fully visible. */
@@ -1339,16 +1323,15 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [activeCell, editingCell, rows, totalCount, visibleColumns, setActiveCell, startEditing, clearSelection, getCellValue, scrollCellIntoView, findRowPosition, getRowAtIndex]);
 
-  // Hook overlay to scroll events
+  // Overlay is inside the vertical scroll content, so it scrolls with the
+  // rows at compositor speed (zero lag).  Only horizontal scroll needs a JS
+  // listener to adjust the X transform for non-frozen columns.
   useEffect(() => {
-    const scroller = gridScrollerRef.current;
     const hScroll = hScrollRef.current;
-    const onScroll = () => updateSelectionOverlay();
-    scroller?.addEventListener("scroll", onScroll, { passive: true });
-    hScroll?.addEventListener("scroll", onScroll, { passive: true });
+    const onHScroll = () => updateSelectionOverlay();
+    hScroll?.addEventListener("scroll", onHScroll, { passive: true });
     return () => {
-      scroller?.removeEventListener("scroll", onScroll);
-      hScroll?.removeEventListener("scroll", onScroll);
+      hScroll?.removeEventListener("scroll", onHScroll);
     };
   }, [updateSelectionOverlay]);
 
@@ -1672,8 +1655,18 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     // Map virtual indices → actual row indices (identity when not scaled)
     const lastActual = mapToActualIndex(lastItem.index);
 
-    // If the last visible virtual item is close to the end of loaded pages, fetch more
-    if (lastActual >= rows.length - 50 && rowsQ.hasNextPage && !rowsQ.isFetchingNextPage) {
+    // If the last visible virtual item is close to the end of loaded pages, fetch more.
+    // The gap guard (lastActual < rows.length + 5000) prevents a runaway cascade:
+    // after mutations that truncate to page 0, rows.length drops to ~1000 while the
+    // user may be at position 100K.  Without the guard, fetchNextPage fires in a
+    // loop reloading all 100 pages (30+ seconds).  Distant positions are served by
+    // the jump cache instead — that's what the two-layer virtualization is for.
+    if (
+      lastActual >= rows.length - 50 &&
+      lastActual < rows.length + 5000 &&
+      rowsQ.hasNextPage &&
+      !rowsQ.isFetchingNextPage
+    ) {
       void rowsQ.fetchNextPage();
     }
 
@@ -1883,29 +1876,39 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     },
   });
 
-  // Set of row IDs currently animating out (slide-up before removal)
+  // Set of row IDs currently being deleted (used as double-delete guard).
+  // NOTE: we pass `undefined` to GridContainer instead of this set —
+  // the CSS slide-up animation is incompatible with virtualized absolute
+  // positioning (the wrapper keeps its 32px height → blank gap).
   const [deletingRowIds, setDeletingRowIds] = useState<Set<string>>(new Set());
 
-  // Delete row — animated: mark as deleting → animate → remove from cache
+  // Delete row — instant: shift data in place, fire mutation
   const deleteRowMut = api.row.delete.useMutation({
-    onSuccess: () => {
-      // Don't call refreshRows() here — the optimistic cache update in
-      // handleDeleteRecord already removed the row. Just invalidate the
-      // infinite query to sync the totalCount with the server.
-      utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
-        if (!old?.pages?.length) return old;
-        return { pages: old.pages.slice(0, 1), pageParams: old.pageParams.slice(0, 1) } as typeof old;
-      });
-      void utils.row.infinite.invalidate();
-    },
-    onError: (_e, vars) => {
-      // If the server fails, un-mark the row so it reappears
+    onSuccess: (_data, vars) => {
+      // Server confirmed the delete.
+      //
+      // handleDeleteRecord already:
+      //   • Filtered the row from infinite pages (or removed + shifted jump cache)
+      //   • Decremented totalCount
+      //
+      // Safety: if a stale in-flight fetch re-added the deleted row to the
+      // jump cache, remove it (and shift again so positions stay correct).
+      removeFromJumpCache(vars.rowId); // no-op if the row isn't in the cache
+
+      // Unmask — release the double-delete guard
       setDeletingRowIds((prev) => {
         const next = new Set(prev);
         next.delete(vars.rowId);
         return next;
       });
-      // Re-fetch to restore the row data
+    },
+    onError: (_e, vars) => {
+      // Server failed — unmask so the row reappears, then re-fetch
+      setDeletingRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(vars.rowId);
+        return next;
+      });
       refreshRows();
     },
   });
@@ -2305,16 +2308,67 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     }
   }, [rows, visibleColumns, setActiveCell, startEditing]);
 
-  // === INSERT RECORD ABOVE ===
-  const handleInsertRecordAbove = useCallback((rowId: string) => {
+  // === INSERT RECORD ABOVE / BELOW ===
+  //
+  // Instead of refreshRows() (which truncates pages, invalidates, and causes a
+  // full skeleton reload), we insert the server-returned row directly into the
+  // local cache at the correct position.  This:
+  //   • Places the row next to the target even with active sorts (where a server
+  //     refetch would put the empty row at the bottom due to no ViewRowRank).
+  //   • Avoids the loading/skeleton flash from invalidation.
+  //   • Keeps cell navigation responsive during the mutation.
+  const handleInsertAt = useCallback((rowId: string, position: "above" | "below") => {
     if (!isValidTable) return;
-    // Search both infinite pages AND jump cache for the target row
     const targetRow = getRowById(rowId);
     if (!targetRow) return;
 
-    insertAtMut.mutate({ tableId, atIndex: targetRow.rowIndex, position: "above" }, {
+    insertAtMut.mutate({ tableId, atIndex: targetRow.rowIndex, position }, {
       onSuccess: (newRow) => {
-        refreshRows(1); // +1 row from insert above
+        const isTargetInPages = rowsRef.current.some(
+          (r) => (r as RowItem).id === rowId,
+        );
+
+        if (isTargetInPages) {
+          // Target is in the sequential infinite-pages region — splice the new
+          // row into the correct page at the correct position.
+          utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page, pageIdx) => {
+                const itemIdx = page.items.findIndex((r) => r.id === rowId);
+                if (itemIdx >= 0) {
+                  const insertIdx = position === "above" ? itemIdx : itemIdx + 1;
+                  const newItems = [...page.items];
+                  newItems.splice(insertIdx, 0, newRow as RowItem);
+                  return {
+                    ...page,
+                    items: newItems,
+                    totalCount: pageIdx === 0 ? page.totalCount + 1 : page.totalCount,
+                  };
+                }
+                return pageIdx === 0
+                  ? { ...page, totalCount: page.totalCount + 1 }
+                  : page;
+              }),
+            };
+          });
+        } else {
+          // Target is in the jump-cache region — insert + shift there, and
+          // separately bump totalCount in the infinite-query cache.
+          insertIntoJumpCache(rowId, newRow as RowItem, position);
+          utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page, i) =>
+                i === 0 ? { ...page, totalCount: page.totalCount + 1 } : page,
+              ),
+            };
+          });
+        }
+
+        // Focus & start editing the new row's first cell
         const firstCol = visibleColumnsRef.current[0];
         if (firstCol) {
           requestAnimationFrame(() => {
@@ -2324,27 +2378,17 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         }
       },
     });
-  }, [isValidTable, tableId, insertAtMut, setActiveCell, startEditing, getRowById, refreshRows]);
+  }, [isValidTable, tableId, insertAtMut, setActiveCell, startEditing, getRowById, utils, rowQueryInput, insertIntoJumpCache]);
 
-  // === INSERT RECORD BELOW ===
-  const handleInsertRecordBelow = useCallback((rowId: string) => {
-    if (!isValidTable) return;
-    const targetRow = getRowById(rowId);
-    if (!targetRow) return;
+  const handleInsertRecordAbove = useCallback(
+    (rowId: string) => handleInsertAt(rowId, "above"),
+    [handleInsertAt],
+  );
 
-    insertAtMut.mutate({ tableId, atIndex: targetRow.rowIndex, position: "below" }, {
-      onSuccess: (newRow) => {
-        refreshRows(1); // +1 row from insert below
-        const firstCol = visibleColumnsRef.current[0];
-        if (firstCol) {
-          requestAnimationFrame(() => {
-            setActiveCell({ rowId: newRow.id, columnId: firstCol.id });
-            startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
-          });
-        }
-      },
-    });
-  }, [isValidTable, tableId, insertAtMut, setActiveCell, startEditing, getRowById, refreshRows]);
+  const handleInsertRecordBelow = useCallback(
+    (rowId: string) => handleInsertAt(rowId, "below"),
+    [handleInsertAt],
+  );
 
   // === DUPLICATE RECORD ===
   const handleDuplicateRecord = useCallback((rowId: string) => {
@@ -2353,51 +2397,55 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   }, [isValidTable, tableId, duplicateRowMut]);
 
   // === DELETE RECORD (optimistic — row disappears instantly) ===
-  // Animation duration for row deletion slide-up (ms)
-  const DELETE_ANIM_MS = 200;
 
   const handleDeleteRecord = useCallback((rowId: string) => {
     if (!isValidTable) return;
-    // Guard against double-delete (e.g. rapid double-click on delete)
+    // Guard: don't re-delete a row that's already in flight
     if (deletingRowIds.has(rowId)) return;
     if (activeCell?.rowId === rowId) clearSelection();
 
-    // 1) Mark the row as "deleting" → triggers CSS slide-up animation
+    // 1) Mark as deleting (double-delete guard).  We do NOT use this for
+    //    the CSS animation — see the GridContainer render below where we
+    //    pass `deletingRowIds={undefined}` to disable it.
     setDeletingRowIds((prev) => new Set(prev).add(rowId));
 
-    // 2) Remove the deleted row from the per-view rowOrderIds (if custom order exists)
+    // 2) Remove from per-view rowOrderIds (if custom order exists)
     const currentOrder = rowOrderIdsRef.current;
     if (currentOrder.length > 0 && currentOrder.includes(rowId)) {
       setRowOrderIdsTop(currentOrder.filter((id) => id !== rowId));
     }
 
-    // 3) After animation completes, remove from cache and fire the server mutation
-    setTimeout(() => {
-      // Remove from infinite query cache optimistically
-      utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page, i) => ({
-            ...page,
-            items: page.items.filter((r) => r.id !== rowId),
-            totalCount: i === 0 ? Math.max(0, page.totalCount - 1) : page.totalCount,
-          })),
-        };
-      });
-      // Also remove from the jump cache (for rows at the end of the table).
-      // This shifts subsequent entries down by 1 so positions stay consistent.
-      removeFromJumpCache(rowId);
+    // 3) Optimistic cache update:
+    //    - ALWAYS decrement totalCount (prevents phantom skeleton at the bottom)
+    //    - Filter the row from infinite pages IF it's there (sequential region)
+    //    - For jump-cache rows: remove the entry + shift subsequent entries
+    //      so the next row fills the slot instantly (no blank gap, no skeleton)
+    const isInInfinitePages = rowsRef.current.some(
+      (r) => (r as RowItem).id === rowId,
+    );
+    utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
+      if (!old) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page, i) => ({
+          ...page,
+          items: isInInfinitePages
+            ? page.items.filter((r) => r.id !== rowId)
+            : page.items,
+          totalCount: i === 0 ? Math.max(0, page.totalCount - 1) : page.totalCount,
+        })),
+      };
+    });
 
-      setDeletingRowIds((prev) => {
-        const next = new Set(prev);
-        next.delete(rowId);
-        return next;
-      });
-      // Fire the actual server deletion
-      deleteRowMut.mutate({ tableId, rowId });
-    }, DELETE_ANIM_MS);
-  }, [isValidTable, tableId, activeCell, clearSelection, deletingRowIds, deleteRowMut, utils, rowQueryInput, setRowOrderIdsTop, removeFromJumpCache]);
+    // 4) For jump-cache rows: remove the entry and shift entries above it
+    //    so the deleted position is filled instantly by the next row.
+    if (!isInInfinitePages) {
+      removeFromJumpCache(rowId);
+    }
+
+    // 5) Fire the mutation
+    deleteRowMut.mutate({ tableId, rowId });
+  }, [isValidTable, tableId, activeCell, clearSelection, deletingRowIds, deleteRowMut, utils, rowQueryInput, setRowOrderIdsTop]);
 
   // === DELETE FIELD (table-level — removes column from the table and all views) ===
   const handleDeleteField = useCallback((columnId: string) => {
@@ -3120,7 +3168,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               onDuplicateField={handleDuplicateField}
               onCreateField={handleCreateField}
               onEditFieldSave={handleEditFieldSave}
-              deletingRowIds={deletingRowIds}
+              deletingRowIds={undefined} /* disabled — CSS max-height animation is incompatible with virtualized absolute positioning */
               searchTerm={activeSearchTerm}
               onReorderRow={handleReorderRow}
               canDragRows={canDragRows}

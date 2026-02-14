@@ -814,13 +814,16 @@
    ======================================================================== */
 .gridSelectionOverlay {
   position: absolute;
-  /* sized & positioned via JS: top, left, width, height */
+  top: 0;
+  left: 0;
+  /* sized via JS (width, height); positioned via transform (GPU-accelerated) */
   border: 2px solid rgb(22, 110, 225);
   border-radius: 2px;
   box-sizing: border-box;
   pointer-events: none;
   z-index: 6; /* above freeze line (z:4) and everything else */
   display: none; /* shown by JS when a cell is active */
+  will-change: transform; /* own GPU layer so it doesn't affect scroll compositing */
 }
 
 /* Fill handle — centered on the overlay's bottom-right grid-line corner.

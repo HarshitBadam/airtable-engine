@@ -139,8 +139,18 @@ export function useGridRows(tableId: string) {
   const jumpCacheRef = useRef(jumpCache);
   jumpCacheRef.current = jumpCache;
 
-  // Clear jump cache when query params change
+  // Generation counter: incremented every time the jump cache is cleared.
+  // doJumpFetch captures the generation at fetch-start; if the generation has
+  // changed by the time results arrive (meaning the cache was cleared again),
+  // the stale results are silently discarded.  This prevents a race where a
+  // slow in-flight fetch overwrites fresh data from a newer clear+fetch cycle
+  // (e.g. rapid successive deletes, or a parameter change during a fetch).
+  const jumpCacheGenRef = useRef(0);
+
+  // Clear jump cache when query params change — also bumps generation so
+  // any in-flight fetches with old params are discarded on arrival.
   useEffect(() => {
+    jumpCacheGenRef.current += 1;
     setJumpCache(new Map());
   }, [inputKey]);
 
@@ -174,7 +184,13 @@ export function useGridRows(tableId: string) {
     }
     const fetchOffset = Math.max(0, rawOffset - behind);
 
-    void (async () => {
+    // Capture generation at fetch-start. If clearJumpCache() is called
+    // while this fetch is in-flight, the generation will have advanced
+    // and we discard these results to prevent stale data from overwriting
+    // the freshly cleared (or re-populated) cache.
+    const gen = jumpCacheGenRef.current;
+
+    return (async () => {
       try {
         const result = await utils.row.windowFetch.fetch({
           tableId,
@@ -189,6 +205,10 @@ export function useGridRows(tableId: string) {
         });
 
         setJumpCache((prev) => {
+          // Discard stale results: if the cache was cleared after this
+          // fetch was issued, a newer fetch is authoritative.
+          if (jumpCacheGenRef.current !== gen) return prev;
+
           const newCache = new Map(prev);
           if (newCache.size > 15000) newCache.clear();
           (result.items as RowItem[]).forEach((item, idx) => {
@@ -255,10 +275,12 @@ export function useGridRows(tableId: string) {
     [rows],
   );
 
-  /** Wipe the window-fetch jump cache so stale entries are re-fetched on
-   *  next scroll. Use this after server-side bulk mutations (e.g. default
-   *  value backfill) that change data the user hasn't scrolled to yet. */
+  /** Wipe the window-fetch jump cache and bump the generation counter so
+   *  any in-flight doJumpFetch calls (issued before this clear) will discard
+   *  their results on arrival.  Use after mutations that invalidate position-
+   *  based mappings (deletes, bulk ops) or when query params change. */
   const clearJumpCache = useCallback(() => {
+    jumpCacheGenRef.current += 1;
     setJumpCache(new Map());
   }, []);
 
@@ -300,6 +322,11 @@ export function useGridRows(tableId: string) {
    *  down by 1 position (keeps positions consistent after deletion). */
   const removeFromJumpCache = useCallback(
     (rowId: string) => {
+      // Bump generation so any in-flight doJumpFetch (e.g. trailing prefetch
+      // from the initial jump) discards its stale pre-delete results instead
+      // of overwriting the shifted cache.
+      jumpCacheGenRef.current += 1;
+
       setJumpCache((prev) => {
         let keyToRemove: number | null = null;
         for (const [key, item] of prev) {
@@ -335,10 +362,61 @@ export function useGridRows(tableId: string) {
     [],
   );
 
+  /** Insert a row into the jump cache next to a target row, shifting subsequent
+   *  entries up by 1 to make room.  Used for insert-above/below so the new row
+   *  appears instantly at the correct position without a full data reload.
+   *  Bumps the generation counter to invalidate any in-flight fetches. */
+  const insertIntoJumpCache = useCallback(
+    (targetRowId: string, newRow: RowItem, position: "above" | "below") => {
+      jumpCacheGenRef.current += 1;
+      setJumpCache((prev) => {
+        let targetKey: number | null = null;
+        for (const [key, item] of prev) {
+          if (item.id === targetRowId) {
+            targetKey = key;
+            break;
+          }
+        }
+        if (targetKey === null) return prev;
+
+        const insertKey = position === "above" ? targetKey : targetKey + 1;
+        const next = new Map<number, RowItem>();
+        for (const [key, item] of prev) {
+          // Shift entries at or after insertKey up by 1 to make room
+          next.set(key >= insertKey ? key + 1 : key, item);
+        }
+        next.set(insertKey, newRow);
+        return next;
+      });
+    },
+    [],
+  );
+
+  /** Remove a row from the jump cache by ID WITHOUT shifting other entries.
+   *  Leaves a gap at the old position (filled by the next fetch).
+   *  Use this after a confirmed delete — it avoids the index-shifting cascade
+   *  that causes phantom rows when combined with skeleton detection. */
+  const removeByIdNoShift = useCallback(
+    (rowId: string) => {
+      setJumpCache((prev) => {
+        for (const [key, item] of prev) {
+          if (item.id === rowId) {
+            const next = new Map(prev);
+            next.delete(key);
+            return next;
+          }
+        }
+        return prev;
+      });
+    },
+    [],
+  );
+
   return {
     q, rows, totalCount, input, debouncedSearch,
     getRowAtIndex, getRowById, triggerJumpFetch,
     clearJumpCache, updateJumpCacheRow, removeFromJumpCache, addToJumpCache,
+    insertIntoJumpCache, removeByIdNoShift, doJumpFetch,
     /** Ref to the current jump cache Map<actualIndex, RowItem>.
      *  Used by GridWorkspace for overlay positioning & keyboard navigation
      *  on rows that live outside the infinite-query page range. */

@@ -13,7 +13,9 @@ export const tableRouter = createTRPCRouter({
         where: { id: input.baseId, ownerId: ctx.session.user.id },
         select: { id: true },
       });
-      if (!base) throw new Error("Base not found");
+      // Return empty array instead of throwing when base doesn't exist yet
+      // (supports optimistic navigation during base creation)
+      if (!base) return [];
 
       return ctx.db.table.findMany({
         where: { baseId: input.baseId },

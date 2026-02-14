@@ -983,6 +983,16 @@ export function GridContainer({
               />
             )}
 
+            {/* Selection overlay — inside the scroll content for zero-lag vertical
+                scrolling.  Promoted to its own GPU layer via will-change + contain
+                so it doesn't pollute the large scroll-content compositing layer. */}
+            <div
+              ref={selectionOverlayRef}
+              className={styles.gridSelectionOverlay}
+            >
+              <div className={styles.gridSelectionHandle} />
+            </div>
+
             {/* Add row (unified: sticky frozen + button + scrollable slab) */}
             <div
               className={styles.gridRow}
@@ -1068,15 +1078,6 @@ export function GridContainer({
         >
           Drag to adjust the number of frozen columns
         </div>
-      </div>
-
-      {/* Selection overlay — lives at .gridBody level so it paints above
-          the freeze line, frozen groups, and all cells. Positioned via JS. */}
-      <div
-        ref={selectionOverlayRef}
-        className={styles.gridSelectionOverlay}
-      >
-        <div className={styles.gridSelectionHandle} />
       </div>
 
       {/* Custom vertical scrollbar — overlays content, no layout space reserved */}
