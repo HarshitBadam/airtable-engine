@@ -2338,7 +2338,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
                 if (itemIdx >= 0) {
                   const insertIdx = position === "above" ? itemIdx : itemIdx + 1;
                   const newItems = [...page.items];
-                  newItems.splice(insertIdx, 0, newRow as RowItem);
+                  newItems.splice(insertIdx, 0, newRow as (typeof newItems)[number]);
                   return {
                     ...page,
                     items: newItems,
