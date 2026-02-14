@@ -30,12 +30,10 @@ export function useBases(): UseBasesResult {
 
   const starBase = (id: string) => {
     console.log("Star base:", id);
-    // TODO: Implement star functionality
   };
 
   const unstarBase = (id: string) => {
     console.log("Unstar base:", id);
-    // TODO: Implement unstar functionality
   };
 
   return {

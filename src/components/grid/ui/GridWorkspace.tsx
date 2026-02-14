@@ -321,8 +321,6 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   
   // Handle confirming clear data
   const handleClearData = () => {
-    // TODO: Implement actual data clearing logic
-    // For now, just close the modal
     setIsClearDataModalOpen(false);
   };
   

@@ -463,7 +463,7 @@ export function CreateFieldPanel({ position, onClose, onSelectFieldType, onCreat
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, selectedField, showDiscardDialog]);
+  }, [onClose, selectedField, showDiscardDialog, editField]);
 
   const queryLower = searchQuery.toLowerCase().trim();
 
