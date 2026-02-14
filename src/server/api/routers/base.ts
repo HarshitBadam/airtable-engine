@@ -3,6 +3,8 @@ import { faker } from "@faker-js/faker";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import type { ViewConfig } from "../types/view";
 
+const STATUSES = ["Todo", "In progress", "In review", "Done", "Blocked"] as const;
+
 export const baseRouter = createTRPCRouter({
   listMine: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.base.findMany({
@@ -30,7 +32,7 @@ export const baseRouter = createTRPCRouter({
       name: z.string().min(1).max(80) 
     }))
     .mutation(async ({ ctx, input }) => {
-      const seedCount = 20;
+      const seedCount = 25;
       const defaultViewConfig: ViewConfig = {
         search: "",
         filters: [],
@@ -55,10 +57,13 @@ export const baseRouter = createTRPCRouter({
           data: { baseId: base.id, name: "Table 1" },
         });
 
-        // 3. Create 2 default columns: # (auto-number) and Name
+        // 3. Default columns matching Airtable's layout
         const colDefs: { name: string; type: "TEXT" | "NUMBER"; order: number }[] = [
-          { name: "#",    type: "NUMBER", order: 1 },
-          { name: "Name", type: "TEXT",   order: 2 },
+          { name: "Name",        type: "TEXT",   order: 1 },
+          { name: "Notes",       type: "TEXT",   order: 2 },
+          { name: "Assignee",    type: "TEXT",   order: 3 },
+          { name: "Status",      type: "TEXT",   order: 4 },
+          { name: "Attachments", type: "TEXT",   order: 5 },
         ];
 
         const cols = await Promise.all(
@@ -81,17 +86,29 @@ export const baseRouter = createTRPCRouter({
           },
         });
 
-        // 5. Seed 20 rows with auto-number ID and a faker name
+        // 5. Seed rows with faker.js data
         const rowsData = Array.from({ length: seedCount }, (_, i) => {
-          const cells: Record<string, string | number> = {
-            [cols[0]!.id]: i + 1,
-            [cols[1]!.id]: faker.person.fullName(),
+          const name = faker.person.fullName();
+          const notes = faker.company.catchPhrase();
+          const assignee = faker.internet.email();
+          const status = faker.helpers.arrayElement(STATUSES);
+          const attachment = `https://storage.example.com/${faker.string.uuid()}/${faker.system.commonFileName()}`;
+
+          const cells: Record<string, string> = {
+            [cols[0]!.id]: name,
+            [cols[1]!.id]: notes,
+            [cols[2]!.id]: assignee,
+            [cols[3]!.id]: status,
+            [cols[4]!.id]: attachment,
           };
+
+          const searchText = [name, notes, assignee, status, attachment].join("\u001F");
+
           return {
             tableId: table.id,
             rowIndex: i + 1,
             cells: cells as unknown as object,
-            searchText: Object.values(cells).join(" "),
+            searchText,
           };
         });
 

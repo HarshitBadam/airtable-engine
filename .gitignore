@@ -9,6 +9,7 @@
 /coverage
 /e2e/.auth/state.json
 /e2e/.auth/test-meta.json
+/e2e/grid-performance.spec.ts
 /test-results/
 /playwright-report/
 /screenshots/
@@ -30,6 +31,7 @@ next-env.d.ts
 # misc
 .DS_Store
 *.pem
+.pnpm-store/
 
 # debug
 npm-debug.log*
@@ -50,6 +52,7 @@ yarn-error.log*
 
 # idea files
 .idea
+
 # Prisma generated client
 generated/prisma
 

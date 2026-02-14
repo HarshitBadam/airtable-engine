@@ -596,20 +596,21 @@
 }
 
 .gridRowNumOuter {
-  width: 100%;
-  height: 25px;
+  width: 44px;
+  height: 32px;
   padding-top: 7px;
-  padding-right: 8px;
   display: flex;
   justify-content: flex-end;
+  text-align: center;
   box-sizing: border-box;
+  position: relative;
+  z-index: 2;
 }
 
 .gridRowNumInner {
+  width: 32px;
   height: 25px;
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
+  display: block;
   box-sizing: border-box;
   color: rgb(97, 102, 112);
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -617,7 +618,7 @@
   font-variant-numeric: tabular-nums;
   font-weight: 400;
   line-height: 18px;
-  text-align: right;
+  text-align: center;
   white-space: nowrap;
   user-select: none;
 }

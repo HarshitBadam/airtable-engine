@@ -120,6 +120,15 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const router = useRouter();
   const utils = api.useUtils();
 
+  // Persist last-visited table for this base
+  useEffect(() => {
+    localStorage.setItem(`base-lastTable-${baseId}`, tableId);
+  }, [baseId, tableId]);
+
+  // Save scroll position on unmount so it persists when navigating away.
+  // We track the current viewId in a ref so the cleanup closure reads the latest value.
+  const unmountViewIdRef = useRef<string | null>(null);
+
   // === LOCAL STATE ===
   const [isTableDropdownOpen, setIsTableDropdownOpen] = useState(false);
   const [isAddOrImportDropdownOpen, setIsAddOrImportDropdownOpen] = useState(false);
@@ -715,19 +724,45 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
   // When switching views, invalidate all row caches so the new view
   // always loads fresh data (picks up rows/columns added in other views).
-  // Also reset scroll position to top and clear jump cache so each view
-  // feels independent (no position/data leakage between views).
+  // Save outgoing view's scroll position and restore incoming view's.
   const prevViewIdRef = useRef(activeViewIdFromStore);
   useEffect(() => {
     if (prevViewIdRef.current !== activeViewIdFromStore) {
+      // Save outgoing view's scroll position
+      const scroller = gridScrollerRef.current;
+      if (scroller && prevViewIdRef.current) {
+        localStorage.setItem(`view-scrollTop-${prevViewIdRef.current}`, String(scroller.scrollTop));
+      }
       prevViewIdRef.current = activeViewIdFromStore;
       void utils.row.infinite.invalidate();
       clearJumpCache();
-      // Reset scroll to top on view switch
-      const scroller = gridScrollerRef.current;
-      if (scroller) scroller.scrollTop = 0;
+      // Restore incoming view's scroll position (after data loads, so defer)
+      if (scroller && activeViewIdFromStore) {
+        const saved = localStorage.getItem(`view-scrollTop-${activeViewIdFromStore}`);
+        const scrollTop = saved ? Number(saved) : 0;
+        // Double rAF: first lets React re-render, second lets the virtualizer measure
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            scroller.scrollTop = scrollTop;
+          });
+        });
+      }
     }
   }, [activeViewIdFromStore, utils, clearJumpCache]);
+
+  // Keep unmount ref in sync so cleanup reads the latest view ID
+  unmountViewIdRef.current = activeViewIdFromStore ?? null;
+  useEffect(() => {
+    return () => {
+      const viewId = unmountViewIdRef.current;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const scroller = gridScrollerRef.current;
+      if (viewId && scroller) {
+        localStorage.setItem(`view-scrollTop-${viewId}`, String(scroller.scrollTop));
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Visual indicators: ONLY when autoSort=true AND there are live sorts
   const effectiveSortCount = autoSort ? currentSorts.length : 0;
@@ -1687,16 +1722,27 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   );
   const views = viewsQ.data ?? [];
 
-  // Active view tracking
-  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  // Active view tracking — prefer last-visited view for this table
+  const [activeViewId, setActiveViewIdRaw] = useState<string | null>(null);
+
+  // Wrap setter to also persist to localStorage
+  const setActiveViewId = useCallback((id: string | null) => {
+    setActiveViewIdRaw(id);
+    if (id) {
+      localStorage.setItem(`table-lastView-${tableId}`, id);
+    }
+  }, [tableId]);
 
   useEffect(() => {
     if (views.length === 0) return;
     const activeExists = activeViewId && views.some(v => v.id === activeViewId);
     if (!activeExists) {
-      setActiveViewId(views[0]!.id);
+      // Check localStorage for last-visited view
+      const lastViewId = localStorage.getItem(`table-lastView-${tableId}`);
+      const preferred = lastViewId && views.some(v => v.id === lastViewId) ? lastViewId : views[0]!.id;
+      setActiveViewIdRaw(preferred);
     }
-  }, [views, activeViewId]);
+  }, [views, activeViewId, tableId]);
 
   const activeView = views.find(v => v.id === activeViewId);
   const activeViewName = activeView?.name ?? 'Grid view';
@@ -1746,6 +1792,17 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       void utils.view.list.invalidate({ tableId });
     },
   });
+
+  // Delayed overlay: blank area + pills show instantly, spinner/progress after 500ms
+  const [showViewLoadingSpinner, setShowViewLoadingSpinner] = useState(false);
+  useEffect(() => {
+    if (createViewMut.isPending) {
+      const timer = setTimeout(() => setShowViewLoadingSpinner(true), 500);
+      return () => clearTimeout(timer);
+    } else {
+      setShowViewLoadingSpinner(false);
+    }
+  }, [createViewMut.isPending]);
 
   // Delete view mutation
   const deleteViewMut = api.view.delete.useMutation({
@@ -2976,6 +3033,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             onRowHeightPresetChange={setRowHeightPreset}
             wrapHeaders={wrapHeaders}
             onToggleWrapHeaders={() => setWrapHeaders(!wrapHeaders)}
+            viewLoading={createViewMut.isPending}
           />
 
           {/* === GRID AREA (views sidebar + grid content) === */}
@@ -3072,6 +3130,30 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               baseTextColor={baseTextColor}
               backfillingColumnIds={backfillingColumnIds}
             />
+
+            {/* View loading overlay (new view creation)
+                Phase 1 (immediate): blank area covers grid
+                Phase 2 (after 500ms): spinner + progress bar fades in */}
+            {createViewMut.isPending && (
+              <div className={styles.viewLoadingOverlay}>
+                {showViewLoadingSpinner && (
+                  <>
+                    <div className={styles.viewLoadingProgressBar} style={{ '--base-color': baseColor } as React.CSSProperties} />
+                    <div className={styles.viewLoadingContent}>
+                      <svg className={styles.viewLoadingSpinner} viewBox="0 0 54 54" style={{ shapeRendering: 'geometricPrecision' }}>
+                        <g>
+                          <path d="M10.9,48.6c-1.6-1.3-2-3.6-0.7-5.3c1.3-1.6,3.6-2.1,5.3-0.8c0.8,0.5,1.5,1.1,2.4,1.5c7.5,4.1,16.8,2.7,22.8-3.4c1.5-1.5,3.8-1.5,5.3,0c1.4,1.5,1.4,3.9,0,5.3c-8.4,8.5-21.4,10.6-31.8,4.8C13,50.1,11.9,49.3,10.9,48.6z" fill="currentColor" />
+                          <path d="M53.6,31.4c-0.3,2.1-2.3,3.5-4.4,3.2c-2.1-0.3-3.4-2.3-3.1-4.4c0.2-1.1,0.2-2.2,0.2-3.3c0-8.7-5.7-16.2-13.7-18.5c-2-0.5-3.2-2.7-2.6-4.7s2.6-3.2,4.7-2.6C46,4.4,53.9,14.9,53.9,27C53.9,28.5,53.8,30,53.6,31.4z" fill="currentColor" />
+                          <path d="M16.7,1.9c1.9-0.8,4.1,0.2,4.8,2.2s-0.2,4.2-2.1,5c-7.2,2.9-12,10-12,18.1c0,1.6,0.2,3.2,0.6,4.7c0.5,2-0.7,4.1-2.7,4.6c-2,0.5-4-0.7-4.5-2.8C0.3,31.5,0,29.3,0,27.1C0,15.8,6.7,5.9,16.7,1.9z" fill="currentColor" />
+                        </g>
+                      </svg>
+                      <div className={styles.viewLoadingText}>Loading this view...</div>
+                      <div className={styles.viewLoadingSpacer}>&nbsp;</div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
     </div>

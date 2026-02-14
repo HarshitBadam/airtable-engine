@@ -84,6 +84,9 @@ interface GridBarProps {
   onRowHeightPresetChange: (preset: RowHeightPreset) => void;
   wrapHeaders: boolean;
   onToggleWrapHeaders: () => void;
+
+  // View loading state (shows skeleton pills instead of tools)
+  viewLoading?: boolean;
 }
 
 export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar({
@@ -136,6 +139,7 @@ export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar(
   onRowHeightPresetChange,
   wrapHeaders,
   onToggleWrapHeaders,
+  viewLoading,
 }: GridBarProps, ref) {
   // === ZUSTAND STORE — search ===
   const search = useGridStore((s) => s.search);
@@ -570,6 +574,14 @@ export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar(
 
       {/* Right section */}
       <div className={styles.gridBarRight}>
+        {viewLoading ? (
+          /* Skeleton pills while view is loading */
+          <div className={styles.gridBarSkeletonPills}>
+            <div className={styles.gridBarSkeletonPill} style={{ width: 50, marginRight: 8 }} />
+            <div className={styles.gridBarSkeletonPill} style={{ width: 51.75 }} />
+          </div>
+        ) : (
+        <>
         {/* Tools outer container */}
         <div className={styles.gridBarToolsOuter}>
           {/* Tools inner container */}
@@ -834,12 +846,15 @@ export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar(
                 onSearchChange={handleSearchChange}
                 matchIndex={findBarMatchIndex}
                 totalMatches={findBarTotalMatches}
+                isSearching={isSearchPending}
                 onPrevMatch={onPrevMatch}
                 onNextMatch={onNextMatch}
               />
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );

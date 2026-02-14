@@ -5,8 +5,10 @@
  * Airtable-style home shell with sidebar navigation
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styles from "~/components/home/HomeShell.module.css";
 import {
   HamburgerIcon,
@@ -58,7 +60,38 @@ export default function DashboardPage() {
   const filterRef = useRef<HTMLDivElement>(null);
   const { bases, isLoading, createBase } = useBases();
   const { data: session } = useSession();
+  const router = useRouter();
   
+  // Drag-and-drop state for starred sidebar items
+  const [localStarredOrder, setLocalStarredOrder] = useState<string[]>([]);
+  const [dragState, setDragState] = useState<{
+    dragIndex: number;
+    overIndex: number;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    /** Viewport position of the dragged item at drag start */
+    itemTop: number;
+    itemLeft: number;
+    itemWidth: number;
+  } | null>(null);
+  const dragRef = useRef<typeof dragState>(null);
+  
+  // Restore viewMode from localStorage after hydration
+  useEffect(() => {
+    const stored = localStorage.getItem("dashboard-viewMode") as ViewMode | null;
+    if (stored && stored !== viewMode) {
+      setViewMode(stored);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist viewMode to localStorage
+  useEffect(() => {
+    localStorage.setItem("dashboard-viewMode", viewMode);
+  }, [viewMode]);
+
   // Get user info for the account dropdown
   const userName = session?.user?.name ?? "User";
   const userEmail = session?.user?.email ?? "";
@@ -129,19 +162,127 @@ export default function DashboardPage() {
   // Use shared actions hook for star toggle
   const actions = useBaseCardActions();
 
+  // Sync local starred order when server data changes (and not mid-drag)
+  const starredIds = starredBases.map(b => b.id).join(",");
+  useEffect(() => {
+    if (!dragRef.current) {
+      setLocalStarredOrder(starredIds.split(",").filter(Boolean));
+    }
+  }, [starredIds]);
+
+  // Derive ordered starred bases from local order
+  const orderedStarredBases = localStarredOrder
+    .map(id => starredBases.find(b => b.id === id))
+    .filter((b): b is NonNullable<typeof b> => b != null);
+
+  const ITEM_HEIGHT = 39.5; // 35.5px height + 4px margin-bottom
+
+  const startStarredDrag = useCallback((e: React.PointerEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Get the wrapper element's viewport rect for initial fixed positioning
+    const handle = e.currentTarget as HTMLElement;
+    const wrapper = handle.closest(`.${basesStyles.starredEntryWrapper}`) as HTMLElement | null;
+    const rect = wrapper?.getBoundingClientRect();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const itemCount = orderedStarredBases.length;
+    const initial = {
+      dragIndex: index,
+      overIndex: index,
+      startX,
+      startY,
+      currentX: startX,
+      currentY: startY,
+      itemTop: rect?.top ?? 0,
+      itemLeft: rect?.left ?? 0,
+      itemWidth: rect?.width ?? 275,
+    };
+    dragRef.current = initial;
+    setDragState(initial);
+
+    const onMove = (ev: PointerEvent) => {
+      const currentX = ev.clientX;
+      const currentY = ev.clientY;
+      const offsetY = currentY - startY;
+      const rawIndex = index + offsetY / ITEM_HEIGHT;
+      const overIndex = Math.max(0, Math.min(itemCount - 1, Math.round(rawIndex)));
+      const next = { ...initial, overIndex, currentX, currentY };
+      dragRef.current = next;
+      setDragState(next);
+    };
+
+    const onUp = () => {
+      const final = dragRef.current;
+      if (final && final.dragIndex !== final.overIndex) {
+        setLocalStarredOrder(prev => {
+          const arr = [...prev];
+          const [moved] = arr.splice(final.dragIndex, 1);
+          if (moved) arr.splice(final.overIndex, 0, moved);
+          return arr;
+        });
+      }
+      dragRef.current = null;
+      setDragState(null);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [orderedStarredBases.length]);
+
+  // Compute transform style for each starred item during drag
+  const getStarredItemStyle = useCallback((index: number): React.CSSProperties => {
+    if (!dragState) return {};
+    const { dragIndex, overIndex, startY, currentY } = dragState;
+
+    if (index === dragIndex) {
+      // Ghost stays in place - no transform
+      return {};
+    }
+
+    if (dragIndex < overIndex) {
+      // Dragging down: items between drag and target shift up
+      if (index > dragIndex && index <= overIndex) {
+        return { transform: `translateY(-${ITEM_HEIGHT}px)`, transition: "transform 200ms ease" };
+      }
+    } else if (dragIndex > overIndex) {
+      // Dragging up: items between target and drag shift down
+      if (index >= overIndex && index < dragIndex) {
+        return { transform: `translateY(${ITEM_HEIGHT}px)`, transition: "transform 200ms ease" };
+      }
+    }
+
+    return { transition: "transform 200ms ease" };
+  }, [dragState]);
+
+  // Floating (lifted) item style — fixed to viewport so it's never clipped
+  const getFloatingStyle = useCallback((): React.CSSProperties => {
+    if (!dragState) return { display: "none" };
+    const dx = dragState.currentX - dragState.startX;
+    const dy = dragState.currentY - dragState.startY;
+    return {
+      position: "fixed",
+      top: dragState.itemTop + dy,
+      left: dragState.itemLeft + dx,
+      width: dragState.itemWidth,
+      zIndex: 9999,
+      pointerEvents: "none",
+    };
+  }, [dragState]);
+
   const handleCreateBase = () => {
     if (isCreating) return;
     
     setCreateModalOpen(false);
     setIsCreating(true);
     
-    createBase("Untitled")
-      .catch(() => {
-        // Error handled by optimistic update rollback
-      })
-      .finally(() => {
-        setIsCreating(false);
-      });
+    // Create fires in background, navigate immediately
+    const { id } = createBase("Untitled");
+    router.push(`/bases/${id}/tables/default`);
   };
 
   const filterLabels: Record<FilterOption, string> = {
@@ -315,7 +456,7 @@ export default function DashboardPage() {
 
           {/* Expanded sidebar panel (shows on hover or when toggled) */}
           <aside 
-            className={`${styles.sidebar} ${sidebarExpanded ? styles.sidebarExpanded : ''}`} 
+            className={`${styles.sidebar} ${sidebarExpanded ? styles.sidebarExpanded : ''} ${dragState ? styles.sidebarDragActive : ''}`} 
             aria-label="Sidebar"
           >
           <nav className={styles.sidebarNav} aria-label="Homescreen navigation">
@@ -364,39 +505,53 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className={styles.starredList}>
-                    {starredBases.map((base) => (
-                      <Link
+                    {orderedStarredBases.map((base, index) => (
+                      <div
                         key={base.id}
-                        href={`/bases/${base.id}/tables/default`}
-                        className={basesStyles.starredEntry}
-                        draggable={false}
-                        onClick={() => actions.recordOpen(base.id)}
+                        className={`${basesStyles.starredEntryWrapper} ${dragState?.dragIndex === index ? basesStyles.starredEntryGhost : ""}`}
+                        style={getStarredItemStyle(index)}
                       >
-                        <div 
-                          className={basesStyles.starredEntryLogo}
-                          style={{ backgroundColor: getBaseColor(base.id) }}
-                        >
-                          <span style={{ color: getBaseTextColor(base.id) }}>
-                            {getBaseInitials(base.name)}
-                          </span>
-                        </div>
-                        <p className={basesStyles.starredEntryTitle}>{base.name}</p>
-                        <span className={basesStyles.starredEntryAppLabel}>App</span>
-                        <span 
-                          className={basesStyles.starredEntryStar}
+                        <Link
+                          href={`/bases/${base.id}/tables/default`}
+                          className={basesStyles.starredEntry}
+                          draggable={false}
                           onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            actions.toggleStar(base.id);
+                            if (dragRef.current) { e.preventDefault(); return; }
+                            actions.recordOpen(base.id);
                           }}
                         >
-                          <StarFilledIcon size={16} color="#FFBA06" />
-                        </span>
-                        <span className={basesStyles.starredEntryDragHandle}>
-                          <DotsSixVerticalIcon size={16} />
-                        </span>
-                      </Link>
+                          <div 
+                            className={basesStyles.starredEntryLogo}
+                            style={{ backgroundColor: getBaseColor(base.id) }}
+                          >
+                            <span style={{ color: getBaseTextColor(base.id) }}>
+                              {getBaseInitials(base.name)}
+                            </span>
+                          </div>
+                          <p className={basesStyles.starredEntryTitle}>{base.name}</p>
+                          <span className={basesStyles.starredEntryAppLabel}>App</span>
+                          <span 
+                            className={basesStyles.starredEntryStar}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              actions.toggleStar(base.id);
+                            }}
+                          >
+                            <StarFilledIcon size={16} color="#FFBA06" />
+                          </span>
+                          <span 
+                            className={basesStyles.starredEntryDragHandle}
+                            onPointerDown={(e) => startStarredDrag(e, index)}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          >
+                            <DotsSixVerticalIcon size={16} />
+                          </span>
+                        </Link>
+                      </div>
                     ))}
+
+                    
                   </div>
                 )}
               </section>
@@ -565,12 +720,16 @@ export default function DashboardPage() {
             {/* Content: Empty state or bases list */}
             <div 
               onScroll={handleContentScroll}
-              className={`${styles.contentArea} ${bases.length > 0 ? styles.contentAreaWithBases : ''}`}
+              className={`${styles.contentArea} ${bases.length > 0 || isLoading ? styles.contentAreaWithBases : ''}`}
             >
               {isLoading ? (
-                <section className={styles.emptyState} aria-label="Loading">
-                  <p className={styles.emptySubtitle}>Loading...</p>
-                </section>
+                <div className={basesStyles.basesGridWrapper}>
+                  <div className={basesStyles.basesGrid}>
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div key={i} className={basesStyles.skeletonCard} />
+                    ))}
+                  </div>
+                </div>
               ) : bases.length === 0 ? (
                 <section className={styles.emptyState} aria-label="Empty state">
                   <h2 className={styles.emptyTitle}>
@@ -601,6 +760,39 @@ export default function DashboardPage() {
         onClose={() => setCreateModalOpen(false)}
         onCreateBase={handleCreateBase}
       />
+
+      {/* Floating dragged starred item — portaled to body to avoid ancestor transform issues */}
+      {dragState && orderedStarredBases[dragState.dragIndex] && createPortal(
+        (() => {
+          const base = orderedStarredBases[dragState.dragIndex]!;
+          return (
+            <div
+              className={basesStyles.starredEntryFloating}
+              style={getFloatingStyle()}
+            >
+              <div className={`${basesStyles.starredEntry} ${basesStyles.starredEntryLifted}`}>
+                <div 
+                  className={basesStyles.starredEntryLogo}
+                  style={{ backgroundColor: getBaseColor(base.id) }}
+                >
+                  <span style={{ color: getBaseTextColor(base.id) }}>
+                    {getBaseInitials(base.name)}
+                  </span>
+                </div>
+                <p className={basesStyles.starredEntryTitle}>{base.name}</p>
+                <span className={basesStyles.starredEntryAppLabel}>App</span>
+                <span className={basesStyles.starredEntryStar}>
+                  <StarFilledIcon size={16} color="#FFBA06" />
+                </span>
+                <span className={basesStyles.starredEntryDragHandle}>
+                  <DotsSixVerticalIcon size={16} />
+                </span>
+              </div>
+            </div>
+          );
+        })(),
+        document.body
+      )}
     </div>
   );
 }

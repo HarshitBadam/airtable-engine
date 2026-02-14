@@ -133,6 +133,7 @@
 .bellButton svg {
   width: 16px;
   height: 16px;
+  transform: translateY(0.5px);
 }
 
 .bellButton:hover {
@@ -801,6 +802,12 @@
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.12) 0px 2px 8px 0px, var(--home-border) 0px 4px 14px 0px;
 }
 
+/* Keep sidebar open while dragging a starred item (pointer may leave hover zone) */
+.sidebarDragActive {
+  visibility: visible !important;
+  transform: translateX(0) !important;
+}
+
 /* Toggled open: in-flow, fills the expanded sidebarContainer */
 .sidebarExpanded {
   position: relative;
@@ -1074,6 +1081,7 @@
 
 /* Starred List */
 .starredList {
+  position: relative;
   display: flex;
   flex-direction: column;
   padding: 0;

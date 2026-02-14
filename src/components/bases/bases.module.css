@@ -794,6 +794,77 @@
 }
 
 /* ========================================
+   Skeleton Loading Cards
+   ======================================== */
+
+@keyframes opacityPulse {
+  0% {
+    opacity: 0.15;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
+
+.skeletonCard {
+  display: block;
+  box-sizing: border-box;
+  background-color: rgb(255, 255, 255);
+  border-radius: 3px;
+  height: 92px;
+  margin: 0;
+  padding: 0;
+  animation: opacityPulse 1.5s ease-out infinite alternate;
+}
+
+/* ========================================
+   Drag-and-Drop for Starred Items
+   ======================================== */
+
+/* Wrapper around each item — handles the sliding transform */
+.starredEntryWrapper {
+  transition: transform 200ms ease;
+}
+
+/* Ghost: the faded placeholder left behind at the original position */
+.starredEntryGhost {
+  opacity: 0.35;
+  transition: none !important;
+}
+
+/* Floating clone that follows the pointer (position: fixed set inline) */
+.starredEntryFloating {
+  pointer-events: none;
+}
+
+/* The lifted item appearance — shadow + visible hover elements */
+.starredEntryLifted {
+  background-color: var(--home-bg);
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+              rgba(0, 0, 0, 0.12) 0px 4px 12px 0px;
+  border-radius: 3px;
+  cursor: grabbing;
+}
+
+.starredEntryLifted .starredEntryAppLabel {
+  display: flex;
+}
+
+.starredEntryLifted .starredEntryTitle {
+  width: auto;
+  flex-grow: 0;
+}
+
+.starredEntryLifted .starredEntryStar {
+  display: flex;
+}
+
+.starredEntryLifted .starredEntryDragHandle {
+  opacity: 1;
+  cursor: grabbing;
+}
+
+/* ========================================
    Responsive Adjustments
    ======================================== */
 

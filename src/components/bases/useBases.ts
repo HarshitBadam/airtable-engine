@@ -32,7 +32,7 @@ export interface UseBasesResult {
   bases: BaseItem[];
   isLoading: boolean;
   isError: boolean;
-  createBase: (name: string) => Promise<{ id: string }>;
+  createBase: (name: string) => { id: string };
 }
 
 /**
@@ -163,11 +163,12 @@ export function useBases(): UseBasesResult {
     },
   });
 
-  const createBase = async (name: string): Promise<{ id: string }> => {
+  const createBase = (name: string): { id: string } => {
     // Generate ID client-side so optimistic update uses the same ID as server
     const id = generateId();
-    const result = await createMutation.mutateAsync({ id, name });
-    return { id: result.id };
+    // Fire mutation in background — don't await, navigate immediately
+    createMutation.mutate({ id, name });
+    return { id };
   };
 
   return {

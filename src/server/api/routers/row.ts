@@ -1052,7 +1052,7 @@ export const rowRouter = createTRPCRouter({
       const columns = await ctx.db.column.findMany({
         where: { tableId: input.tableId },
         orderBy: { order: "asc" },
-        select: { id: true, type: true },
+        select: { id: true, type: true, name: true },
       });
 
       const count = input.count;
@@ -1087,15 +1087,36 @@ export const rowRouter = createTRPCRouter({
         const batchCount = Math.min(INSERT_BATCH, count - offset);
         const batchStart = startRowIndex + offset;
 
-        // Build jsonb_build_object per batch (batchStart changes each iteration)
+        // Build jsonb_build_object per batch (batchStart changes each iteration).
+        // Use column names to generate appropriate data patterns.
         const jsonbParts: string[] = [];
         const searchParts: string[] = [];
+        const colNameLower = (n: string) => n.toLowerCase().trim();
         for (const col of columns) {
           const colId = escapeLiteral(col.id);
+          const name = colNameLower(col.name);
+
           if (col.type === "NUMBER") {
             jsonbParts.push(`'${colId}', (${batchStart} + gs)`);
             searchParts.push(`(${batchStart} + gs)::text`);
+          } else if (name === "name") {
+            jsonbParts.push(`'${colId}', 'Person ' || (${batchStart} + gs)`);
+            searchParts.push(`'Person ' || (${batchStart} + gs)`);
+          } else if (name === "notes") {
+            jsonbParts.push(`'${colId}', 'Note for record ' || (${batchStart} + gs)`);
+            searchParts.push(`'Note for record ' || (${batchStart} + gs)`);
+          } else if (name === "assignee") {
+            jsonbParts.push(`'${colId}', 'user' || (${batchStart} + gs) || '@example.com'`);
+            searchParts.push(`'user' || (${batchStart} + gs) || '@example.com'`);
+          } else if (name === "status") {
+            // Cycle through statuses deterministically: Todo, In progress, In review, Done, Blocked
+            jsonbParts.push(`'${colId}', (ARRAY['Todo','In progress','In review','Done','Blocked'])[1 + ((${batchStart} + gs) % 5)]`);
+            searchParts.push(`(ARRAY['Todo','In progress','In review','Done','Blocked'])[1 + ((${batchStart} + gs) % 5)]`);
+          } else if (name === "attachments") {
+            jsonbParts.push(`'${colId}', 'https://storage.example.com/file-' || (${batchStart} + gs) || '.pdf'`);
+            searchParts.push(`'https://storage.example.com/file-' || (${batchStart} + gs) || '.pdf'`);
           } else {
+            // Generic fallback for any other TEXT column
             jsonbParts.push(`'${colId}', 'Person ' || (${batchStart} + gs)`);
             searchParts.push(`'Person ' || (${batchStart} + gs)`);
           }

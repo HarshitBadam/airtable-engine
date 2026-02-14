@@ -1280,3 +1280,26 @@
   user-select: none;
   -webkit-box-flex: 1;
 }
+
+/* === SKELETON PILLS (view loading state) === */
+@keyframes opacityFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.gridBarSkeletonPills {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 14px;
+  margin-left: 8px;
+  animation: opacityFadeIn 0.4s ease;
+}
+
+.gridBarSkeletonPill {
+  height: 14px;
+  border-radius: 9999px;
+  background-color: rgba(0, 0, 0, 0.05);
+}
