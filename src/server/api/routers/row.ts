@@ -651,7 +651,7 @@ export const rowRouter = createTRPCRouter({
             if (!isSortedCursor) {
               if (isUnrankedTail) {
                 // ── Phase 2: Unranked tail (new rows after sort, natural order) ──
-                const tailCursor = cursor as number;
+                const tailCursor = cursor;
                 const tp: SqlParam[] = [input.viewId, input.tableId, tailCursor, take];
                 const tailSql = `
                   SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"

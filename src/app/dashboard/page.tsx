@@ -184,7 +184,7 @@ export default function DashboardPage() {
 
     // Get the wrapper element's viewport rect for initial fixed positioning
     const handle = e.currentTarget as HTMLElement;
-    const wrapper = handle.closest(`.${basesStyles.starredEntryWrapper}`) as HTMLElement | null;
+    const wrapper = handle.closest<HTMLElement>(`.${basesStyles.starredEntryWrapper}`);
     const rect = wrapper?.getBoundingClientRect();
 
     const startX = e.clientX;

@@ -2084,6 +2084,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       // Fire background backfill if the column has data to write.
       // getCellValue already shows the values at render time, so the
       // user never sees blank cells.
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       const needsBackfill = (vars.defaultValue && vars.defaultValue.trim() !== "") || vars.sourceColumnId;
       if (needsBackfill) {
         setBackfillingColumnIds((prev) => new Set(prev).add(newCol.id));
@@ -2091,7 +2092,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           tableId,
           columnId: newCol.id,
           defaultValue: vars.defaultValue ?? undefined,
-          type: vars.type as "TEXT" | "NUMBER",
+          type: vars.type,
           sourceColumnId: vars.sourceColumnId ?? undefined,
         });
       }

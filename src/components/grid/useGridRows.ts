@@ -247,7 +247,7 @@ export function useGridRows(tableId: string) {
     if (timeSinceLastFire >= THROTTLE_MS) {
       lastFiredRef.current = now;
       if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
-      doJumpFetch(offset);
+      void doJumpFetch(offset);
     }
 
     // Trailing edge: always schedule a trailing call to catch the final position
@@ -258,7 +258,7 @@ export function useGridRows(tableId: string) {
       // Don't double-fire if leading edge already handled this offset
       if (currentOffset === offset && timeSinceLastFire >= THROTTLE_MS) return;
       lastFiredRef.current = Date.now();
-      doJumpFetch(currentOffset);
+      void doJumpFetch(currentOffset);
     }, THROTTLE_MS);
   }, [rows.length, doJumpFetch]);
 
