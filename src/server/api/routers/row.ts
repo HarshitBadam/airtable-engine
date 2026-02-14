@@ -904,7 +904,7 @@ export const rowRouter = createTRPCRouter({
         // Phase 1: Compute new order and set to negative values (avoids unique constraint collisions)
         await tx.$executeRawUnsafe(`
           UPDATE "Row"
-          SET "rowIndex" = -(subq.rn::int), "updatedAt" = now()
+          SET "rowIndex" = -(subq.rn::float8), "updatedAt" = now()
           FROM (
             SELECT r."id", ROW_NUMBER() OVER (ORDER BY ${orderByClause}) AS rn
             FROM "Row" r
@@ -1125,98 +1125,106 @@ export const rowRouter = createTRPCRouter({
     }),
 
   /**
-   * Insert a single empty row at a specific rowIndex position.
+   * Insert a single empty row at a specific position.
    *
-   * Performance-optimised strategy:
-   * 1. If `atIndex` slot is free → insert directly (0 rows shifted).
-   * 2. Otherwise find the nearest gap ABOVE `atIndex` within a small window
-   *    and shift only the rows between the gap and `atIndex` (≤ WINDOW rows).
-   * 3. Fallback: use `nextRowIndex` (always free) as the gap so we shift at
-   *    most from `atIndex` to `nextRowIndex` — still better than unbounded.
+   * Strategy (Float rowIndex, zero shifting):
+   *   position="end"   → atomically claim nextRowIndex (O(1), race-safe)
+   *   position="above"  → midpoint between prev row and atIndex
+   *   position="below"  → midpoint between atIndex and next row
+   *
+   * No existing rows are ever touched — just one INSERT.
    */
   insertAt: protectedProcedure
     .input(
       z.object({
         tableId: z.string(),
-        atIndex: z.number().min(1),
+        atIndex: z.number(), // the reference rowIndex
+        // 'above' = insert before atIndex, 'below' = insert after atIndex, 'end' = slot is free, use directly
+        position: z.enum(["above", "below", "end"]).default("above"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const table = await ctx.db.table.findFirst({
         where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
-        select: { id: true, nextRowIndex: true },
+        select: { id: true },
       });
       if (!table) throw new Error("Table not found");
 
-      return ctx.db.$transaction(async (tx) => {
-        let insertIndex = input.atIndex;
+      // ── Float midpoint insertion: O(log N), zero row shifting ──
+      //
+      // Instead of shifting existing rows (O(N)), we place the new row
+      // at a midpoint between two neighbours.
+      //   e.g.  rows 4.0, 5.0 → insert above 5.0 → (4.0+5.0)/2 = 4.5
+      // This never touches any existing row — just one INSERT.
 
+      let insertIndex: number;
 
-        // Check if the slot is already free (no row at atIndex)
-        const existing = await tx.$queryRawUnsafe<{ cnt: bigint }[]>(
-          `SELECT COUNT(*) AS cnt FROM "Row" WHERE "tableId" = $1 AND "rowIndex" = $2`,
-          input.tableId, insertIndex,
+      if (input.position === "end") {
+        // + button: atomically claim the next integer index from the Table's
+        // nextRowIndex counter.  The UPDATE takes a row-level lock, so two
+        // concurrent inserts can never claim the same slot — zero race risk.
+        const claimed = await ctx.db.$queryRawUnsafe<{ idx: number }[]>(
+          `UPDATE "Table"
+           SET "nextRowIndex" = "nextRowIndex" + 1
+           WHERE "id" = $1
+           RETURNING "nextRowIndex" - 1 AS idx`,
+          input.tableId,
         );
-        const slotTaken = Number(existing[0]?.cnt ?? 0) > 0;
+        insertIndex = claimed[0]?.idx ?? 1;
+      } else if (input.position === "above") {
+        // Insert before the row at atIndex.
+        // Find the previous row and compute midpoint.
+        const prevRes = await ctx.db.$queryRawUnsafe<{ prev: number | null }[]>(
+          `SELECT MAX("rowIndex")::float8 AS prev FROM "Row"
+           WHERE "tableId" = $1 AND "rowIndex" < $2`,
+          input.tableId, input.atIndex,
+        );
+        const prevIndex = prevRes[0]?.prev;
+        insertIndex = prevIndex != null
+          ? (prevIndex + input.atIndex) / 2
+          : input.atIndex / 2; // before the very first row
+      } else {
+        // 'below': insert after the row at atIndex.
+        // Find the next row and compute midpoint.
+        const nextRes = await ctx.db.$queryRawUnsafe<{ nxt: number | null }[]>(
+          `SELECT MIN("rowIndex")::float8 AS nxt FROM "Row"
+           WHERE "tableId" = $1 AND "rowIndex" > $2`,
+          input.tableId, input.atIndex,
+        );
+        const nextIndex = nextRes[0]?.nxt;
+        insertIndex = nextIndex != null
+          ? (input.atIndex + nextIndex) / 2
+          : input.atIndex + 1; // after the very last row
+      }
 
-        if (slotTaken) {
-          // Strategy: shift only the minimal number of rows.
-          // `nextRowIndex` is guaranteed to be a free slot (no row exists there).
-          // We shift rows in [atIndex, nextRowIndex - 1] upward by 1.
-          // The two-pass negation trick avoids unique-constraint collisions.
-          //
-          // Cap: if more than SHIFT_CAP rows need shifting (e.g., insert at row 5
-          // in a 100K-row table), place the new row at nextRowIndex instead.
-          // The frontend invalidation/refetch will show it at the end; this is
-          // fast and avoids locking the DB for seconds.
-          const SHIFT_CAP = 5000;
-          const shiftSize = table.nextRowIndex - insertIndex;
+      // Single INSERT — O(log N) via B-tree index
+      const newRow = await ctx.db.row.create({
+        data: {
+          tableId: input.tableId,
+          rowIndex: insertIndex,
+          cells: {},
+          searchText: "",
+        },
+        select: { id: true, rowIndex: true, cells: true, createdAt: true, updatedAt: true },
+      });
 
-          if (shiftSize <= SHIFT_CAP) {
-            await tx.$executeRawUnsafe(`
-              UPDATE "Row"
-              SET "rowIndex" = -("rowIndex" + 1)
-              WHERE "tableId" = $1 AND "rowIndex" >= $2 AND "rowIndex" < $3
-            `, input.tableId, insertIndex, table.nextRowIndex);
+      // Keep rowCount and nextRowIndex accurate.
+      // GREATEST ensures nextRowIndex never goes backward if a midpoint
+      // insert happens to land below the current nextRowIndex.
+      await ctx.db.$executeRawUnsafe(
+        `UPDATE "Table"
+         SET "rowCount" = "rowCount" + 1,
+             "nextRowIndex" = GREATEST("nextRowIndex", $1)
+         WHERE "id" = $2`,
+        Math.ceil(insertIndex) + 1,
+        input.tableId,
+      );
 
-            await tx.$executeRawUnsafe(`
-              UPDATE "Row"
-              SET "rowIndex" = -"rowIndex", "updatedAt" = now()
-              WHERE "tableId" = $1 AND "rowIndex" < 0
-            `, input.tableId);
-          } else {
-            // Too many rows to shift — append at end instead
-            insertIndex = table.nextRowIndex;
-          }
-        }
+      // NOTE: We intentionally do NOT mark ranks stale here.
+      // The new row has no ViewRowRank entry and naturally falls to
+      // the "unranked tail" (Phase 2) of the ViewRowRank pagination path.
 
-        // Insert the new empty row
-        const newRow = await tx.row.create({
-          data: {
-            tableId: input.tableId,
-            rowIndex: insertIndex,
-            cells: {},
-            searchText: "",
-          },
-          select: { id: true, rowIndex: true, cells: true, createdAt: true, updatedAt: true },
-        });
-
-        // Update table counters
-        const newNextRowIndex = Math.max(table.nextRowIndex, insertIndex + 1);
-        await tx.table.update({
-          where: { id: input.tableId },
-          data: {
-            nextRowIndex: newNextRowIndex,
-            rowCount: { increment: 1 },
-          },
-        });
-
-        // NOTE: We intentionally do NOT mark ranks stale here.
-        // The new row has no ViewRowRank entry and naturally falls to
-        // the "unranked tail" (Phase 2) of the ViewRowRank pagination path.
-
-        return newRow;
-      }, { timeout: 30_000 });  // 30s for row shifting
+      return newRow;
     }),
 
   /**
@@ -1233,7 +1241,7 @@ export const rowRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const table = await ctx.db.table.findFirst({
         where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
-        select: { id: true, nextRowIndex: true },
+        select: { id: true },
       });
       if (!table) throw new Error("Table not found");
 
@@ -1243,68 +1251,51 @@ export const rowRouter = createTRPCRouter({
       });
       if (!sourceRow) throw new Error("Row not found");
 
-      let insertIndex = sourceRow.rowIndex + 1;
+      // ── Float midpoint: place the clone right after the source row ──
+      // Find the next row after the source and compute the midpoint.
+      const nextRes = await ctx.db.$queryRawUnsafe<{ nxt: number | null }[]>(
+        `SELECT MIN("rowIndex")::float8 AS nxt FROM "Row"
+         WHERE "tableId" = $1 AND "rowIndex" > $2`,
+        input.tableId, sourceRow.rowIndex,
+      );
+      const nextIndex = nextRes[0]?.nxt;
 
-      return ctx.db.$transaction(async (tx) => {
-        // Check if slot is free
-        const existing = await tx.$queryRawUnsafe<{ cnt: bigint }[]>(
-          `SELECT COUNT(*) AS cnt FROM "Row" WHERE "tableId" = $1 AND "rowIndex" = $2`,
-          input.tableId, insertIndex,
-        );
-        const slotTaken = Number(existing[0]?.cnt ?? 0) > 0;
+      const insertIndex = nextIndex != null
+        ? (sourceRow.rowIndex + nextIndex) / 2   // midpoint between source and next
+        : sourceRow.rowIndex + 1;                 // no next row — just +1
 
-        if (slotTaken) {
-          const SHIFT_CAP = 5000;
-          const shiftSize = table.nextRowIndex - insertIndex;
+      const newRow = await ctx.db.row.create({
+        data: {
+          tableId: input.tableId,
+          rowIndex: insertIndex,
+          cells: sourceRow.cells ?? {},
+          searchText: sourceRow.searchText ?? "",
+        },
+        select: { id: true, rowIndex: true, cells: true, createdAt: true, updatedAt: true },
+      });
 
-          if (shiftSize <= SHIFT_CAP) {
-            await tx.$executeRawUnsafe(`
-              UPDATE "Row"
-              SET "rowIndex" = -("rowIndex" + 1)
-              WHERE "tableId" = $1 AND "rowIndex" >= $2 AND "rowIndex" < $3
-            `, input.tableId, insertIndex, table.nextRowIndex);
+      // Keep rowCount and nextRowIndex accurate
+      await ctx.db.$executeRawUnsafe(
+        `UPDATE "Table"
+         SET "rowCount" = "rowCount" + 1,
+             "nextRowIndex" = GREATEST("nextRowIndex", $1)
+         WHERE "id" = $2`,
+        Math.ceil(insertIndex) + 1,
+        input.tableId,
+      );
 
-            await tx.$executeRawUnsafe(`
-              UPDATE "Row"
-              SET "rowIndex" = -"rowIndex", "updatedAt" = now()
-              WHERE "tableId" = $1 AND "rowIndex" < 0
-            `, input.tableId);
-          } else {
-            // Too many rows to shift — append at end
-            insertIndex = table.nextRowIndex;
-          }
-        }
+      // NOTE: We intentionally do NOT mark ranks stale here.
+      // The duplicated row has no ViewRowRank entry and naturally
+      // falls to the "unranked tail" (Phase 2).
 
-        // Insert the duplicated row with the same cells
-        const newRow = await tx.row.create({
-          data: {
-            tableId: input.tableId,
-            rowIndex: insertIndex,
-            cells: sourceRow.cells ?? {},
-            searchText: sourceRow.searchText ?? "",
-          },
-          select: { id: true, rowIndex: true, cells: true, createdAt: true, updatedAt: true },
-        });
-
-        const newNextRowIndex = Math.max(table.nextRowIndex, insertIndex + 1);
-        await tx.table.update({
-          where: { id: input.tableId },
-          data: {
-            nextRowIndex: newNextRowIndex,
-            rowCount: { increment: 1 },
-          },
-        });
-
-        // NOTE: We intentionally do NOT mark ranks stale here.
-        // The duplicated row has no ViewRowRank entry and naturally
-        // falls to the "unranked tail" (Phase 2).
-
-        return newRow;
-      }, { timeout: 30_000 });  // 30s for row shifting
+      return newRow;
     }),
 
   /**
    * Delete a single row by ID.
+   *
+   * Idempotent: if the row is already gone (concurrent delete, double-click),
+   * the mutation succeeds with count: 0 instead of throwing.
    */
   delete: protectedProcedure
     .input(
@@ -1320,32 +1311,27 @@ export const rowRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      const row = await ctx.db.row.findFirst({
-        where: { id: input.rowId, tableId: input.tableId },
-        select: { id: true },
-      });
-      if (!row) throw new Error("Row not found");
-
       return ctx.db.$transaction(async (tx) => {
         // Clean up ViewRowRank entries for this row across ALL views.
-        // This leaves a small gap in the rank sequence which is tolerable —
-        // the JOIN in ViewRowRank queries naturally skips missing rows,
-        // and rankCount stays accurate since we're removing the entry.
         await tx.$executeRawUnsafe(
           `DELETE FROM "ViewRowRank" WHERE "rowId" = $1::uuid`,
           input.rowId,
         );
 
-        await tx.row.delete({ where: { id: input.rowId } });
-
-        await tx.table.update({
-          where: { id: input.tableId },
-          data: { rowCount: { decrement: 1 } },
+        // deleteMany is idempotent — returns count: 0 if the row was already
+        // deleted (concurrent request, double-click). This avoids the P2025
+        // "Record to delete does not exist" error that Prisma's .delete() throws.
+        const result = await tx.row.deleteMany({
+          where: { id: input.rowId, tableId: input.tableId },
         });
 
-        // NOTE: We intentionally do NOT mark ranks stale here.
-        // The ViewRowRank entry was cleaned up above, and the remaining
-        // ranks are still valid (frozen sort order is preserved).
+        if (result.count > 0) {
+          // Only decrement rowCount if a row was actually deleted
+          await tx.table.update({
+            where: { id: input.tableId },
+            data: { rowCount: { decrement: 1 } },
+          });
+        }
 
         return { id: input.rowId };
       });
@@ -1368,8 +1354,8 @@ export const rowRouter = createTRPCRouter({
       z.object({
         tableId: z.string(),
         rowId: z.string(),
-        fromIndex: z.number().min(1),
-        toIndex: z.number().min(1),
+        fromIndex: z.number(),
+        toIndex: z.number(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -1387,49 +1373,48 @@ export const rowRouter = createTRPCRouter({
       });
       if (!row) throw new Error("Row not found");
 
-      const oldIdx = row.rowIndex;
-      const newIdx = input.toIndex;
-      if (oldIdx === newIdx) return { ok: true };
+      if (row.rowIndex === input.toIndex) return { ok: true };
 
-      await ctx.db.$transaction(async (tx) => {
-        // Step 1: Park the dragged row at 0 (no real row ever uses 0).
-        // This frees up oldIdx for the shift chain.
-        await tx.row.update({
-          where: { id: input.rowId },
-          data: { rowIndex: 0 },
-        });
+      // ── Float midpoint reorder: O(log N), zero row shifting ──
+      // Find the two neighbours at the drop position and place the
+      // dragged row at the midpoint.
+      const targetIdx = input.toIndex;
 
-        if (newIdx < oldIdx) {
-          // Moving UP: shift each row in [newIdx .. oldIdx-1] → +1
-          // Process in REVERSE order: highest first fills the empty slot above it.
-          for (let i = oldIdx - 1; i >= newIdx; i--) {
-            await tx.row.updateMany({
-              where: { tableId: input.tableId, rowIndex: i },
-              data: { rowIndex: i + 1 },
-            });
-          }
-        } else {
-          // Moving DOWN: shift each row in [oldIdx+1 .. newIdx] → -1
-          // Process in FORWARD order: lowest first fills the empty slot below it.
-          for (let i = oldIdx + 1; i <= newIdx; i++) {
-            await tx.row.updateMany({
-              where: { tableId: input.tableId, rowIndex: i },
-              data: { rowIndex: i - 1 },
-            });
-          }
-        }
+      // Find the row at or just before the target, and the row just after
+      const prevRes = await ctx.db.$queryRawUnsafe<{ prev: number | null }[]>(
+        `SELECT MAX("rowIndex")::float8 AS prev FROM "Row"
+         WHERE "tableId" = $1 AND "rowIndex" < $2 AND "id" != $3::uuid`,
+        input.tableId, targetIdx, input.rowId,
+      );
+      const nextRes = await ctx.db.$queryRawUnsafe<{ nxt: number | null }[]>(
+        `SELECT MIN("rowIndex")::float8 AS nxt FROM "Row"
+         WHERE "tableId" = $1 AND "rowIndex" >= $2 AND "id" != $3::uuid`,
+        input.tableId, targetIdx, input.rowId,
+      );
 
-        // Step 2: Place the dragged row at its new position.
-        await tx.row.update({
-          where: { id: input.rowId },
-          data: { rowIndex: newIdx },
-        });
+      const prev = prevRes[0]?.prev;
+      const next = nextRes[0]?.nxt;
 
-        // NOTE: We intentionally do NOT mark ranks stale here.
-        // Reorder only affects rowIndex (natural order), not the frozen
-        // ViewRowRank sort order. Reorder is only allowed when no sorts
-        // are active (canDragRows check on the frontend).
+      let newIdx: number;
+      if (prev != null && next != null) {
+        newIdx = (prev + next) / 2;
+      } else if (prev != null) {
+        newIdx = prev + 1;
+      } else if (next != null) {
+        newIdx = next / 2;
+      } else {
+        newIdx = targetIdx; // only row in table
+      }
+
+      await ctx.db.row.update({
+        where: { id: input.rowId },
+        data: { rowIndex: newIdx },
       });
+
+      // NOTE: We intentionally do NOT mark ranks stale here.
+      // Reorder only affects rowIndex (natural order), not the frozen
+      // ViewRowRank sort order. Reorder is only allowed when no sorts
+      // are active (canDragRows check on the frontend).
 
       return { ok: true };
     }),
@@ -1526,17 +1511,17 @@ export const rowRouter = createTRPCRouter({
       const sorts = input.sorts ?? [];
       const hasQuery = sorts.length > 0 || filters.length > 0 || Boolean(search && search.length > 0) || Boolean(useTree);
 
-      // ── TIER 1 FAST PATH: No sort/filter/search → parallelize auth + data ──
+      // ── TIER 1 FAST PATH: No sort/filter/search → OFFSET/LIMIT with index scan ──
+      // (With float rowIndex, BETWEEN no longer maps position → value 1:1,
+      //  so we use OFFSET which relies on the B-tree index scan.)
       if (!hasQuery) {
-        const startRowIndex = input.offset + 1; // rowIndex is 1-based
-        const endRowIndex = startRowIndex + input.limit - 1;
-
-        const params: SqlParam[] = [input.tableId, startRowIndex, endRowIndex];
+        const params: SqlParam[] = [input.tableId, input.offset, input.limit];
         const dataSql = `
           SELECT "id", "rowIndex", "cells", "createdAt", "updatedAt"
           FROM "Row"
-          WHERE "tableId" = $1 AND "rowIndex" BETWEEN $2 AND $3
+          WHERE "tableId" = $1
           ORDER BY "rowIndex" ASC
+          OFFSET $2 LIMIT $3
         `;
 
         // Fire ownership check + data query in parallel (data never leaves server if auth fails)

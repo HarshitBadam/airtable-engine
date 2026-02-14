@@ -175,8 +175,9 @@ model Row {
   tableId String
   table   Table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
-  // stable ordering for pagination
-  rowIndex Int
+  // stable ordering for pagination — Float allows O(1) midpoint inserts
+  // (e.g. insert between 2.0 and 3.0 → 2.5, no row shifting required)
+  rowIndex Float
 
   // { [columnId]: string | number }
   cells Json @db.JsonB

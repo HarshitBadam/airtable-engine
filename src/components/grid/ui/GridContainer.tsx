@@ -449,7 +449,10 @@ export function GridContainer({
 
         const rect = scroller.getBoundingClientRect();
         const relY = ev.clientY - rect.top + scroller.scrollTop;
-        const dropIdx = Math.max(0, Math.min(rows.length - 1, Math.floor(relY / DATA_ROW_HEIGHT)));
+        // Use totalCount (not rows.length) — rows only has the infinite-query
+        // slice (~1K rows), but the user may be scrolled to position 99K via
+        // the jump cache. Without this fix, dropIdx is always clamped to ~999.
+        const dropIdx = Math.max(0, Math.min(totalCount - 1, Math.floor(relY / DATA_ROW_HEIGHT)));
 
         if (dropIdx !== currentDropIdx) {
           currentDropIdx = dropIdx;
@@ -513,7 +516,7 @@ export function GridContainer({
       window.addEventListener("mousemove", handleMove);
       window.addEventListener("mouseup", handleUp);
     },
-    [canDragRows, gridScrollerRef, rows.length, DATA_ROW_HEIGHT, onReorderRow],
+    [canDragRows, gridScrollerRef, totalCount, DATA_ROW_HEIGHT, onReorderRow],
   );
 
   // === COLUMN HEADER DROPDOWN MENU ===

@@ -202,12 +202,13 @@ export function useGridRows(tableId: string) {
     })();
   }, [tableId, debouncedSearch, filters, filterConjunction, filterTree, effectiveSorts, activeViewId, sendViewId, utils]);
 
-  const triggerJumpFetch = useCallback((offset: number) => {
+  const triggerJumpFetch = useCallback((offset: number, force = false) => {
     // Already loaded sequentially?
     if (offset < rows.length) return;
 
-    // Already in jump cache? Check that the EXACT requested offset is cached.
-    if (jumpCacheRef.current.has(offset)) return;
+    // Already in jump cache? Skip unless force=true (used by refreshRows
+    // to overwrite stale entries after a mutation without clearing the cache).
+    if (!force && jumpCacheRef.current.has(offset)) return;
 
     // Track scroll direction: compare with the previous trigger offset
     if (offset < prevTriggerOffsetRef.current) {
@@ -295,9 +296,52 @@ export function useGridRows(tableId: string) {
     [],
   );
 
+  /** Remove a row from the jump cache by ID and shift subsequent entries
+   *  down by 1 position (keeps positions consistent after deletion). */
+  const removeFromJumpCache = useCallback(
+    (rowId: string) => {
+      setJumpCache((prev) => {
+        let keyToRemove: number | null = null;
+        for (const [key, item] of prev) {
+          if (item.id === rowId) {
+            keyToRemove = key;
+            break;
+          }
+        }
+        if (keyToRemove === null) return prev;
+        const next = new Map<number, RowItem>();
+        for (const [key, item] of prev) {
+          if (key === keyToRemove) continue;
+          // Shift entries after the removed one down by 1 position
+          next.set(key > keyToRemove ? key - 1 : key, item);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  /** Insert a row into the jump cache at a specific absolute position.
+   *  Used for optimistic insertion (e.g. + button) so the row renders
+   *  immediately without waiting for a windowFetch round-trip. */
+  const addToJumpCache = useCallback(
+    (absoluteIndex: number, row: RowItem) => {
+      setJumpCache((prev) => {
+        const next = new Map(prev);
+        next.set(absoluteIndex, row);
+        return next;
+      });
+    },
+    [],
+  );
+
   return {
     q, rows, totalCount, input, debouncedSearch,
     getRowAtIndex, getRowById, triggerJumpFetch,
-    clearJumpCache, updateJumpCacheRow,
+    clearJumpCache, updateJumpCacheRow, removeFromJumpCache, addToJumpCache,
+    /** Ref to the current jump cache Map<actualIndex, RowItem>.
+     *  Used by GridWorkspace for overlay positioning & keyboard navigation
+     *  on rows that live outside the infinite-query page range. */
+    jumpCacheRef,
   };
 }
