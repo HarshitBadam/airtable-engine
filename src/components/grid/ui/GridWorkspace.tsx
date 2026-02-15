@@ -530,10 +530,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   }, [columns, columnOrderIds]);
 
   // Visible columns: ordered then hidden filtered out (used by the grid)
-  const visibleColumns = useMemo(
-    () => orderedColumns.filter((c) => !hiddenColumnIds.includes(c.id)),
-    [orderedColumns, hiddenColumnIds],
-  );
+  const visibleColumns = useMemo(() => {
+    const hiddenSet = new Set(hiddenColumnIds);
+    return orderedColumns.filter((c) => !hiddenSet.has(c.id));
+  }, [orderedColumns, hiddenColumnIds]);
   visibleColumnsRef.current = visibleColumns;
 
   // === TanStack Table integration ===
