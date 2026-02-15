@@ -1613,7 +1613,7 @@ export const rowRouter = createTRPCRouter({
   // windowFetch — positional window fetch for virtualized grid jumps
   // =========================================================================
   // Three-tier strategy:
-  //   Tier 1 (no sort/filter/search): rowIndex BETWEEN → O(log N), instant
+  //   Tier 1 (no sort/filter/search): rowIndex estimation + B-tree seek → O(log N)
   //   Tier 2 (saved view with fresh ranks): JOIN ViewRowRank, rank BETWEEN → O(log N)
   //   Tier 3 (temporary sort / stale ranks): OFFSET + LIMIT → O(offset)
   windowFetch: protectedProcedure
@@ -1639,28 +1639,53 @@ export const rowRouter = createTRPCRouter({
       const sorts = input.sorts ?? [];
       const hasQuery = sorts.length > 0 || filters.length > 0 || Boolean(search && search.length > 0) || Boolean(useTree);
 
-      // ── TIER 1 FAST PATH: No sort/filter/search → OFFSET/LIMIT with index scan ──
-      // (With float rowIndex, BETWEEN no longer maps position → value 1:1,
-      //  so we use OFFSET which relies on the B-tree index scan.)
+      // ── TIER 1 FAST PATH: No sort/filter/search → rowIndex estimation + B-tree seek ──
+      // Instead of OFFSET (which scans+discards O(offset) index entries), we
+      // estimate the rowIndex at the target position via linear interpolation
+      // on MIN/MAX rowIndex and seek directly — O(log N) regardless of position.
+      //
+      // The estimation is near-perfect for bulk-inserted or append-heavy tables
+      // (sequential rowIndex values). Midpoint insertions keep the distribution
+      // dense within [min, max], so the estimate stays accurate.
       if (!hasQuery) {
-        const params: SqlParam[] = [input.tableId, input.offset, input.limit];
+        // Auth + table metadata (rowCount is already materialized on the model)
+        const table = await ctx.db.table.findFirst({
+          where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+          select: { id: true, rowCount: true },
+        });
+        if (!table) throw new Error("Table not found");
+
+        // Edge case: empty table or requesting beyond the end
+        if (table.rowCount === 0 || input.offset >= table.rowCount) {
+          return { items: [], totalCount: table.rowCount, nextCursor: null };
+        }
+
+        // Fetch min/max rowIndex — O(log N) each (B-tree edge lookups)
+        const [minMaxRes] = await queryRawUnsafe<{ min_idx: number; max_idx: number }[]>(
+          ctx.db,
+          `SELECT MIN("rowIndex") AS min_idx, MAX("rowIndex") AS max_idx
+           FROM "Row" WHERE "tableId" = $1`,
+          [input.tableId],
+        );
+        const minIdx = minMaxRes?.min_idx ?? 0;
+        const maxIdx = minMaxRes?.max_idx ?? 0;
+
+        // Linear interpolation: estimate the rowIndex at the target position
+        const estimatedRowIndex =
+          table.rowCount <= 1
+            ? minIdx
+            : minIdx + input.offset * ((maxIdx - minIdx) / (table.rowCount - 1));
+
+        // B-tree range scan — O(log N) seek, no OFFSET scanning
+        const params: SqlParam[] = [input.tableId, estimatedRowIndex, input.limit];
         const dataSql = `
           SELECT "id", "rowIndex", "cells", "createdAt", "updatedAt"
           FROM "Row"
-          WHERE "tableId" = $1
+          WHERE "tableId" = $1 AND "rowIndex" >= $2
           ORDER BY "rowIndex" ASC
-          OFFSET $2 LIMIT $3
+          LIMIT $3
         `;
-
-        // Fire ownership check + data query in parallel (data never leaves server if auth fails)
-        const [table, items] = await Promise.all([
-          ctx.db.table.findFirst({
-            where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
-            select: { id: true, rowCount: true },
-          }),
-          queryRawUnsafe<RowSelect[]>(ctx.db, dataSql, params),
-        ]);
-        if (!table) throw new Error("Table not found");
+        const items = await queryRawUnsafe<RowSelect[]>(ctx.db, dataSql, params);
 
         let nextCursor: number | { rowIndex: number; sortValues: (string | number | null)[] } | null = null;
         if (items.length > 0) {

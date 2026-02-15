@@ -437,7 +437,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     getRowAtIndex, getRowById, triggerJumpFetch,
     clearJumpCache, updateJumpCacheRow, addToJumpCache, insertIntoJumpCache,
     removeByIdNoShift, removeFromJumpCache, doJumpFetch,
-    jumpCacheRef,
+    jumpCacheRef, jumpCache,
   } = useGridRows(tableId);
   rowsRef.current = rows;
 
@@ -542,99 +542,105 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const _table = useGridTable(columns, rows as RowItem[]);
 
   // ================================================================
-  // FIND-IN-VIEW: client-side match list + navigation
+  // FIND-IN-VIEW: dataset-aware match navigation
   // ================================================================
-  type FindMatch = { rowId: string; columnId: string };
+  // When search is active, the server filters rows — every row in the
+  // result set IS a match. We navigate by absolute row position in the
+  // filtered result (0 to totalCount-1) so wrapping works across the
+  // full dataset, not just the locally loaded ~1000 rows.
+  // ================================================================
 
   const activeSearchTerm = debouncedSearch.trim();
 
-  /** Sentinel rowId used for header-cell matches (column names). */
-  const HEADER_ROW_ID = "__header__";
-
-  /** Flat ordered list of matching cells: header row first, then data rows top→bottom, columns left→right. */
-  const findMatches: FindMatch[] = useMemo(() => {
-    if (!activeSearchTerm) return [];
-    const termLower = activeSearchTerm.toLowerCase();
-    const result: FindMatch[] = [];
-
-    // Header row — match against column names
-    for (const col of visibleColumns) {
-      if (col.name.toLowerCase().includes(termLower)) {
-        result.push({ rowId: HEADER_ROW_ID, columnId: col.id });
-      }
-    }
-
-    // Data rows
-    for (const row of rows) {
-      const cells = (row.cells ?? {}) as Record<string, unknown>;
-      for (const col of visibleColumns) {
-        const val = cells[col.id];
-        const strVal = typeof val === "object" && val !== null ? JSON.stringify(val) : String(val);
-        if (val != null && strVal.toLowerCase().includes(termLower)) {
-          result.push({ rowId: row.id, columnId: col.id });
-        }
-      }
-    }
-    return result;
-  }, [rows, visibleColumns, activeSearchTerm]);
-
-  /** 0-based index into findMatches for the "current" highlighted match. */
-  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  /** 0-based absolute row position in the filtered result set.
+   *  When the user navigates next/prev, this cycles 0 → totalCount-1
+   *  and wraps around, regardless of how many rows are loaded locally. */
+  const [currentMatchPosition, setCurrentMatchPosition] = useState(0);
 
   // Reset to first match when the search term changes
   useEffect(() => {
-    setCurrentMatchIndex(0);
+    setCurrentMatchPosition(0);
   }, [activeSearchTerm]);
 
-  // Clamp index if it goes out of bounds (e.g. rows unloaded while navigating)
+  // Clamp position if totalCount shrinks (e.g. after a delete while searching)
   useEffect(() => {
-    if (findMatches.length > 0) {
-      setCurrentMatchIndex((prev) => (prev >= findMatches.length ? 0 : prev));
+    if (activeSearchTerm && totalCount > 0) {
+      setCurrentMatchPosition((prev) => (prev >= totalCount ? 0 : prev));
     }
-  }, [findMatches.length]);
+  }, [activeSearchTerm, totalCount]);
 
   // Track the last match cell we synced / scrolled to, so we skip duplicate work
   // when the effect re-fires due to referential (but not semantic) dependency changes.
   const prevMatchKeyRef = useRef<string | null>(null);
 
-  // Sync the current match into the Zustand store + scroll into view.
-  // The ref guard ensures we only perform side-effects when the *actual* match cell changes,
-  // preventing spurious scrolls on unrelated re-renders.
+  // Sync current match position → store highlight + scroll into view.
+  // Depends on `jumpCache` (state, not ref) so the effect re-fires when a
+  // windowFetch loads the row we navigated to but wasn't in memory yet.
   useEffect(() => {
-    const match = findMatches[currentMatchIndex] ?? null;
-    const matchKey = match ? `${match.rowId}:${match.columnId}` : null;
+    if (!activeSearchTerm || totalCount === 0) {
+      if (prevMatchKeyRef.current !== null) {
+        prevMatchKeyRef.current = null;
+        setFindCurrentMatch(null);
+      }
+      return;
+    }
 
-    if (matchKey === prevMatchKeyRef.current) return;
-    prevMatchKeyRef.current = matchKey;
+    const position = currentMatchPosition;
+    const row = getRowAtIndex(position);
 
-    // Update store (for per-row GridRow highlighting)
-    setFindCurrentMatch(match);
+    if (!row) {
+      // Row not loaded yet — trigger a windowFetch for this region.
+      // The effect will re-fire when `jumpCache` updates with the new data.
+      triggerJumpFetch(position, true);
+      // Optimistically scroll to the position (shows skeleton, then resolves)
+      scrollCellIntoView(0, position);
+      return;
+    }
 
-    // Scroll into view
-    if (match) {
-      const colIdx = visibleColumns.findIndex((c) => c.id === match.columnId);
-      if (match.rowId === HEADER_ROW_ID) {
-        // Header is sticky — just scroll the column into view horizontally (rowIdx 0)
-        if (colIdx !== -1) scrollCellIntoView(colIdx, 0);
-      } else {
-        const rowIdx = rows.findIndex((r) => r.id === match.rowId);
-        if (rowIdx !== -1 && colIdx !== -1) {
-          scrollCellIntoView(colIdx, rowIdx);
+    // Find the first matching cell in this row for highlighting
+    const termLower = activeSearchTerm.toLowerCase();
+    const cells = (row.cells ?? {}) as Record<string, unknown>;
+    let matchCol: string | null = null;
+    for (const col of visibleColumns) {
+      const val = cells[col.id];
+      if (val != null) {
+        const strVal =
+          typeof val === "object" && val !== null
+            ? JSON.stringify(val)
+            : String(val);
+        if (strVal.toLowerCase().includes(termLower)) {
+          matchCol = col.id;
+          break;
         }
       }
     }
+
+    const matchKey = matchCol ? `${row.id}:${matchCol}` : `${row.id}:__row__`;
+    if (matchKey === prevMatchKeyRef.current) return;
+    prevMatchKeyRef.current = matchKey;
+
+    if (matchCol) {
+      setFindCurrentMatch({ rowId: row.id, columnId: matchCol });
+      const colIdx = visibleColumns.findIndex((c) => c.id === matchCol);
+      if (colIdx !== -1) scrollCellIntoView(colIdx, position);
+    } else {
+      // Row exists but no cell-level match found (edge case — server matched
+      // on searchText which concatenates all values). Scroll to the row anyway.
+      setFindCurrentMatch(null);
+      scrollCellIntoView(0, position);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMatchIndex, findMatches, rows, visibleColumns, setFindCurrentMatch]);
+  }, [currentMatchPosition, activeSearchTerm, totalCount, jumpCache, rows, visibleColumns, getRowAtIndex, triggerJumpFetch, setFindCurrentMatch]);
 
   const handleNextMatch = useCallback(() => {
-    if (findMatches.length === 0) return;
-    setCurrentMatchIndex((prev) => (prev + 1) % findMatches.length);
-  }, [findMatches.length]);
+    if (!activeSearchTerm || totalCount === 0) return;
+    setCurrentMatchPosition((prev) => (prev + 1) % totalCount);
+  }, [activeSearchTerm, totalCount]);
 
   const handlePrevMatch = useCallback(() => {
-    if (findMatches.length === 0) return;
-    setCurrentMatchIndex((prev) => (prev - 1 + findMatches.length) % findMatches.length);
-  }, [findMatches.length]);
+    if (!activeSearchTerm || totalCount === 0) return;
+    setCurrentMatchPosition((prev) => (prev - 1 + totalCount) % totalCount);
+  }, [activeSearchTerm, totalCount]);
 
   // Hide-all / Show-all callbacks for the Hide Fields panel
   const handleHideAllColumns = useCallback(() => {
@@ -714,7 +720,6 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const setRanksComputing = useGridStore((s) => s.setRanksComputing);
   const markSortsSaved = useGridStore((s) => s.markSortsSaved);
   const markSaved = useGridStore((s) => s.markSaved);
-  const searchForSave = useGridStore((s) => s.search);
   const filtersForSave = useGridStore((s) => s.filters);
   const filterConjunctionForSave = useGridStore((s) => s.filterConjunction);
   const filterTreeForSave = useGridStore((s) => s.filterTree);
@@ -785,7 +790,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       sortSaveMut.mutate({
         viewId: activeViewIdFromStore,
         config: {
-          search: searchForSave,
+          search: "",  // Search is ephemeral — never persisted
           filters: filtersForSave,
           filterConjunction: filterConjunctionForSave,
           filterTree: filterTreeForSave,
@@ -800,7 +805,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         },
       });
     }
-  }, [autoSort, setAutoSort, activeViewIdFromStore, sortSaveMut, searchForSave, filtersForSave, filterConjunctionForSave, filterTreeForSave, currentSorts, permanentSorts, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave]);
+  }, [autoSort, setAutoSort, activeViewIdFromStore, sortSaveMut, filtersForSave, filterConjunctionForSave, filterTreeForSave, currentSorts, permanentSorts, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave]);
 
   // Background rank materialization — enables fast O(log N) jumps later.
   const computeRanksMut = api.row.computeViewRanks.useMutation({
@@ -840,7 +845,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     sortSaveMut.mutate({
       viewId: activeViewIdFromStore,
       config: {
-        search: searchForSave,
+        search: "",  // Search is ephemeral — never persisted
         filters: filtersForSave,
         filterConjunction: filterConjunctionForSave,
         filterTree: filterTreeForSave,
@@ -852,7 +857,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         rowOrderIds: rowOrderIdsForSave,
       },
     });
-  }, [activeViewIdFromStore, currentSorts, tableId, searchForSave, filtersForSave, filterConjunctionForSave, filterTreeForSave, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave, setRanksComputing, computeRanksMut, sortSaveMut]);
+  }, [activeViewIdFromStore, currentSorts, tableId, filtersForSave, filterConjunctionForSave, filterTreeForSave, hiddenColumnIds, columnOrderIds, rowOrderIdsForSave, setRanksComputing, computeRanksMut, sortSaveMut]);
 
   // "Cancel" button (autoSort=false): revert staged entries to permanentSorts
   const handleCancelSorts = useCallback(() => {
@@ -874,7 +879,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // autoSort=false → sorts = []           (staging only, not persisted)
   const sortsForConfig = autoSort ? currentSorts : [];
   const latestConfigRef = useRef({
-    search: searchForSave,
+    search: "",  // Search is ephemeral — never persisted to the view config
     filters: filtersForSave,
     filterConjunction: filterConjunctionForSave,
     filterTree: filterTreeForSave,
@@ -888,7 +893,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     wrapHeaders,
   });
   latestConfigRef.current = {
-    search: searchForSave,
+    search: "",  // Search is ephemeral — never persisted to the view config
     filters: filtersForSave,
     filterConjunction: filterConjunctionForSave,
     filterTree: filterTreeForSave,
@@ -3071,8 +3076,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             onToggleAutoSort={handleToggleAutoSort}
             onSaveSorts={handleSaveSorts}
             onCancelSorts={handleCancelSorts}
-            findMatchCount={activeSearchTerm ? totalCount : findMatches.length}
-            findCurrentIndex={currentMatchIndex}
+            findMatchCount={activeSearchTerm ? totalCount : 0}
+            findCurrentIndex={currentMatchPosition}
             isSearchPending={isSearchPending}
             onPrevMatch={handlePrevMatch}
             onNextMatch={handleNextMatch}

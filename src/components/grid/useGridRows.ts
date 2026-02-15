@@ -421,5 +421,9 @@ export function useGridRows(tableId: string) {
      *  Used by GridWorkspace for overlay positioning & keyboard navigation
      *  on rows that live outside the infinite-query page range. */
     jumpCacheRef,
+    /** The jump cache Map state (not just the ref).  Used as a dependency
+     *  in effects that need to re-fire when the cache is populated — e.g.
+     *  Find navigation waiting for a windowFetch to load a distant row. */
+    jumpCache,
   };
 }

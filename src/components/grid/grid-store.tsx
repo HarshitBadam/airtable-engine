@@ -112,10 +112,10 @@ type GridState = {
 };
 
 function fingerprintFromParts(
-  s: Pick<GridState, "search" | "savedFilters" | "savedFilterConjunction" | "savedFilterTree" | "savedSorts" | "autoSort" | "permanentSorts" | "hiddenColumnIds" | "columnOrderIds" | "rowOrderIds">,
+  s: Pick<GridState, "savedFilters" | "savedFilterConjunction" | "savedFilterTree" | "savedSorts" | "autoSort" | "permanentSorts" | "hiddenColumnIds" | "columnOrderIds" | "rowOrderIds">,
 ) {
   return configFingerprint({
-    search: s.search,
+    search: "",  // Search is ephemeral — excluded from dirty tracking
     filters: s.savedFilters,
     filterConjunction: s.savedFilterConjunction,
     filterTree: s.savedFilterTree,
@@ -202,7 +202,7 @@ export function createGridStore(tableId: string) {
         savedFingerprint: fp2,
         fingerprint: fp2,
 
-        search: cfg.search,
+        search: "",  // Search is ephemeral — never restored from saved config
         filters: cfg.filters,
         filterConjunction: cfg.filterConjunction,
         filterTree: cfg.filterTree,
@@ -233,7 +233,7 @@ export function createGridStore(tableId: string) {
       set((s) => ({
         ...s,
         search,
-        fingerprint: fingerprintFromParts({ ...s, search }),
+        // Search is ephemeral — no fingerprint update (doesn't make view "dirty")
       })),
 
     // Filters are always temporary (like autoSort for sorts).
