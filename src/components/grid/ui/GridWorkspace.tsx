@@ -488,8 +488,21 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // Search state for FindBar wiring
   const search = useGridStore((s) => s.search);
   const setFindCurrentMatch = useGridStore((s) => s.setFindCurrentMatch);
-  /** true while debounce timer is pending OR the network query is in-flight */
-  const isSearchPending = search !== debouncedSearch || rowsQ.isFetching;
+
+  // Backend query: count total substring matches across all rows in the table.
+  // Only fires when there's an active (debounced) search term.
+  const activeSearchTermForCount = debouncedSearch.trim();
+  const searchCountQ = api.row.searchMatchCount.useQuery(
+    activeSearchTermForCount
+      ? { tableId, search: activeSearchTermForCount }
+      : skipToken,
+    { staleTime: 10_000, refetchOnWindowFocus: false },
+  );
+  /** Total substring match count across the entire table (from backend). */
+  const serverMatchCount: number = searchCountQ.data?.count ?? 0;
+
+  /** true while debounce timer is pending OR the match-count query is in-flight */
+  const isSearchPending = search !== debouncedSearch || searchCountQ.isFetching;
 
   const hiddenColumnIds = useGridStore((s) => s.hiddenColumnIds);
   const toggleHiddenColumn = useGridStore((s) => s.toggleHiddenColumn);
@@ -542,42 +555,89 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const _table = useGridTable(columns, rows as RowItem[]);
 
   // ================================================================
-  // FIND-IN-VIEW: dataset-aware match navigation
+  // FIND-IN-VIEW: client-side match navigation
   // ================================================================
-  // When search is active, the server filters rows — every row in the
-  // result set IS a match. We navigate by absolute row position in the
-  // filtered result (0 to totalCount-1) so wrapping works across the
-  // full dataset, not just the locally loaded ~1000 rows.
+  // Search is purely client-side — no backend filtering/reordering.
+  // All rows stay in their natural order and matching cells get
+  // highlighted.  We scan loaded rows (infinite query + jump cache)
+  // to build a local match list for navigation.  The total match
+  // count (Y in "X of Y") comes from the backend searchMatchCount
+  // query which counts all substring occurrences across the table.
   // ================================================================
 
   const activeSearchTerm = debouncedSearch.trim();
 
-  /** 0-based absolute row position in the filtered result set.
-   *  When the user navigates next/prev, this cycles 0 → totalCount-1
-   *  and wraps around, regardless of how many rows are loaded locally. */
-  const [currentMatchPosition, setCurrentMatchPosition] = useState(0);
+  /** Build a flat list of match positions from currently loaded rows.
+   *  Each entry is { rowPos, colId } — one per matching cell.
+   *  Sorted by (rowPos, column order) for deterministic navigation. */
+  const localMatches = useMemo(() => {
+    if (!activeSearchTerm) return [];
+    const termLower = activeSearchTerm.toLowerCase();
+    const matches: Array<{ rowPos: number; colId: string }> = [];
 
-  // Reset to first match when the search term changes
+    // 1. Scan infinite-query rows (sequential pages)
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i] as RowItem;
+      if (!row) continue;
+      const cells = (row.cells ?? {}) as Record<string, unknown>;
+      for (const col of visibleColumns) {
+        const val = cells[col.id];
+        if (val != null) {
+          const strVal =
+            typeof val === "object" && val !== null
+              ? JSON.stringify(val)
+              : String(val);
+          if (strVal.toLowerCase().includes(termLower)) {
+            matches.push({ rowPos: i, colId: col.id });
+          }
+        }
+      }
+    }
+
+    // 2. Scan jump cache (rows beyond infinite-query range)
+    const sortedJumpEntries = [...jumpCache.entries()].sort(([a], [b]) => a - b);
+    for (const [pos, row] of sortedJumpEntries) {
+      if (pos < rows.length) continue; // already covered above
+      const cells = (row.cells ?? {}) as Record<string, unknown>;
+      for (const col of visibleColumns) {
+        const val = cells[col.id];
+        if (val != null) {
+          const strVal =
+            typeof val === "object" && val !== null
+              ? JSON.stringify(val)
+              : String(val);
+          if (strVal.toLowerCase().includes(termLower)) {
+            matches.push({ rowPos: pos, colId: col.id });
+          }
+        }
+      }
+    }
+
+    return matches;
+  }, [activeSearchTerm, rows, jumpCache, visibleColumns]);
+
+  /** 0-based index into `localMatches`. */
+  const [currentMatchIdx, setCurrentMatchIdx] = useState(0);
+
+  // Reset when search term changes
   useEffect(() => {
-    setCurrentMatchPosition(0);
+    setCurrentMatchIdx(0);
   }, [activeSearchTerm]);
 
-  // Clamp position if totalCount shrinks (e.g. after a delete while searching)
+  // Clamp if local matches shrink (e.g. after a cell edit removes a match)
   useEffect(() => {
-    if (activeSearchTerm && totalCount > 0) {
-      setCurrentMatchPosition((prev) => (prev >= totalCount ? 0 : prev));
+    if (localMatches.length > 0) {
+      setCurrentMatchIdx((prev) => (prev >= localMatches.length ? 0 : prev));
     }
-  }, [activeSearchTerm, totalCount]);
+  }, [localMatches.length]);
 
   // Track the last match cell we synced / scrolled to, so we skip duplicate work
   // when the effect re-fires due to referential (but not semantic) dependency changes.
   const prevMatchKeyRef = useRef<string | null>(null);
 
-  // Sync current match position → store highlight + scroll into view.
-  // Depends on `jumpCache` (state, not ref) so the effect re-fires when a
-  // windowFetch loads the row we navigated to but wasn't in memory yet.
+  // Sync current match index → store highlight + scroll into view
   useEffect(() => {
-    if (!activeSearchTerm || totalCount === 0) {
+    if (!activeSearchTerm || localMatches.length === 0) {
       if (prevMatchKeyRef.current !== null) {
         prevMatchKeyRef.current = null;
         setFindCurrentMatch(null);
@@ -585,62 +645,31 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       return;
     }
 
-    const position = currentMatchPosition;
-    const row = getRowAtIndex(position);
+    const match = localMatches[currentMatchIdx];
+    if (!match) return;
 
-    if (!row) {
-      // Row not loaded yet — trigger a windowFetch for this region.
-      // The effect will re-fire when `jumpCache` updates with the new data.
-      triggerJumpFetch(position, true);
-      // Optimistically scroll to the position (shows skeleton, then resolves)
-      scrollCellIntoView(0, position);
-      return;
-    }
-
-    // Find the first matching cell in this row for highlighting
-    const termLower = activeSearchTerm.toLowerCase();
-    const cells = (row.cells ?? {}) as Record<string, unknown>;
-    let matchCol: string | null = null;
-    for (const col of visibleColumns) {
-      const val = cells[col.id];
-      if (val != null) {
-        const strVal =
-          typeof val === "object" && val !== null
-            ? JSON.stringify(val)
-            : String(val);
-        if (strVal.toLowerCase().includes(termLower)) {
-          matchCol = col.id;
-          break;
-        }
-      }
-    }
-
-    const matchKey = matchCol ? `${row.id}:${matchCol}` : `${row.id}:__row__`;
+    const matchKey = `${match.rowPos}:${match.colId}`;
     if (matchKey === prevMatchKeyRef.current) return;
     prevMatchKeyRef.current = matchKey;
 
-    if (matchCol) {
-      setFindCurrentMatch({ rowId: row.id, columnId: matchCol });
-      const colIdx = visibleColumns.findIndex((c) => c.id === matchCol);
-      if (colIdx !== -1) scrollCellIntoView(colIdx, position);
-    } else {
-      // Row exists but no cell-level match found (edge case — server matched
-      // on searchText which concatenates all values). Scroll to the row anyway.
-      setFindCurrentMatch(null);
-      scrollCellIntoView(0, position);
+    const row = getRowAtIndex(match.rowPos);
+    if (row) {
+      setFindCurrentMatch({ rowId: row.id, columnId: match.colId });
+      const colIdx = visibleColumns.findIndex((c) => c.id === match.colId);
+      if (colIdx !== -1) scrollCellIntoView(colIdx, match.rowPos);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMatchPosition, activeSearchTerm, totalCount, jumpCache, rows, visibleColumns, getRowAtIndex, triggerJumpFetch, setFindCurrentMatch]);
+  }, [currentMatchIdx, activeSearchTerm, localMatches, visibleColumns, getRowAtIndex, setFindCurrentMatch]);
 
   const handleNextMatch = useCallback(() => {
-    if (!activeSearchTerm || totalCount === 0) return;
-    setCurrentMatchPosition((prev) => (prev + 1) % totalCount);
-  }, [activeSearchTerm, totalCount]);
+    if (!activeSearchTerm || localMatches.length === 0) return;
+    setCurrentMatchIdx((prev) => (prev + 1) % localMatches.length);
+  }, [activeSearchTerm, localMatches.length]);
 
   const handlePrevMatch = useCallback(() => {
-    if (!activeSearchTerm || totalCount === 0) return;
-    setCurrentMatchPosition((prev) => (prev - 1 + totalCount) % totalCount);
-  }, [activeSearchTerm, totalCount]);
+    if (!activeSearchTerm || localMatches.length === 0) return;
+    setCurrentMatchIdx((prev) => (prev - 1 + localMatches.length) % localMatches.length);
+  }, [activeSearchTerm, localMatches.length]);
 
   // Hide-all / Show-all callbacks for the Hide Fields panel
   const handleHideAllColumns = useCallback(() => {
@@ -3076,8 +3105,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             onToggleAutoSort={handleToggleAutoSort}
             onSaveSorts={handleSaveSorts}
             onCancelSorts={handleCancelSorts}
-            findMatchCount={activeSearchTerm ? totalCount : 0}
-            findCurrentIndex={currentMatchPosition}
+            findMatchCount={activeSearchTerm ? serverMatchCount : 0}
+            findCurrentIndex={currentMatchIdx}
             isSearchPending={isSearchPending}
             onPrevMatch={handlePrevMatch}
             onNextMatch={handleNextMatch}

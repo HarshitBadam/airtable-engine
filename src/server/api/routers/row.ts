@@ -1904,4 +1904,45 @@ export const rowRouter = createTRPCRouter({
 
       return { items, totalCount, nextCursor };
     }),
+
+  // =========================================================================
+  // searchMatchCount — count total substring occurrences across all rows
+  // =========================================================================
+  searchMatchCount: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        search: z.string().min(1),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Auth check
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true },
+      });
+      if (!table) return { count: 0 };
+
+      const escaped = escapeLikePattern(input.search);
+      const searchLower = input.search.toLowerCase();
+
+      // Count non-overlapping occurrences of the search term in every row's
+      // searchText.  The formula: for each row, compute how many characters
+      // are removed when we strip all occurrences of the term, then divide
+      // by the term length to get the occurrence count.
+      const result = await ctx.db.$queryRawUnsafe<[{ count: number }]>(
+        `SELECT COALESCE(SUM(
+           (LENGTH("searchText") - LENGTH(REPLACE(LOWER("searchText"), $1, '')))
+           / NULLIF(LENGTH($1), 0)
+         ), 0)::int AS count
+         FROM "Row"
+         WHERE "tableId" = $2
+           AND "searchText" ILIKE $3 ESCAPE '\\'`,
+        searchLower,
+        input.tableId,
+        `%${escaped}%`,
+      );
+
+      return { count: result[0]?.count ?? 0 };
+    }),
 });

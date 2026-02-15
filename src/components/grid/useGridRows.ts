@@ -60,14 +60,15 @@ export function useGridRows(tableId: string) {
     () => ({
       tableId,
       limit: 1000,
-      search: debouncedSearch.trim() ? debouncedSearch.trim() : undefined,
+      // Search is NOT sent to the backend — it's a client-side-only feature
+      // that highlights matching cells without filtering/reordering rows.
       filters: !filterTree && filters.length ? filters : undefined,
       conjunction: !filterTree && filters.length ? filterConjunction : undefined,
       filterTree: filterTree ?? undefined,
       sorts: effectiveSorts.length > 0 ? effectiveSorts : undefined,
       viewId: sendViewId ? (activeViewId ?? undefined) : undefined,
     }),
-    [tableId, debouncedSearch, filters, filterConjunction, filterTree, effectiveSorts, sendViewId, activeViewId],
+    [tableId, filters, filterConjunction, filterTree, effectiveSorts, sendViewId, activeViewId],
   );
 
   // Clear cell selection whenever the actual query parameters change.
@@ -100,8 +101,8 @@ export function useGridRows(tableId: string) {
 
     // Only apply custom row order when:
     // 1. rowOrderIds is non-empty (user has manually reordered)
-    // 2. No sorts or search are active (custom order only applies in natural view)
-    if (rowOrderIds.length === 0 || effectiveSorts.length > 0 || debouncedSearch.trim()) {
+    // 2. No sorts are active (custom order only applies in natural view)
+    if (rowOrderIds.length === 0 || effectiveSorts.length > 0) {
       return flat;
     }
 
@@ -128,7 +129,7 @@ export function useGridRows(tableId: string) {
     }
 
     return ordered;
-  }, [q.data, rowOrderIds, effectiveSorts.length, debouncedSearch]);
+  }, [q.data, rowOrderIds, effectiveSorts.length]);
 
   const totalCount: number = q.data?.pages?.[0]?.totalCount ?? 0;
 
@@ -196,7 +197,7 @@ export function useGridRows(tableId: string) {
           tableId,
           offset: fetchOffset,
           limit: FETCH_LIMIT,
-          search: debouncedSearch.trim() ? debouncedSearch.trim() : undefined,
+          // Search is NOT sent to the backend — client-side only.
           filters: !filterTree && filters.length ? (filters as never) : undefined,
           conjunction: !filterTree && filters.length ? filterConjunction : undefined,
           filterTree: filterTree ? (filterTree as never) : undefined,
@@ -220,7 +221,7 @@ export function useGridRows(tableId: string) {
         console.error("windowFetch error:", err);
       }
     })();
-  }, [tableId, debouncedSearch, filters, filterConjunction, filterTree, effectiveSorts, activeViewId, sendViewId, utils]);
+  }, [tableId, filters, filterConjunction, filterTree, effectiveSorts, activeViewId, sendViewId, utils]);
 
   const triggerJumpFetch = useCallback((offset: number, force = false) => {
     // Already loaded sequentially?
