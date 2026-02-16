@@ -1288,6 +1288,7 @@ export const rowRouter = createTRPCRouter({
       //
       // If any batch fails, we compensate by rolling back the counters
       // to match the number of rows actually inserted, preventing drift.
+
       const INSERT_BATCH = 25_000;
       let insertedCount = 0;
       try {
