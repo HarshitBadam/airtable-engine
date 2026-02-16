@@ -32,13 +32,13 @@ export function useBaseCardActions() {
   });
 
   // Optimistic delete mutation
+  // NOTE: onError does NOT restore — once a user confirms delete, the base
+  // stays removed from the UI.  If the server call fails (e.g. concurrent
+  // delete race), onSettled re-fetches to get the true state.
   const deleteMutation = api.base.delete.useMutation({
     onMutate: async ({ id }) => {
       await utils.base.listMine.cancel();
       await utils.base.listStarred.cancel();
-
-      const previousMine = utils.base.listMine.getData();
-      const previousStarred = utils.base.listStarred.getData();
 
       utils.base.listMine.setData(undefined, (old) =>
         old?.filter((b) => b.id !== id)
@@ -46,16 +46,6 @@ export function useBaseCardActions() {
       utils.base.listStarred.setData(undefined, (old) =>
         old?.filter((b) => b.id !== id)
       );
-
-      return { previousMine, previousStarred };
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousMine) {
-        utils.base.listMine.setData(undefined, context.previousMine);
-      }
-      if (context?.previousStarred) {
-        utils.base.listStarred.setData(undefined, context.previousStarred);
-      }
     },
     onSettled: () => {
       void utils.base.listMine.invalidate();

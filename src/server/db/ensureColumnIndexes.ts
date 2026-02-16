@@ -1,0 +1,125 @@
+/**
+ * Guarantee that a sort B-tree index exists for a column.
+ *
+ * INDEX STRATEGY — 1 index per column (down from 3):
+ *
+ *   Index:  (expr ASC NULLS FIRST, "rowIndex" ASC) WHERE "tableId" = '...'
+ *
+ *   Forward scan  → ORDER BY expr ASC  NULLS FIRST, "rowIndex" ASC  (ASC sort)
+ *   Backward scan → ORDER BY expr DESC NULLS LAST,  "rowIndex" DESC (DESC sort)
+ *
+ *   This works because ASC NULLS FIRST and DESC NULLS LAST are exact
+ *   reverses — null = -infinity: smallest in ASC (first), largest gap
+ *   from the top in DESC (last).
+ *
+ * Called from:
+ *   - row.infinite        → ensureSortIndex (on-demand before sorted query)
+ *   - row.windowFetch     → ensureSortIndex (on-demand before sorted jump)
+ *   - column.ensureIndexes → ensureSortIndex (explicit index build)
+ *
+ * Fast path (<1ms) when index already exists (pg_indexes sentinel check).
+ * Slow path (~2-3s on 400K rows) creates the index on first call.
+ *
+ * Race-safe: concurrent callers that both enter the slow path will not
+ * crash — Postgres 23505 (duplicate key on pg_catalog) is caught and
+ * ignored since it means another connection already created the index.
+ */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PrismaClient = any;
+
+function isIndexRaceError(e: unknown): boolean {
+  if (typeof e === "object" && e !== null && "message" in e) {
+    const msg = (e as { message: string }).message;
+    return msg.includes("23505") && msg.includes("already exists");
+  }
+  return false;
+}
+
+async function safeCreateIndex(db: PrismaClient, sql: string): Promise<void> {
+  try {
+    await db.$executeRawUnsafe(sql);
+  } catch (e) {
+    if (isIndexRaceError(e)) return; // another connection created it first
+    throw e;
+  }
+}
+
+/**
+ * Drop all per-column indexes for a table.
+ * Used during table/base deletion to prevent orphan indexes.
+ */
+export async function dropColumnIndexesForTable(
+  db: PrismaClient,
+  tableId: string,
+): Promise<void> {
+  const prefix = `ri_${tableId.slice(0, 8)}_`;
+  const indexes = (await db.$queryRawUnsafe(
+    `SELECT indexname FROM pg_indexes WHERE tablename = 'Row' AND indexname LIKE $1`,
+    `${prefix}%`,
+  )) as { indexname: string }[];
+
+  for (const idx of indexes) {
+    await db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${idx.indexname}"`);
+  }
+}
+
+/**
+ * Build the single B-tree sort index for a column.
+ * ~2-3s on 400K rows.  Direction-agnostic: one ASC NULLS FIRST index
+ * serves both ASC (forward scan) and DESC (backward scan) queries.
+ *
+ * Called from the sort safety net in infinite/windowFetch queries.
+ */
+export async function ensureSortIndex(
+  db: PrismaClient,
+  tableId: string,
+  columnId: string,
+  columnType: "TEXT" | "NUMBER",
+): Promise<void> {
+  const baseName = `ri_${tableId.slice(0, 8)}_${columnId}`;
+  const tId = tableId.replace(/'/g, "''");
+  const cId = columnId.replace(/'/g, "''");
+
+  const suffix = columnType === "TEXT" ? "_s" : "_ns";
+  const indexName = `${baseName}${suffix}`;
+
+  // Fast path: check if this specific index already exists (~0.5ms)
+  const existing = (await db.$queryRawUnsafe(
+    `SELECT COUNT(*)::int AS cnt FROM pg_indexes WHERE indexname = $1`,
+    indexName,
+  )) as { cnt: number }[];
+  if ((existing[0]?.cnt ?? 0) > 0) return;
+
+  // Slow path: build the single index (~2-3s on 400K rows)
+  if (columnType === "TEXT") {
+    await safeCreateIndex(
+      db,
+      `CREATE INDEX IF NOT EXISTS "${indexName}"
+       ON "Row" ((NULLIF(cells->>'${cId}','')) ASC NULLS FIRST, "rowIndex" ASC)
+       INCLUDE ("id")
+       WHERE "tableId" = '${tId}'`,
+    );
+  } else {
+    await safeCreateIndex(
+      db,
+      `CREATE INDEX IF NOT EXISTS "${indexName}"
+       ON "Row" ((NULLIF(cells->>'${cId}','')::double precision) ASC NULLS FIRST, "rowIndex" ASC)
+       INCLUDE ("id")
+       WHERE "tableId" = '${tId}'`,
+    );
+  }
+}
+
+/**
+ * Alias for ensureSortIndex — builds the single sort index for a column.
+ * Used during column creation.
+ */
+export async function ensureColumnIndexes(
+  db: PrismaClient,
+  tableId: string,
+  columnId: string,
+  columnType: "TEXT" | "NUMBER",
+): Promise<void> {
+  await ensureSortIndex(db, tableId, columnId, columnType);
+}

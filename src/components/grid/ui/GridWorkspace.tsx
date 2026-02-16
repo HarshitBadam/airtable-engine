@@ -30,11 +30,12 @@ import {
 import { useGridRows } from "~/components/grid/useGridRows";
 import type { RowItem } from "~/components/grid/useGridRows";
 import { useCellEditing } from "~/components/grid/useCellEditing";
-import { useGridStore } from "~/components/grid/grid-store";
+import { useGridStore, useGridStoreApi } from "~/components/grid/grid-store";
 import { useGridTable } from "~/components/grid/useGridTable";
 import { normalizeViewConfig } from "~/shared/grid";
 import { reconcileColumnOrder } from "~/components/grid/useGridMeta";
 import type { NumberFormatConfig } from "~/shared/numberUtils";
+import { reorderRowInCache } from "~/components/grid/sortReorder";
 
 import {
   AirtableLogoMonochrome,
@@ -155,6 +156,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     [tablesQuery.data],
   );
   const activeTableId = tableId; // always driven by the URL
+  const gridStoreApi = useGridStoreApi();
   
   // Table rename popup state
   const [isRenamePopupOpen, setIsRenamePopupOpen] = useState(false);
@@ -436,7 +438,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     rows, totalCount, q: rowsQ, input: rowQueryInput, debouncedSearch,
     getRowAtIndex, getRowById, triggerJumpFetch,
     clearJumpCache, updateJumpCacheRow, addToJumpCache, insertIntoJumpCache,
-    removeByIdNoShift, removeFromJumpCache, doJumpFetch,
+    removeFromJumpCache,
     jumpCacheRef, jumpCache,
   } = useGridRows(tableId);
   rowsRef.current = rows;
@@ -483,7 +485,73 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     });
   }, [utils, rowQueryInput, triggerJumpFetch]);
 
-  const { commit, cancel } = useCellEditing(tableId, rowQueryInput, updateJumpCacheRow);
+  // ── Targeted refresh after a cell edit changes sort/filter membership ──
+  //
+  // Two strategies depending on where the row lives:
+  //
+  //  A) Infinite query pages (rows 0..~999):
+  //     Use `reorderRowInCache` for instant client-side repositioning.
+  //     The row moves to its correct sorted position via binary search
+  //     — no server round-trip needed.  Three outcomes:
+  //       "moved"   → row repositioned within loaded pages
+  //       "evicted" → row sorts beyond loaded pages (removed from view)
+  //       "skipped" → row not in pages (handled by strategy B)
+  //
+  //  B) Jump cache (rows beyond infinite pages):
+  //     Do NOT remove the entry (avoids skeleton flash).  Instead, force
+  //     a jump fetch that overwrites stale cache entries with fresh server
+  //     data.  The old entry acts as a natural placeholder until the fetch
+  //     completes — no gap, no skeleton.
+  //
+  //  Both paths fire a background `invalidate()` so the server confirms
+  //  the final state.  React Query deduplicates rapid calls, so multiple
+  //  edits don't stack up redundant refetches.
+  const handleCellMembershipChange = useCallback((rowId: string) => {
+    // ── Determine effective sorts (mirrors useGridRows logic) ──
+    // Read from store at call time (not render time) to avoid stale closures
+    // and dependency ordering issues within the component.
+    const store = gridStoreApi.getState();
+    const effectiveSorts = (store.autoSort && store.sorts.length > 0)
+      ? store.sorts
+      : store.permanentSorts;
+
+    // ── Strategy A: Client-side reorder for rows in infinite pages ──
+    if (effectiveSorts.length > 0) {
+      const colTypes = new Map(
+        columnsRef.current.map((c) => [c.id, c.type as "TEXT" | "NUMBER"]),
+      );
+      const sorts = effectiveSorts.map((s: { columnId: string; direction: "asc" | "desc" }) => ({
+        columnId: s.columnId,
+        direction: s.direction,
+      }));
+
+      utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
+        if (!old) return old;
+        const { data: reordered } = reorderRowInCache(old, rowId, sorts, colTypes);
+        return reordered as typeof old;
+      });
+    }
+
+    // ── Background server confirmation ──
+    // Runs the authoritative ORDER BY on the server.  The client-side
+    // reorder is near-perfect but the server corrects tie-breakers and
+    // edge cases.  The user doesn't wait for this.
+    void utils.row.infinite.invalidate(rowQueryInput);
+
+    // ── Strategy B: Overwrite stale jump cache entries ──
+    // Force a windowFetch for the current scroll position.  The old data
+    // stays visible as a placeholder (no skeleton) until fresh data arrives.
+    requestAnimationFrame(() => {
+      const scroller = gridScrollerRef.current;
+      if (!scroller) return;
+      const approxOffset = Math.floor(scroller.scrollTop / dataRowHeightRef.current);
+      if (approxOffset > 0) {
+        triggerJumpFetch(approxOffset, true);
+      }
+    });
+  }, [gridStoreApi, utils, rowQueryInput, triggerJumpFetch]);
+
+  const { commit, cancel } = useCellEditing(tableId, rowQueryInput, updateJumpCacheRow, handleCellMembershipChange);
 
   // Search state for FindBar wiring
   const search = useGridStore((s) => s.search);
@@ -796,6 +864,48 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Scroll to top when sort/filter params change ──
+  // When the query changes (filters added/removed, sort applied/changed),
+  // the row at position 0 is different — scroll to top so the user sees
+  // the first results immediately instead of stale data mid-table.
+  //
+  // IMPORTANT: View switches also change rowQueryInput (because viewId is
+  // in the input).  Those are handled above (save/restore per-view scroll
+  // with double-rAF).  If we scroll to top on a view switch, it fires on
+  // single-rAF and the virtualizer sees scrollTop=0 for one frame, triggering
+  // a useless jump fetch at position 0 and a visible flicker.  Guard by
+  // comparing the viewId: if it changed, this is a view switch — skip.
+  const prevInputKeyRef = useRef<string>("");
+  const prevInputViewIdRef = useRef<string | undefined>(rowQueryInput.viewId);
+  useEffect(() => {
+    const key = JSON.stringify(rowQueryInput);
+    const currentViewId = rowQueryInput.viewId;
+
+    // Skip initial mount (no previous key yet)
+    if (!prevInputKeyRef.current) {
+      prevInputKeyRef.current = key;
+      prevInputViewIdRef.current = currentViewId;
+      return;
+    }
+    // Nothing changed
+    if (key === prevInputKeyRef.current) return;
+
+    const isViewSwitch = currentViewId !== prevInputViewIdRef.current;
+    prevInputKeyRef.current = key;
+    prevInputViewIdRef.current = currentViewId;
+
+    // View switch → handled by the per-view scroll restore above
+    if (isViewSwitch) return;
+
+    // Sort/filter change within the same view → scroll to top
+    const scroller = gridScrollerRef.current;
+    if (scroller) {
+      requestAnimationFrame(() => {
+        scroller.scrollTop = 0;
+      });
+    }
+  }, [rowQueryInput]);
 
   // Visual indicators: ONLY when autoSort=true AND there are live sorts
   const effectiveSortCount = autoSort ? currentSorts.length : 0;
@@ -2409,9 +2519,28 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');
           });
         }
+
+        // ── Background invalidation for sorted views ──
+        // If sorts are active, the empty row may sort to a different position
+        // once the user finishes editing.  Background invalidation corrects it
+        // after React Query deduplicates.  The cell edit's onSuccess also
+        // triggers handleCellMembershipChange, but this covers the case where
+        // the user clicks away without editing.
+        const storeState = gridStoreApi.getState();
+        const hasSorts = (storeState.autoSort && storeState.sorts.length > 0) ||
+          (!storeState.autoSort && storeState.permanentSorts.length > 0);
+        if (hasSorts) {
+          void utils.row.infinite.invalidate(rowQueryInput);
+          requestAnimationFrame(() => {
+            const scroller = gridScrollerRef.current;
+            if (!scroller) return;
+            const approxOffset = Math.floor(scroller.scrollTop / dataRowHeightRef.current);
+            if (approxOffset > 0) triggerJumpFetch(approxOffset, true);
+          });
+        }
       },
     });
-  }, [isValidTable, tableId, insertAtMut, setActiveCell, startEditing, getRowById, utils, rowQueryInput, insertIntoJumpCache]);
+  }, [isValidTable, tableId, insertAtMut, setActiveCell, startEditing, getRowById, utils, rowQueryInput, insertIntoJumpCache, triggerJumpFetch, gridStoreApi]);
 
   const handleInsertRecordAbove = useCallback(
     (rowId: string) => handleInsertAt(rowId, "above"),

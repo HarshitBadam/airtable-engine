@@ -2,6 +2,7 @@ import { z } from "zod";
 import { faker } from "@faker-js/faker";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import type { ViewConfig } from "../types/view";
+import { dropColumnIndexesForTable, ensureSortIndex } from "~/server/db/ensureColumnIndexes";
 
 const STATUSES = ["Todo", "In progress", "In review", "Done", "Blocked"] as const;
 
@@ -121,6 +122,14 @@ export const tableRouter = createTRPCRouter({
         return { table, view, columns: cols };
       });
 
+      // Build sort indexes for all 5 seed columns (outside transaction).
+      // On 25 rows this is <50ms total — sorts work instantly from the start.
+      await Promise.all(
+        result.columns.map((c) =>
+          ensureSortIndex(ctx.db, result.table.id, c.id, c.type as "TEXT" | "NUMBER"),
+        ),
+      );
+
       return result;
     }),
 
@@ -149,6 +158,10 @@ export const tableRouter = createTRPCRouter({
         select: { id: true },
       });
       if (!base) throw new Error("Base not found");
+
+      // Drop custom column indexes before deleting the table's rows.
+      // Without this, orphan partial B-tree indexes accumulate in pg_catalog.
+      await dropColumnIndexesForTable(ctx.db, input.id).catch(() => {});
 
       // Ensure at least one table remains — check + delete in one transaction
       // to avoid a race where two concurrent deletes both pass the count check.

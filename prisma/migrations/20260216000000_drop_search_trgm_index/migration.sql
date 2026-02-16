@@ -1,6 +1,28 @@
--- Drop the GIN trigram index on Row.searchText.
--- The index speeds up ILIKE searches but makes bulk inserts (100K+ rows)
--- 4-6x slower due to per-row trigram decomposition overhead.
--- ILIKE still works without the index (sequential scan); the trade-off
--- strongly favours fast writes for our workload.
+-- Remove ALL GIN trigram indexes from the Row table.
+--
+-- The global searchText trigram index speeds up ILIKE substring search but
+-- makes bulk inserts (100K+ rows) 4-6x slower due to per-row trigram
+-- decomposition overhead.  Per-column _tg indexes have the same problem.
+--
+-- ILIKE still works without these indexes (sequential scan ~300-600ms at
+-- 1M rows).  The trade-off strongly favours fast writes for our workload.
+
+-- 1) Global searchText trigram index
 DROP INDEX IF EXISTS "Row_searchText_trgm_idx";
+
+-- 2) Per-column trigram indexes (dynamically created by column.ts)
+--    These follow the naming pattern: r_<tableId8>_<colId8>_tg
+--    and the older pattern: r_<tableId8>_<colId8>_t_g
+DO $$
+DECLARE
+  idx RECORD;
+BEGIN
+  FOR idx IN
+    SELECT indexname FROM pg_indexes
+    WHERE tablename = 'Row'
+      AND (indexname LIKE 'r_%\_tg' OR indexname LIKE 'r_%\_t\_g')
+  LOOP
+    EXECUTE format('DROP INDEX IF EXISTS %I', idx.indexname);
+  END LOOP;
+END;
+$$;

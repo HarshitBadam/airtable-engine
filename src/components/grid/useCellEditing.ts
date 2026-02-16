@@ -27,6 +27,11 @@ export function useCellEditing(
   rowQueryInput: RowInfiniteInput,
   /** Optimistically update a row in the jump cache (for rows beyond infinite scroll range). */
   updateJumpCacheRow?: (rowId: string, updater: (row: RowItem) => RowItem) => void,
+  /** Called when a cell edit may have changed the row's position (sort) or
+   *  membership (filter) in the current result set.  Receives the edited row's
+   *  ID so the caller can do a *targeted* cache update (remove just that row)
+   *  instead of nuking the entire jump cache. */
+  onMembershipChange?: (rowId: string) => void,
 ) {
   const editingCell = useGridStore((s) => s.editingCell);
   const editorValue = useGridStore((s) => s.editorValue);
@@ -34,8 +39,10 @@ export function useCellEditing(
 
   const search = useGridStore((s) => s.search);
   const filters = useGridStore((s) => s.filters);
+  const filterTree = useGridStore((s) => s.filterTree);
   const autoSort = useGridStore((s) => s.autoSort);
   const sorts = useGridStore((s) => s.sorts);
+  const permanentSorts = useGridStore((s) => s.permanentSorts);
 
   const utils = api.useUtils();
 
@@ -98,14 +105,24 @@ export function useCellEditing(
       // refreshed on next scroll or page navigation.
     },
 
-    onSuccess: async () => {
-      // When autoSort=false, sorts are staged (not driving the query) and
-      // the rank is frozen — cell edits never move the row.  Only check
-      // sorts that actually drive the query (autoSort=true + sorts exist).
+    onSuccess: (_data, vars) => {
+      // Detect whether the edit could change which rows are visible or
+      // where they appear.  We must check:
+      //   - search (client-side, but affects highlight counts)
+      //   - filters / filterTree (server-side row membership)
+      //   - live sorts (autoSort + sorts → row position changes)
+      //   - permanent sorts (autoSort=false + permanentSorts → row position)
       const liveSortsActive = autoSort && sorts.length > 0;
-      const affectsMembership = !!search.trim() || filters.length > 0 || liveSortsActive;
+      const permSortsActive = !autoSort && permanentSorts.length > 0;
+      const hasFilters = filters.length > 0 || !!filterTree;
+      const affectsMembership = !!search.trim() || hasFilters || liveSortsActive || permSortsActive;
       if (affectsMembership) {
-        await utils.row.infinite.invalidate(rowQueryInput);
+        // Targeted: remove only the edited row from the jump cache,
+        // then invalidate the infinite query.  This avoids nuking the
+        // entire cache (which causes skeleton flash + rebuild storm for
+        // all ~15K cached positions) while still removing the stale
+        // entry that would otherwise cause duplicates or ghost rows.
+        onMembershipChange?.(vars.rowId);
       }
     },
   });

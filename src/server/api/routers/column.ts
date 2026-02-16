@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { ensureSortIndex } from "~/server/db/ensureColumnIndexes";
 
 /* ── Helper: remove a deleted column from a filterTree ────────────── */
 type FilterTreeNode = { kind?: string; columnId?: string; items?: FilterTreeNode[]; [key: string]: unknown };
@@ -153,6 +154,11 @@ export const columnRouter = createTRPCRouter({
       // Backfill is NOT done here — the client fires column.backfill
       // as a separate mutation after receiving the column.  This makes
       // column creation sub-200ms instead of 10-30s.
+
+      // Index creation is NOT done here either.  Building a B-tree on
+      // 1M rows of NULL values would take ~5-10s for zero benefit.
+      // The on-demand ensureSortIndex in infinite/windowFetch builds the
+      // index if/when the user actually sorts on this column.
 
       return col;
     }),
@@ -541,109 +547,15 @@ export const columnRouter = createTRPCRouter({
       });
       if (!col) throw new Error("Column not found");
 
-      const tableId = input.tableId.replace(/'/g, "''");
-      const colId = input.columnId.replace(/'/g, "''");
-
-      // ── Index naming: must be unique per (table, column) pair ──
-      // Uses the full column ID in the name (total ≤ 50 chars, well under
-      // Postgres's 63-char identifier limit).
-      const baseName = `ri_${input.tableId.slice(0, 8)}_${input.columnId}`;
-
-      // ── Fast path: check if indexes already exist ──
-      // The first `ensureIndexes` call for a column creates indexes (~13s each
-      // on 1M rows).  Subsequent calls should return instantly.  We check for
-      // the filter index (_f) as a sentinel — if it exists, all indexes for
-      // this column were already created.
-      const existing = await ctx.db.$queryRawUnsafe<{ cnt: number }[]>(
-        `SELECT COUNT(*)::int AS cnt FROM pg_indexes WHERE indexname = $1`,
-        `${baseName}_f`,
+      // Delegates to the shared ensureSortIndex which builds a single
+      // ASC NULLS FIRST index (serving both ASC and DESC via backward scan).
+      // Fast path (<1ms) when the index already exists.
+      await ensureSortIndex(
+        ctx.db,
+        input.tableId,
+        input.columnId,
+        col.type as "TEXT" | "NUMBER",
       );
-      const alreadyIndexed = (existing[0]?.cnt ?? 0) > 0;
-
-      if (alreadyIndexed) {
-        // Indexes exist — just pre-warm and return (fast: ~100-500ms)
-        try {
-          const warmIdx = col.type === "TEXT" ? ["_tb", "_td"] : ["_nb", "_nd"];
-          for (const suffix of [...warmIdx, "_f"]) {
-            await ctx.db.$executeRawUnsafe(`SELECT pg_prewarm('"${baseName}${suffix}"');`);
-          }
-        } catch {
-          // pg_prewarm extension not available — skip silently
-        }
-        return { ok: true };
-      }
-
-      // ── Slow path: first-time index creation ──
-
-      // Clean up old colliding indexes that used the short (broken) naming
-      const oldBaseName = `r_${input.tableId.slice(0, 8)}_${input.columnId.slice(0, 8)}`;
-      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_f";`);
-      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_f2";`);
-      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_t_b";`);
-      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_t_bd";`);
-      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_t_b2";`);
-      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_t_bd2";`);
-      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_t_g";`);
-      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_n_b";`);
-      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_n_bd";`);
-      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_n_b2";`);
-      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_n_bd2";`);
-
-      // ── Filter index ──
-      await ctx.db.$executeRawUnsafe(`
-        CREATE INDEX IF NOT EXISTS "${baseName}_f"
-        ON "Row" ((cells->>'${colId}'), "rowIndex")
-        INCLUDE ("id")
-        WHERE "tableId" = '${tableId}';
-      `);
-
-      if (col.type === "TEXT") {
-        // Covering sort indexes (both directions)
-        await ctx.db.$executeRawUnsafe(`
-          CREATE INDEX IF NOT EXISTS "${baseName}_tb"
-          ON "Row" ((NULLIF(cells->>'${colId}','')) ASC NULLS LAST, "rowIndex" ASC)
-          INCLUDE ("id")
-          WHERE "tableId" = '${tableId}';
-        `);
-        await ctx.db.$executeRawUnsafe(`
-          CREATE INDEX IF NOT EXISTS "${baseName}_td"
-          ON "Row" ((NULLIF(cells->>'${colId}','')) DESC NULLS LAST, "rowIndex" ASC)
-          INCLUDE ("id")
-          WHERE "tableId" = '${tableId}';
-        `);
-
-        // Trigram index for ILIKE contains/search queries
-        await ctx.db.$executeRawUnsafe(`
-          CREATE INDEX IF NOT EXISTS "${baseName}_tg"
-          ON "Row"
-          USING GIN ((cells->>'${colId}') gin_trgm_ops)
-          WHERE "tableId" = '${tableId}';
-        `);
-      } else {
-        // Covering sort indexes for NUMBER columns (both directions)
-        await ctx.db.$executeRawUnsafe(`
-          CREATE INDEX IF NOT EXISTS "${baseName}_nb"
-          ON "Row" ((NULLIF(cells->>'${colId}','')::double precision) ASC NULLS LAST, "rowIndex" ASC)
-          INCLUDE ("id")
-          WHERE "tableId" = '${tableId}';
-        `);
-        await ctx.db.$executeRawUnsafe(`
-          CREATE INDEX IF NOT EXISTS "${baseName}_nd"
-          ON "Row" ((NULLIF(cells->>'${colId}','')::double precision) DESC NULLS LAST, "rowIndex" ASC)
-          INCLUDE ("id")
-          WHERE "tableId" = '${tableId}';
-        `);
-      }
-
-      // ── Pre-warm newly created indexes into shared_buffers ──
-      try {
-        const warmIdx = col.type === "TEXT" ? ["_tb", "_td"] : ["_nb", "_nd"];
-        for (const suffix of [...warmIdx, "_f"]) {
-          await ctx.db.$executeRawUnsafe(`SELECT pg_prewarm('"${baseName}${suffix}"');`);
-        }
-      } catch {
-        // pg_prewarm extension not available — skip silently
-      }
 
       return { ok: true };
     }),

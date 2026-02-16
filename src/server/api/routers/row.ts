@@ -1,6 +1,7 @@
 // src/server/api/routers/row.ts
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { ensureSortIndex } from "~/server/db/ensureColumnIndexes";
 import {
   filterTreeSchema,
   type FilterTreeItem,
@@ -417,10 +418,16 @@ function getSortExpr(sort: SortInput): string {
 
 /**
  * Build the ORDER BY clause for multiple sorts.
- * Always uses NULLS LAST (for both ASC and DESC) with a stable rowIndex tiebreaker.
  *
- * For NULLS LAST with any direction, the null-rank is always `ASC`:
- *   (expr IS NULL) ASC   →   false(0) before true(1)   →   non-null first
+ * NULL / empty = -infinity (Airtable convention):
+ *   ASC  → NULLS FIRST  (smallest value, appears first)
+ *   DESC → NULLS LAST   (smallest value, sinks to end)
+ *
+ * The rowIndex tiebreaker matches the FIRST sort's direction so Postgres
+ * can serve both ASC and DESC from a single index via forward/backward scan:
+ *   Index:  (expr ASC NULLS FIRST, "rowIndex" ASC)
+ *   ASC  → forward scan  → expr ASC  NULLS FIRST, rowIndex ASC   ✓
+ *   DESC → backward scan → expr DESC NULLS LAST,  rowIndex DESC  ✓
  */
 function buildMultiSortOrderBy(sorts: SortInput[]): string {
   if (sorts.length === 0) return `"Row"."rowIndex" ASC`;
@@ -429,15 +436,13 @@ function buildMultiSortOrderBy(sorts: SortInput[]): string {
 
   for (const sort of sorts) {
     const sortExpr = getSortExpr(sort);
-    // Use native NULLS LAST instead of the old `(expr IS NULL) ASC` trick.
-    // Semantically identical but Postgres can now match the ORDER BY to a
-    // B-tree index with the correct direction, enabling index-ordered scans
-    // instead of a full sort of the result set.
-    parts.push(`${sortExpr} ${sort.direction.toUpperCase()} NULLS LAST`);
+    const nulls = sort.direction === "asc" ? "NULLS FIRST" : "NULLS LAST";
+    parts.push(`${sortExpr} ${sort.direction.toUpperCase()} ${nulls}`);
   }
 
-  // Stable tie-breaker
-  parts.push(`"Row"."rowIndex" ASC`);
+  // Stable tie-breaker — direction matches first sort for index compatibility
+  const rowIndexDir = sorts[0]!.direction === "desc" ? "DESC" : "ASC";
+  parts.push(`"Row"."rowIndex" ${rowIndexDir}`);
 
   return parts.join(", ");
 }
@@ -449,20 +454,17 @@ function buildMultiSortOrderBy(sorts: SortInput[]): string {
 /**
  * Build a lexicographic keyset cursor predicate for multi-sort pagination.
  *
- * The predicate is an OR of AND clauses:
- *   (after_by_field_0)
- *   OR (eq_0 AND after_by_field_1)
- *   OR (eq_0 AND eq_1 AND after_by_field_2)
- *   ...
- *   OR (eq_0 AND eq_1 AND ... AND eq_N-1 AND rowIndex > cursor.rowIndex)
+ * NULL = -infinity (Airtable convention):
+ *   ASC  NULLS FIRST → null is the smallest, appears first
+ *   DESC NULLS LAST  → null is the smallest, sinks to end
  *
- * Where:
- *   eq_i      = expr_i IS NOT DISTINCT FROM cursor_i
- *   after_i   = depends on direction + NULLS LAST semantics:
- *     - if cursor_i is null: FALSE (nothing after null w/ NULLS LAST) → skip branch
- *     - if cursor_i is non-null:
- *         ASC:  (expr_i IS NULL) OR (expr_i > cursor_i)
- *         DESC: (expr_i IS NULL) OR (expr_i < cursor_i)
+ * "After cursor" logic per dimension:
+ *   ASC  NULLS FIRST, cursorVal=null:     (expr IS NOT NULL)  — everything comes after null
+ *   ASC  NULLS FIRST, cursorVal=non-null: (expr > cursorVal)  — null is before, not after
+ *   DESC NULLS LAST,  cursorVal=null:     skip branch         — nothing after null (it's last)
+ *   DESC NULLS LAST,  cursorVal=non-null: (expr < cursorVal) OR (expr IS NULL)  — null is after
+ *
+ * rowIndex tiebreaker matches first sort direction (ASC→>, DESC→<).
  */
 function buildMultiSortCursorSql(
   sorts: SortInput[],
@@ -471,24 +473,13 @@ function buildMultiSortCursorSql(
 ): string {
   // ── INDEX-COND-FRIENDLY KEYSET CURSOR ──
   //
-  // The lexicographic "after cursor" predicate is an OR of AND clauses:
-  //   (after_by_dim0)
-  //   OR (eq_dim0 AND after_by_dim1)
-  //   OR (eq_dim0 AND eq_dim1 AND after_by_rowIndex)
-  //
   // Postgres CANNOT use an OR predicate as an Index Cond on a B-tree.
-  // It falls back to a full index scan + post-filter — O(N) heap fetches.
-  //
-  // FIX: We emit the OR predicate for correctness, but ALSO prepend a
-  // simple range bound on the FIRST sort key:
-  //   expr <= cursorVal  (for DESC)   or   expr >= cursorVal  (for ASC)
-  //
-  // This bound IS usable as an Index Cond.  Postgres seeks directly to the
-  // cursor position in the B-tree and scans forward, applying the OR as a
-  // lightweight Filter on a much smaller set of entries (only those at the
-  // exact cursor sort value need filtering; all entries beyond are kept).
-  //
+  // We emit the OR predicate for correctness, but ALSO prepend a simple
+  // range bound on the FIRST sort key that IS usable as an Index Cond.
   // Result: 500K-offset jump goes from 53s → 2-3s.
+
+  // rowIndex tiebreaker direction matches the first sort
+  const rowIndexOp = sorts.length > 0 && sorts[0]!.direction === "desc" ? "<" : ">";
 
   const orClauses: string[] = [];
 
@@ -516,17 +507,28 @@ function buildMultiSortCursorSql(
       const cursorVal = cursor.sortValues[level] ?? null;
 
       if (cursorVal === null) {
-        // Nothing is after null with NULLS LAST → skip this OR branch
-        continue;
+        if (sort.direction === "asc") {
+          // ASC NULLS FIRST: everything non-null comes after null
+          andParts.push(`(${sortExpr} IS NOT NULL)`);
+        } else {
+          // DESC NULLS LAST: nothing comes after null (it's last) → skip
+          continue;
+        }
+      } else {
+        if (sort.direction === "asc") {
+          // ASC NULLS FIRST: null is before non-null, only greater values come after
+          params.push(cursorVal);
+          andParts.push(`(${sortExpr} > $${params.length})`);
+        } else {
+          // DESC NULLS LAST: null is after non-null (at end), so lesser OR null come after
+          params.push(cursorVal);
+          andParts.push(`(${sortExpr} IS NULL OR ${sortExpr} < $${params.length})`);
+        }
       }
-
-      const comp = sort.direction === "asc" ? ">" : "<";
-      params.push(cursorVal);
-      andParts.push(`(${sortExpr} ${comp} $${params.length})`);
     } else {
-      // Final tie-break: all sort keys equal AND rowIndex > cursor.rowIndex
+      // Final tie-break: all sort keys equal, advance by rowIndex
       params.push(cursor.rowIndex);
-      andParts.push(`("Row"."rowIndex" > $${params.length})`);
+      andParts.push(`("Row"."rowIndex" ${rowIndexOp} $${params.length})`);
     }
 
     if (andParts.length > 0) {
@@ -536,25 +538,25 @@ function buildMultiSortCursorSql(
 
   if (orClauses.length === 0) {
     params.push(cursor.rowIndex);
-    return ` AND "Row"."rowIndex" > $${params.length}`;
+    return ` AND "Row"."rowIndex" ${rowIndexOp} $${params.length}`;
   }
 
   // ── Prepend a simple range bound on the FIRST sort key ──
-  // This is the crucial optimisation: a single <= or >= comparison on the
-  // leading index column that Postgres CAN push as an Index Cond.
-  //
-  // For DESC: expr <= cursorVal  (includes cursorVal; the OR handles tie-break)
-  // For ASC:  expr >= cursorVal
-  //
-  // Only emitted when the first cursor value is non-null.
+  // For ASC:  expr >= cursorVal  (seek forward in index)
+  // For DESC: expr <= cursorVal OR expr IS NULL  (NULL is after non-null in DESC NULLS LAST)
   const firstCursorVal = cursor.sortValues[0] ?? null;
   let indexCondHint = "";
   if (firstCursorVal !== null && sorts.length > 0) {
     const firstSort = sorts[0]!;
     const firstExpr = getSortExpr(firstSort);
-    const boundOp = firstSort.direction === "asc" ? ">=" : "<=";
-    params.push(firstCursorVal);
-    indexCondHint = ` AND ${firstExpr} ${boundOp} $${params.length}`;
+    if (firstSort.direction === "asc") {
+      params.push(firstCursorVal);
+      indexCondHint = ` AND ${firstExpr} >= $${params.length}`;
+    } else {
+      // Include NULLs: in DESC NULLS LAST they come after non-null values
+      params.push(firstCursorVal);
+      indexCondHint = ` AND (${firstExpr} <= $${params.length} OR ${firstExpr} IS NULL)`;
+    }
   }
 
   return `${indexCondHint} AND (\n      ${orClauses.join("\n      OR ")}\n    )`;
@@ -610,10 +612,12 @@ function buildSortOrderByForAlias(sorts: SortInput[], alias: string): string {
         ? `(NULLIF(${alias}."cells" ->> '${colId}', ''))`
         : `(NULLIF(${alias}."cells" ->> '${colId}', '')::double precision)`;
 
-    parts.push(`${expr} ${sort.direction.toUpperCase()} NULLS LAST`);
+    const nulls = sort.direction === "asc" ? "NULLS FIRST" : "NULLS LAST";
+    parts.push(`${expr} ${sort.direction.toUpperCase()} ${nulls}`);
   }
 
-  parts.push(`${alias}."rowIndex" ASC`);
+  const rowIndexDir = sorts.length > 0 && sorts[0]!.direction === "desc" ? "DESC" : "ASC";
+  parts.push(`${alias}."rowIndex" ${rowIndexDir}`);
   return parts.join(", ");
 }
 
@@ -701,6 +705,7 @@ export const rowRouter = createTRPCRouter({
       if (!table) throw new Error("Table not found");
 
       // Validate sort columns belong to this table + type matches DB
+      // AND guarantee indexes exist before the query fires.
       if (sorts.length > 0) {
         const uniqueSortColIds = [...new Set(sorts.map((s) => s.columnId))];
         const cols = await ctx.db.column.findMany({
@@ -714,6 +719,14 @@ export const rowRouter = createTRPCRouter({
           if (!dbType) throw new Error("Invalid sort column");
           if (dbType !== sort.type) throw new Error("Sort type mismatch");
         }
+
+        // Ensure sort indexes exist before the query runs.
+        // 1 index per column (~2-3s on 400K rows, <1ms if already exists).
+        // Direction-agnostic: one ASC NULLS FIRST index serves both via
+        // forward scan (ASC) and backward scan (DESC).
+        await Promise.all(
+          cols.map((c) => ensureSortIndex(ctx.db, input.tableId, c.id, c.type as "TEXT" | "NUMBER")),
+        );
       }
 
       // Validate filter columnIds belong to this table (required before literal injection)
@@ -1281,15 +1294,18 @@ export const rowRouter = createTRPCRouter({
       const startRowIndex = updated.nextRowIndex - count;
       const tableIdEscaped = escapeLiteral(input.tableId);
 
-      // ── Step 2: INSERT in batches (outside transaction) ───────────
-      // Splitting 100K rows into 25K batches reduces WAL pressure and
-      // B-tree index maintenance contention per statement, improving
-      // throughput on tables with 500K+ existing rows.
+      // ── Step 2: INSERT in batches (outside transaction) ──────────
+      // We keep per-column indexes alive during insert instead of
+      // dropping and rebuilding.  B-tree maintenance is O(log N) per
+      // row per index — with 1 index per column (5 total), the overhead
+      // is ~5-7s for 100K rows but stays nearly constant as the table
+      // grows (log N).  The huge win: sorts are always instant afterwards,
+      // no cold-start index build that scales linearly with table size.
       //
       // If any batch fails, we compensate by rolling back the counters
       // to match the number of rows actually inserted, preventing drift.
 
-      const INSERT_BATCH = 25_000;
+      const INSERT_BATCH = 50_000;
       let insertedCount = 0;
       try {
       for (let offset = 0; offset < count; offset += INSERT_BATCH) {
@@ -2029,7 +2045,7 @@ export const rowRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      // Validate sort columns
+      // Validate sort columns + guarantee indexes exist
       if (sorts.length > 0) {
         const uniqueSortColIds = [...new Set(sorts.map((s) => s.columnId))];
         const cols = await ctx.db.column.findMany({
@@ -2042,6 +2058,12 @@ export const rowRouter = createTRPCRouter({
           if (!dbType) throw new Error("Invalid sort column");
           if (dbType !== sort.type) throw new Error("Sort type mismatch");
         }
+
+        // Ensure sort indexes exist before the query runs.
+        // 1 index per column, direction-agnostic (forward/backward scan).
+        await Promise.all(
+          cols.map((c) => ensureSortIndex(ctx.db, input.tableId, c.id, c.type as "TEXT" | "NUMBER")),
+        );
       }
 
       // Validate filter columns

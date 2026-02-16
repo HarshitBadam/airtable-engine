@@ -89,14 +89,46 @@ export function useGridRows(tableId: string) {
     placeholderData: keepPreviousData,
   });
 
+  // ── Sort transition detection ──
+  // When sorts change (especially first sort after bulk insert, where the
+  // backend builds an index ~2-3s), show skeleton rows instead of stale
+  // data in the wrong order.  Track the sort fingerprint that the current
+  // fresh data was fetched with; when it diverges from the desired sorts,
+  // we're in a sort transition.
+  const sortFingerprint = JSON.stringify(effectiveSorts);
+  const [activeSortFingerprint, setActiveSortFingerprint] = useState(sortFingerprint);
+
+  // Update the active fingerprint when fresh (non-placeholder) data arrives
+  useEffect(() => {
+    if (!q.isPlaceholderData) {
+      setActiveSortFingerprint(sortFingerprint);
+    }
+  }, [q.isPlaceholderData, sortFingerprint]);
+
+  const isSortLoading = sortFingerprint !== activeSortFingerprint;
+
   // Per-view row ordering: when the user has manually reordered rows via drag,
   // rowOrderIds defines the display order. We apply it client-side.
   const rowOrderIds = useGridStore((s) => s.rowOrderIds);
 
+  // Preserve totalCount during sort transitions so the virtualizer doesn't
+  // shrink to 0 rows and flash.
+  const prevTotalCountRef = useRef(0);
+  const freshTotalCount: number = q.data?.pages?.[0]?.totalCount ?? 0;
+  if (!isSortLoading && freshTotalCount > 0) {
+    prevTotalCountRef.current = freshTotalCount;
+  }
+  const totalCount = isSortLoading ? prevTotalCountRef.current : freshTotalCount;
+
   // Stabilise `rows` — flatMap creates a new array on every render; useMemo
   // ensures the reference only changes when the underlying query data changes.
   // If the view has a custom rowOrderIds, reorder the rows accordingly.
+  //
+  // During sort transitions, return empty so the grid renders skeleton rows
+  // instead of stale data in the wrong sort order.
   const rows = useMemo(() => {
+    if (isSortLoading) return [];
+
     const flat = q.data?.pages.flatMap((p) => p.items) ?? [];
 
     // Only apply custom row order when:
@@ -129,9 +161,7 @@ export function useGridRows(tableId: string) {
     }
 
     return ordered;
-  }, [q.data, rowOrderIds, effectiveSorts.length]);
-
-  const totalCount: number = q.data?.pages?.[0]?.totalCount ?? 0;
+  }, [q.data, rowOrderIds, effectiveSorts.length, isSortLoading]);
 
   // ========================================================================
   // Jump cache — for windowFetch when user scrolls far from loaded range
@@ -414,7 +444,7 @@ export function useGridRows(tableId: string) {
   );
 
   return {
-    q, rows, totalCount, input, debouncedSearch,
+    q, rows, totalCount, input, debouncedSearch, isSortLoading,
     getRowAtIndex, getRowById, triggerJumpFetch,
     clearJumpCache, updateJumpCacheRow, removeFromJumpCache, addToJumpCache,
     insertIntoJumpCache, removeByIdNoShift, doJumpFetch,

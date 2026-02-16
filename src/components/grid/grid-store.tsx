@@ -349,3 +349,10 @@ export function useGridStore<T>(selector: (s: GridState) => T): T {
   if (!store) throw new Error("useGridStore must be used within GridStoreProvider");
   return useStore(store, selector);
 }
+
+/** Return the raw Zustand store API (for .getState() in event handlers). */
+export function useGridStoreApi(): StoreApi<GridState> {
+  const store = useContext(Ctx);
+  if (!store) throw new Error("useGridStoreApi must be used within GridStoreProvider");
+  return store;
+}

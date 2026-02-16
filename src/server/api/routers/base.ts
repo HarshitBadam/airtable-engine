@@ -2,6 +2,7 @@ import { z } from "zod";
 import { faker } from "@faker-js/faker";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import type { ViewConfig } from "../types/view";
+import { dropColumnIndexesForTable, ensureSortIndex } from "~/server/db/ensureColumnIndexes";
 
 const STATUSES = ["Todo", "In progress", "In review", "Done", "Blocked"] as const;
 
@@ -42,7 +43,7 @@ export const baseRouter = createTRPCRouter({
         columnOrderIds: [],
       };
 
-      return ctx.db.$transaction(async (tx) => {
+      const result = await ctx.db.$transaction(async (tx) => {
         // 1. Create the base
         const base = await tx.base.create({
           data: {
@@ -119,8 +120,19 @@ export const baseRouter = createTRPCRouter({
           data: { rowCount: seedCount, nextRowIndex: seedCount + 1 },
         });
 
-        return base;
+        return { base, table, cols };
       });
+
+      // Build sort indexes for all 5 seed columns (outside transaction).
+      // On 25 rows this is <50ms total and means sorts are instant from
+      // the start — no cold-start index build on first sort.
+      await Promise.all(
+        result.cols.map((c) =>
+          ensureSortIndex(ctx.db, result.table.id, c.id, c.type as "TEXT" | "NUMBER"),
+        ),
+      );
+
+      return result.base;
     }),
 
   rename: protectedProcedure
@@ -150,10 +162,33 @@ export const baseRouter = createTRPCRouter({
       });
       if (!base) return null;
 
+      // Drop custom column indexes for all tables in this base BEFORE
+      // cascade-deleting the rows.  The Prisma cascade removes rows but
+      // leaves orphan partial B-tree indexes in pg_catalog, bloating the
+      // Row table for future inserts.
+      try {
+        const tables = await ctx.db.table.findMany({
+          where: { baseId: input.id },
+          select: { id: true },
+        });
+        await Promise.all(
+          tables.map((t) => dropColumnIndexesForTable(ctx.db, t.id)),
+        );
+      } catch {
+        // Non-critical: if index cleanup fails, we still delete the base.
+      }
+
       // Delete (cascade removes tables, rows, views, etc.)
-      return ctx.db.base.delete({
-        where: { id: input.id },
-      });
+      // Wrapped in try-catch for idempotency: if another concurrent
+      // delete already removed this base (or a CASCADE is in-flight),
+      // swallow the error — the base is gone either way.
+      try {
+        return await ctx.db.base.delete({
+          where: { id: input.id },
+        });
+      } catch {
+        return null;
+      }
     }),
 
   toggleStar: protectedProcedure
