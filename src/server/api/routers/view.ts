@@ -29,7 +29,7 @@ export const viewRouter = createTRPCRouter({
       return ctx.db.view.findMany({
         where: { tableId: input.tableId },
         orderBy: { createdAt: "asc" },
-        select: { id: true, name: true, config: true, createdAt: true, updatedAt: true },
+        select: { id: true, name: true, config: true, ranksStale: true, createdAt: true, updatedAt: true },
       });
     }),
 
@@ -90,15 +90,18 @@ export const viewRouter = createTRPCRouter({
       });
       if (!view) throw new Error("View not found");
 
-      // prevent deleting the last view
-      const siblingCount = await ctx.db.view.count({
-        where: { tableId: view.tableId },
-      });
-      if (siblingCount <= 1) {
-        throw new Error("Cannot delete the only view");
-      }
+      // Prevent deleting the last view — check + delete in one transaction
+      // to avoid a race where two concurrent deletes both pass the count check.
+      await ctx.db.$transaction(async (tx) => {
+        const siblingCount = await tx.view.count({
+          where: { tableId: view.tableId },
+        });
+        if (siblingCount <= 1) {
+          throw new Error("Cannot delete the only view");
+        }
 
-      await ctx.db.view.delete({ where: { id: input.viewId } });
+        await tx.view.delete({ where: { id: input.viewId } });
+      });
       return { deleted: true };
     }),
 });

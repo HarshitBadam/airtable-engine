@@ -197,7 +197,9 @@ export const columnRouter = createTRPCRouter({
             ? `to_jsonb(${Number(input.defaultValue)}::double precision)`
             : `to_jsonb('${dv}'::text)`;
 
-        const searchAppend = `CASE WHEN "searchText" = '' THEN '${dv}' ELSE "searchText" || chr(31) || '${dv}' END`;
+        // COALESCE guards: if searchText is NULL (not just ''), concatenation
+        // with NULL yields NULL → violates NOT NULL constraint.
+        const searchAppend = `CASE WHEN COALESCE("searchText", '') = '' THEN '${dv}' ELSE COALESCE("searchText", '') || chr(31) || '${dv}' END`;
 
         let total = 0;
         let batchStart = 0;
@@ -228,12 +230,22 @@ export const columnRouter = createTRPCRouter({
         let batchStart = 0;
         // eslint-disable-next-line no-constant-condition
         while (true) {
+          // COALESCE guards prevent NOT NULL violations:
+          //  - cells: if source column doesn't exist, cells->'src' is SQL NULL,
+          //    and jsonb_set(jsonb, path, NULL) returns NULL. We skip the set
+          //    entirely when the source key is absent.
+          //  - searchText: if searchText is NULL or source value is NULL,
+          //    unguarded concatenation yields NULL.
           const affected: number = await ctx.db.$executeRawUnsafe(`
             UPDATE "Row"
-            SET "cells" = jsonb_set(COALESCE("cells", '{}'), '{${newId}}', COALESCE("cells", '{}')->'${srcId}'),
+            SET "cells" = CASE
+                  WHEN (COALESCE("cells", '{}') -> '${srcId}') IS NOT NULL
+                  THEN jsonb_set(COALESCE("cells", '{}'), '{${newId}}', COALESCE("cells", '{}') -> '${srcId}')
+                  ELSE COALESCE("cells", '{}')
+                END,
                 "searchText" = CASE
-                  WHEN "searchText" = '' THEN (COALESCE("cells", '{}')->>'${srcId}')
-                  ELSE "searchText" || chr(31) || COALESCE(COALESCE("cells", '{}')->>'${srcId}', '')
+                  WHEN COALESCE("searchText", '') = '' THEN COALESCE(COALESCE("cells", '{}')->>'${srcId}', '')
+                  ELSE COALESCE("searchText", '') || chr(31) || COALESCE(COALESCE("cells", '{}')->>'${srcId}', '')
                 END,
                 "updatedAt" = now()
             WHERE "tableId" = '${tId}'
@@ -277,21 +289,21 @@ export const columnRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      // Prevent deleting the last column
-      const colCount = await ctx.db.column.count({
-        where: { tableId: input.tableId },
-      });
-      if (colCount <= 1) throw new Error("Cannot delete the last column");
-
-      const col = await ctx.db.column.findFirst({
-        where: { id: input.columnId, tableId: input.tableId },
-        select: { id: true },
-      });
-      if (!col) throw new Error("Column not found");
-
       // ── Step 1: Fast transaction — delete column + clean up views ──
-      // NO heavy row updates here; this completes in <1s.
+      // Includes the last-column check inside the transaction to prevent
+      // a race where two concurrent deletes both pass the count check.
       await ctx.db.$transaction(async (tx) => {
+        const colCount = await tx.column.count({
+          where: { tableId: input.tableId },
+        });
+        if (colCount <= 1) throw new Error("Cannot delete the last column");
+
+        const col = await tx.column.findFirst({
+          where: { id: input.columnId, tableId: input.tableId },
+          select: { id: true },
+        });
+        if (!col) throw new Error("Column not found");
+
         await tx.column.delete({ where: { id: input.columnId } });
 
         const views = await tx.view.findMany({
@@ -532,33 +544,105 @@ export const columnRouter = createTRPCRouter({
       const tableId = input.tableId.replace(/'/g, "''");
       const colId = input.columnId.replace(/'/g, "''");
 
-      const baseName = `r_${input.tableId.slice(0, 8)}_${input.columnId.slice(0, 8)}`;
+      // ── Index naming: must be unique per (table, column) pair ──
+      // Uses the full column ID in the name (total ≤ 50 chars, well under
+      // Postgres's 63-char identifier limit).
+      const baseName = `ri_${input.tableId.slice(0, 8)}_${input.columnId}`;
+
+      // ── Fast path: check if indexes already exist ──
+      // The first `ensureIndexes` call for a column creates indexes (~13s each
+      // on 1M rows).  Subsequent calls should return instantly.  We check for
+      // the filter index (_f) as a sentinel — if it exists, all indexes for
+      // this column were already created.
+      const existing = await ctx.db.$queryRawUnsafe<{ cnt: number }[]>(
+        `SELECT COUNT(*)::int AS cnt FROM pg_indexes WHERE indexname = $1`,
+        `${baseName}_f`,
+      );
+      const alreadyIndexed = (existing[0]?.cnt ?? 0) > 0;
+
+      if (alreadyIndexed) {
+        // Indexes exist — just pre-warm and return (fast: ~100-500ms)
+        try {
+          const warmIdx = col.type === "TEXT" ? ["_tb", "_td"] : ["_nb", "_nd"];
+          for (const suffix of [...warmIdx, "_f"]) {
+            await ctx.db.$executeRawUnsafe(`SELECT pg_prewarm('"${baseName}${suffix}"');`);
+          }
+        } catch {
+          // pg_prewarm extension not available — skip silently
+        }
+        return { ok: true };
+      }
+
+      // ── Slow path: first-time index creation ──
+
+      // Clean up old colliding indexes that used the short (broken) naming
+      const oldBaseName = `r_${input.tableId.slice(0, 8)}_${input.columnId.slice(0, 8)}`;
+      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_f";`);
+      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_f2";`);
+      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_t_b";`);
+      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_t_bd";`);
+      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_t_b2";`);
+      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_t_bd2";`);
+      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_t_g";`);
+      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_n_b";`);
+      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_n_bd";`);
+      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_n_b2";`);
+      await ctx.db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${oldBaseName}_n_bd2";`);
+
+      // ── Filter index ──
+      await ctx.db.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "${baseName}_f"
+        ON "Row" ((cells->>'${colId}'), "rowIndex")
+        INCLUDE ("id")
+        WHERE "tableId" = '${tableId}';
+      `);
 
       if (col.type === "TEXT") {
-        // Composite btree index matching ORDER BY shape:
-        //   (NULLIF(cells->>'colId',''), rowIndex)
-        // Allows Postgres to satisfy ORDER BY + LIMIT from the index.
+        // Covering sort indexes (both directions)
         await ctx.db.$executeRawUnsafe(`
-          CREATE INDEX IF NOT EXISTS "${baseName}_t_b"
-          ON "Row" ((NULLIF(cells->>'${colId}','')), "rowIndex")
+          CREATE INDEX IF NOT EXISTS "${baseName}_tb"
+          ON "Row" ((NULLIF(cells->>'${colId}','')) ASC NULLS LAST, "rowIndex" ASC)
+          INCLUDE ("id")
+          WHERE "tableId" = '${tableId}';
+        `);
+        await ctx.db.$executeRawUnsafe(`
+          CREATE INDEX IF NOT EXISTS "${baseName}_td"
+          ON "Row" ((NULLIF(cells->>'${colId}','')) DESC NULLS LAST, "rowIndex" ASC)
+          INCLUDE ("id")
           WHERE "tableId" = '${tableId}';
         `);
 
         // Trigram index for ILIKE contains/search queries
         await ctx.db.$executeRawUnsafe(`
-          CREATE INDEX IF NOT EXISTS "${baseName}_t_g"
+          CREATE INDEX IF NOT EXISTS "${baseName}_tg"
           ON "Row"
           USING GIN ((cells->>'${colId}') gin_trgm_ops)
           WHERE "tableId" = '${tableId}';
         `);
       } else {
-        // Composite btree index matching ORDER BY shape:
-        //   (NULLIF(cells->>'colId','')::double precision, rowIndex)
+        // Covering sort indexes for NUMBER columns (both directions)
         await ctx.db.$executeRawUnsafe(`
-          CREATE INDEX IF NOT EXISTS "${baseName}_n_b"
-          ON "Row" ((NULLIF(cells->>'${colId}','')::double precision), "rowIndex")
+          CREATE INDEX IF NOT EXISTS "${baseName}_nb"
+          ON "Row" ((NULLIF(cells->>'${colId}','')::double precision) ASC NULLS LAST, "rowIndex" ASC)
+          INCLUDE ("id")
           WHERE "tableId" = '${tableId}';
         `);
+        await ctx.db.$executeRawUnsafe(`
+          CREATE INDEX IF NOT EXISTS "${baseName}_nd"
+          ON "Row" ((NULLIF(cells->>'${colId}','')::double precision) DESC NULLS LAST, "rowIndex" ASC)
+          INCLUDE ("id")
+          WHERE "tableId" = '${tableId}';
+        `);
+      }
+
+      // ── Pre-warm newly created indexes into shared_buffers ──
+      try {
+        const warmIdx = col.type === "TEXT" ? ["_tb", "_td"] : ["_nb", "_nd"];
+        for (const suffix of [...warmIdx, "_f"]) {
+          await ctx.db.$executeRawUnsafe(`SELECT pg_prewarm('"${baseName}${suffix}"');`);
+        }
+      } catch {
+        // pg_prewarm extension not available — skip silently
       }
 
       return { ok: true };

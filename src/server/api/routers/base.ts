@@ -143,14 +143,14 @@ export const baseRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // First verify ownership
+      // Verify ownership — if not found, the base was already deleted
+      // (or never existed). Treat as a no-op for idempotency.
       const base = await ctx.db.base.findFirst({
         where: { id: input.id, ownerId: ctx.session.user.id },
       });
-      if (!base) {
-        throw new Error("Base not found or access denied");
-      }
-      // Then delete
+      if (!base) return null;
+
+      // Delete (cascade removes tables, rows, views, etc.)
       return ctx.db.base.delete({
         where: { id: input.id },
       });

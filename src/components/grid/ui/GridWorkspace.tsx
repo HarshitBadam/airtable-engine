@@ -1809,7 +1809,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       utils.view.list.setData({ tableId }, (old) => {
         if (!old) return undefined;
         if (old.some((v) => v.id === newView.id)) return old;
-        return [...old, { ...newView, createdAt: new Date(), updatedAt: new Date() }];
+        return [...old, { ...newView, createdAt: new Date(), updatedAt: new Date(), ranksStale: true }];
       });
       setActiveViewId(newView.id);
       setIsCreateViewBoxOpen(false);

@@ -150,12 +150,15 @@ export const tableRouter = createTRPCRouter({
       });
       if (!base) throw new Error("Base not found");
 
-      // Ensure at least one table remains
-      const count = await ctx.db.table.count({
-        where: { baseId: input.baseId },
-      });
-      if (count <= 1) throw new Error("Cannot delete the last table");
+      // Ensure at least one table remains — check + delete in one transaction
+      // to avoid a race where two concurrent deletes both pass the count check.
+      return ctx.db.$transaction(async (tx) => {
+        const count = await tx.table.count({
+          where: { baseId: input.baseId },
+        });
+        if (count <= 1) throw new Error("Cannot delete the last table");
 
-      return ctx.db.table.delete({ where: { id: input.id } });
+        return tx.table.delete({ where: { id: input.id } });
+      });
     }),
 });
