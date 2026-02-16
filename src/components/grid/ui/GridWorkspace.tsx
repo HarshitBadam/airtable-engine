@@ -586,7 +586,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           const strVal =
             typeof val === "object" && val !== null
               ? JSON.stringify(val)
-              : String(val);
+              : String(val as string | number | boolean);
           if (strVal.toLowerCase().includes(termLower)) {
             matches.push({ rowPos: i, colId: col.id });
           }
@@ -605,7 +605,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           const strVal =
             typeof val === "object" && val !== null
               ? JSON.stringify(val)
-              : String(val);
+              : String(val as string | number | boolean);
           if (strVal.toLowerCase().includes(termLower)) {
             matches.push({ rowPos: pos, colId: col.id });
           }

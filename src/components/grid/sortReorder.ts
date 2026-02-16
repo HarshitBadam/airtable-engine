@@ -33,7 +33,8 @@ function getSortValue(cells: Record<string, unknown>, columnId: string): string 
   if (v == null) return null;
   if (typeof v === "string") return v === "" ? null : v;
   if (typeof v === "number" || typeof v === "boolean") return String(v);
-  return String(v);
+  // Fallback for object / unknown — stringify to avoid [object Object]
+  return typeof v === "object" ? JSON.stringify(v) : String(v as string);
 }
 
 /**
