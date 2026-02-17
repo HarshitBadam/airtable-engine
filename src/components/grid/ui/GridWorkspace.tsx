@@ -438,7 +438,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     rows, totalCount, q: rowsQ, input: rowQueryInput, debouncedSearch,
     getRowAtIndex, getRowById, triggerJumpFetch,
     clearJumpCache, updateJumpCacheRow, addToJumpCache, insertIntoJumpCache,
-    removeFromJumpCache,
+    removeFromJumpCache, reorderJumpCacheRow,
+    addProtectedRowId, removeProtectedRowId, isRowProtected,
     jumpCacheRef, jumpCache,
   } = useGridRows(tableId);
   rowsRef.current = rows;
@@ -506,50 +507,91 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   //  Both paths fire a background `invalidate()` so the server confirms
   //  the final state.  React Query deduplicates rapid calls, so multiple
   //  edits don't stack up redundant refetches.
-  const handleCellMembershipChange = useCallback((rowId: string) => {
-    // ── Determine effective sorts (mirrors useGridRows logic) ──
-    // Read from store at call time (not render time) to avoid stale closures
-    // and dependency ordering issues within the component.
+  const handleCellMembershipChange = useCallback((rowId: string, columnId: string, value: string | number | null) => {
     const store = gridStoreApi.getState();
     const effectiveSorts = (store.autoSort && store.sorts.length > 0)
       ? store.sorts
       : store.permanentSorts;
 
-    // ── Strategy A: Client-side reorder for rows in infinite pages ──
-    if (effectiveSorts.length > 0) {
-      const colTypes = new Map(
-        columnsRef.current.map((c) => [c.id, c.type as "TEXT" | "NUMBER"]),
-      );
-      const sorts = effectiveSorts.map((s: { columnId: string; direction: "asc" | "desc" }) => ({
-        columnId: s.columnId,
-        direction: s.direction,
-      }));
+    // ── Newly-inserted row grace period (Airtable behaviour) ──
+    // Protected rows (just created via insert above/below or "+") stay pinned
+    // at their insertion point until the user *commits* a cell in a column
+    // that is part of the active sort or filter constraints.
+    //
+    // Any commit on a conditioned column releases the row — even null.
+    // Null is a valid value for sorting (NULLS FIRST) and filtering
+    // (e.g. "is_empty"), so explicitly confirming a null cell is the user
+    // saying "the value IS null."  If the first auto-opened cell happens
+    // to be the conditioned column and the user Tabs through it, the row
+    // is released — that's a semantic consequence, not a bug.
+    //
+    // Commits on non-conditioned columns keep the row pinned.
+    // Pre-existing rows (not protected) are completely unaffected.
+    if (isRowProtected(rowId)) {
+      const conditionedCols = new Set<string>();
+      for (const s of effectiveSorts) conditionedCols.add(s.columnId);
+      for (const f of store.filters) conditionedCols.add(f.columnId);
+      if (store.filterTree) {
+        const collectFilterTreeCols = (items: { kind?: string; columnId?: string; items?: unknown[] }[]) => {
+          for (const item of items) {
+            if (item.kind === "condition" && item.columnId) {
+              conditionedCols.add(item.columnId);
+            } else if (item.kind === "group" && Array.isArray(item.items)) {
+              collectFilterTreeCols(item.items as typeof items);
+            }
+          }
+        };
+        collectFilterTreeCols(store.filterTree.items as { kind?: string; columnId?: string; items?: unknown[] }[]);
+      }
 
-      utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
-        if (!old) return old;
-        const { data: reordered } = reorderRowInCache(old, rowId, sorts, colTypes);
-        return reordered as typeof old;
-      });
+      if (!conditionedCols.has(columnId)) {
+        return;
+      }
     }
 
-    // ── Background server confirmation ──
-    // Runs the authoritative ORDER BY on the server.  The client-side
-    // reorder is near-perfect but the server corrects tie-breakers and
-    // edge cases.  The user doesn't wait for this.
+    if (effectiveSorts.length === 0) {
+      removeProtectedRowId(rowId);
+      void utils.row.infinite.invalidate(rowQueryInput);
+      return;
+    }
+
+    const colTypes = new Map(
+      columnsRef.current.map((c) => [c.id, c.type as "TEXT" | "NUMBER"]),
+    );
+    const sorts = effectiveSorts.map((s: { columnId: string; direction: "asc" | "desc" }) => ({
+      columnId: s.columnId,
+      direction: s.direction,
+    }));
+
+    // Clear this row's optimistic protection — it has been committed on a
+    // conditioned column and the reorder will place it at its correct position.
+    removeProtectedRowId(rowId);
+
+    // ── Tier 1A: Client-side reorder within loaded infinite pages ──
+    utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
+      if (!old) return old;
+      const { data: reordered } = reorderRowInCache(old, rowId, sorts, colTypes);
+      return reordered as typeof old;
+    });
+
+    // ── Tier 1B: Client-side reorder within jump cache ──
+    const jumpResult = reorderJumpCacheRow(rowId, sorts, colTypes);
+
+    // ── Tier 2: Server confirmation — always for infinite pages ──
     void utils.row.infinite.invalidate(rowQueryInput);
 
-    // ── Strategy B: Overwrite stale jump cache entries ──
-    // Force a windowFetch for the current scroll position.  The old data
-    // stays visible as a placeholder (no skeleton) until fresh data arrives.
-    requestAnimationFrame(() => {
+    // Only re-fetch the jump window from server when the row wasn't
+    // successfully repositioned client-side (evicted or not in cache).
+    if (jumpResult !== "moved") {
       const scroller = gridScrollerRef.current;
-      if (!scroller) return;
-      const approxOffset = Math.floor(scroller.scrollTop / dataRowHeightRef.current);
-      if (approxOffset > 0) {
-        triggerJumpFetch(approxOffset, true);
+      if (scroller) {
+        const approxOffset = Math.floor(scroller.scrollTop / dataRowHeightRef.current);
+        if (approxOffset > 0) {
+          triggerJumpFetch(approxOffset, true);
+        }
       }
-    });
-  }, [gridStoreApi, utils, rowQueryInput, triggerJumpFetch]);
+    }
+  }, [gridStoreApi, utils, rowQueryInput, triggerJumpFetch, reorderJumpCacheRow, removeProtectedRowId, isRowProtected]);
 
   const { commit, cancel } = useCellEditing(tableId, rowQueryInput, updateJumpCacheRow, handleCellMembershipChange);
 
@@ -2380,18 +2422,24 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           } as typeof old;
         });
 
-        // 3. Background invalidate to sync with the server's authoritative
+        // 3. Mark the row as protected BEFORE any background refetch so that
+        //    the jump cache protection is in place when the server responds.
+        addProtectedRowId(newRow.id);
+
+        // 4. Background invalidate to sync with the server's authoritative
         //    totalCount. This is non-urgent — the optimistic count is correct.
+        //    The jump cache protection (set above) prevents the new row from
+        //    being overwritten by server-sorted data during the refetch.
         void utils.row.infinite.invalidate();
 
-        // 4. Scroll to the bottom. The new row is already in the jump cache
+        // 5. Scroll to the bottom. The new row is already in the jump cache
         //    and totalCount is incremented, so the virtualizer renders it.
         requestAnimationFrame(() => {
           const scroller = gridScrollerRef.current;
           if (scroller) scroller.scrollTop = scroller.scrollHeight;
         });
 
-        // 5. Focus the new row for editing. Single rAF is enough because
+        // 6. Focus the new row for editing. Single rAF is enough because
         //    the row data is already in the cache (no network wait).
         const firstCol = visibleColumnsRef.current[0];
         if (firstCol) {
@@ -2405,7 +2453,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         console.error("[handleAddRow] insertAt failed:", err.message);
       },
     });
-  }, [isValidTable, tableId, insertAtMut, utils, rowQueryInput, totalCount, addToJumpCache, setActiveCell, startEditing]);
+  }, [isValidTable, tableId, insertAtMut, utils, rowQueryInput, totalCount, addToJumpCache, addProtectedRowId, setActiveCell, startEditing]);
 
   // === BULK ADD 100k ROWS ===
   const [isBulkAdding, setIsBulkAdding] = useState(false);
@@ -2511,6 +2559,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           });
         }
 
+        // Mark the row as protected from immediate sort/filter reordering
+        addProtectedRowId(newRow.id);
+
         // Focus & start editing the new row's first cell
         const firstCol = visibleColumnsRef.current[0];
         if (firstCol) {
@@ -2520,27 +2571,17 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           });
         }
 
-        // ── Background invalidation for sorted views ──
-        // If sorts are active, the empty row may sort to a different position
-        // once the user finishes editing.  Background invalidation corrects it
-        // after React Query deduplicates.  The cell edit's onSuccess also
-        // triggers handleCellMembershipChange, but this covers the case where
-        // the user clicks away without editing.
-        const storeState = gridStoreApi.getState();
-        const hasSorts = (storeState.autoSort && storeState.sorts.length > 0) ||
-          (!storeState.autoSort && storeState.permanentSorts.length > 0);
-        if (hasSorts) {
-          void utils.row.infinite.invalidate(rowQueryInput);
-          requestAnimationFrame(() => {
-            const scroller = gridScrollerRef.current;
-            if (!scroller) return;
-            const approxOffset = Math.floor(scroller.scrollTop / dataRowHeightRef.current);
-            if (approxOffset > 0) triggerJumpFetch(approxOffset, true);
-          });
-        }
+        // NOTE: Do NOT invalidate the infinite query here even when sorts or
+        // filters are active.  The newly inserted row is protected — it should
+        // stay at its insertion position until the user explicitly commits a
+        // value in a conditioned column (sort/filter field).  Invalidation at
+        // this point would refetch server-sorted data and overwrite the
+        // optimistic splice, causing the row to jump immediately.
+        // handleCellMembershipChange handles the deferred invalidation once
+        // the user releases the row by editing a conditioned column.
       },
     });
-  }, [isValidTable, tableId, insertAtMut, setActiveCell, startEditing, getRowById, utils, rowQueryInput, insertIntoJumpCache, triggerJumpFetch, gridStoreApi]);
+  }, [isValidTable, tableId, insertAtMut, setActiveCell, startEditing, getRowById, utils, rowQueryInput, insertIntoJumpCache, addProtectedRowId]);
 
   const handleInsertRecordAbove = useCallback(
     (rowId: string) => handleInsertAt(rowId, "above"),

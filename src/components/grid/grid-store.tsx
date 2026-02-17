@@ -11,6 +11,9 @@ export type { Sort };
 
 type CellKey = { rowId: string; columnId: string };
 
+/** Find current match can include which occurrence within a cell is selected (0-based). */
+export type FindCurrentMatch = CellKey & { occurrenceIndex?: number };
+
 /** UI-only filter condition (richer than the backend Filter type). */
 export type FilterConditionUI = {
   id: string;
@@ -75,7 +78,9 @@ type GridState = {
   editorValue: string;
 
   /** The cell that is the "current" find match (highlighted with #FFD66B). */
-  findCurrentMatch: CellKey | null;
+  findCurrentMatch: FindCurrentMatch | null;
+  /** Client-side delta added to server match count when user edits cells (e.g. add/remove search string). */
+  findCountDelta: number;
 
   initializeFromView: (viewId: string, config: ViewConfig) => void;
 
@@ -104,7 +109,9 @@ type GridState = {
   setEditorValue: (v: string) => void;
   stopEditing: () => void;
 
-  setFindCurrentMatch: (match: CellKey | null) => void;
+  setFindCurrentMatch: (match: FindCurrentMatch | null) => void;
+  addFindCountDelta: (delta: number) => void;
+  resetFindCountDelta: () => void;
 
   markSaved: () => void;
   markSortsSaved: () => void;
@@ -169,6 +176,7 @@ export function createGridStore(tableId: string) {
     editingCell: null,
     editorValue: "",
     findCurrentMatch: null,
+    findCountDelta: 0,
 
     initializeFromView: (viewId, cfg) => {
       const fp2 = configFingerprint(cfg);
@@ -323,6 +331,9 @@ export function createGridStore(tableId: string) {
     stopEditing: () => set((s) => ({ ...s, editingCell: null, editorValue: "" })),
 
     setFindCurrentMatch: (findCurrentMatch) => set((s) => ({ ...s, findCurrentMatch })),
+    addFindCountDelta: (delta) =>
+      set((s) => ({ ...s, findCountDelta: s.findCountDelta + delta })),
+    resetFindCountDelta: () => set((s) => ({ ...s, findCountDelta: 0 })),
 
     markSaved: () => set((s) => ({ ...s, savedFingerprint: s.fingerprint })),
     markSortsSaved: () => set((s) => ({ ...s, savedSorts: s.sorts })),

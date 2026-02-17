@@ -25,16 +25,34 @@ export function findAllRanges(text: string, query: string): [number, number][] {
   return ranges;
 }
 
-/** Render `text` with matching substrings highlighted. */
-export function HighlightedText({ text, query }: { text: string; query: string }) {
+/** Render `text` with matching substrings highlighted.
+ *  If `currentOccurrenceIndex` is set, only that occurrence (0-based) gets the dark highlight (#FFD66B);
+ *  others get #FFF3D3. Otherwise all matches use #FFD66B. */
+export function HighlightedText({
+  text,
+  query,
+  currentOccurrenceIndex,
+}: {
+  text: string;
+  query: string;
+  currentOccurrenceIndex?: number;
+}) {
   const ranges = findAllRanges(text, query);
   if (ranges.length === 0) return <>{text}</>;
   const parts: React.ReactNode[] = [];
   let lastEnd = 0;
-  for (const [start, end] of ranges) {
+  for (let i = 0; i < ranges.length; i++) {
+    const range = ranges[i];
+    if (!range) continue;
+    const [start, end] = range;
     if (start > lastEnd) parts.push(text.slice(lastEnd, start));
+    const isCurrent =
+      currentOccurrenceIndex !== undefined ? i === currentOccurrenceIndex : true;
     parts.push(
-      <span key={start} style={{ backgroundColor: "#FFD66B" }}>
+      <span
+        key={start}
+        style={{ backgroundColor: isCurrent ? "#FFD66B" : "#FFF3D3" }}
+      >
         {text.slice(start, end)}
       </span>,
     );
@@ -119,9 +137,11 @@ export const GridRow = memo(function GridRow({
   const setEditorValue = useGridStore((s) => s.setEditorValue);
 
   // Current find-match for this row only (same pattern as activeCell)
-  const findMatchColId = useGridStore(
-    (s) => (s.findCurrentMatch?.rowId === row.id ? s.findCurrentMatch.columnId : null),
+  const findCurrentMatch = useGridStore((s) =>
+    s.findCurrentMatch?.rowId === row.id ? s.findCurrentMatch : null,
   );
+  const findMatchColId = findCurrentMatch?.columnId ?? null;
+  const findCurrentOccurrenceIndex = findCurrentMatch?.occurrenceIndex ?? 0;
 
   // Sorted column IDs — for tinting sorted columns orange (only when autoSort=true)
   const sortedColumnIds = useGridStore(
@@ -163,23 +183,29 @@ export const GridRow = memo(function GridRow({
       !isEditing && termLower.length > 0 && value.length > 0 && value.toLowerCase().includes(termLower);
     const isFindCurrent = cellHasMatch && findMatchColId === col.id;
 
-    // Background priority: search highlight > filter green > sorted tint > default
+    // Find highlight takes precedence over filter/sort so substring matches are visible.
+    // Current match = deep yellow (#FFD66B); other matches = faint yellow (#FFF3D3).
+    const isFindCurrentCell = cellHasMatch && isFindCurrent;
     let cellBg: string | undefined;
     if (cellHasMatch) {
-      cellBg = isFindCurrent ? "#FFD66B" : "#FFF3D3";
+      cellBg = isFindCurrentCell ? "#FFD66B" : "#FFF3D3";
     } else if (isFiltered) {
       cellBg = "#EBFBEC";
     }
+    const sortedClass = isSorted && !cellHasMatch ? ` ${styles.gridDataCellSorted}` : "";
+    const findCurrentClass = isFindCurrentCell ? ` ${styles.gridDataCellFindCurrent}` : "";
 
     return (
       <div
         key={col.id}
-        className={`${styles.gridDataCell}${isActive ? ` ${styles.gridDataCellActive}` : ""}${isSorted ? ` ${styles.gridDataCellSorted}` : ""}`}
+        data-find-current={isFindCurrentCell ? "true" : undefined}
+        className={`${styles.gridDataCell}${isActive ? ` ${styles.gridDataCellActive}` : ""}${sortedClass}${findCurrentClass}`}
         style={{
           width: getColWidth(col.id),
           height: cellHeight,
           ...extraStyle,
           ...(cellBg ? { backgroundColor: cellBg } : {}),
+          ...(isFindCurrentCell ? { backgroundColor: "#FFD66B" } : {}),
         }}
         onClick={() => setActiveCell({ rowId: row.id, columnId: col.id })}
         onDoubleClick={() => startEditing({ rowId: row.id, columnId: col.id }, value)}
@@ -208,7 +234,15 @@ export const GridRow = memo(function GridRow({
                   ? formatCellValue(value, col.type, col.config as NumberFormatConfig | null | undefined)
                   : value;
                 return cellHasMatch
-                  ? <HighlightedText text={displayText} query={searchTerm} />
+                  ? (
+                      <HighlightedText
+                        text={displayText}
+                        query={searchTerm}
+                        currentOccurrenceIndex={
+                          isFindCurrent ? findCurrentOccurrenceIndex : undefined
+                        }
+                      />
+                    )
                   : displayText;
               })()}
             </div>

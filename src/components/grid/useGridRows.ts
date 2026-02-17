@@ -9,6 +9,7 @@ import { useDebouncedValue } from "~/hooks/useDebouncedValue";
 import type { AppRouter } from "~/server/api/root";
 
 import { useGridStore } from "./grid-store";
+import { reorderRowInJumpCache, type SortDef, type SortReorderResult } from "./sortReorder";
 
 export type RowInfiniteInput = inferProcedureInput<AppRouter["row"]["infinite"]>;
 
@@ -178,6 +179,15 @@ export function useGridRows(tableId: string) {
   // (e.g. rapid successive deletes, or a parameter change during a fetch).
   const jumpCacheGenRef = useRef(0);
 
+  // Protected rows: when new rows are added optimistically (e.g. "+" button,
+  // insert above/below), we store their IDs here.  doJumpFetch will skip
+  // overwriting any cache entry whose current value has a protected ID.
+  // This prevents the scroll-triggered windowFetch (which returns server-
+  // sorted data where empty rows sit at position 0, not at their creation
+  // position) from erasing optimistic rows before the user edits them.
+  // Each row is individually removed from the set when it is first edited.
+  const protectedRowIdsRef = useRef<Set<string>>(new Set());
+
   // Clear jump cache when query params change — also bumps generation so
   // any in-flight fetches with old params are discarded on arrival.
   useEffect(() => {
@@ -241,9 +251,25 @@ export function useGridRows(tableId: string) {
           if (jumpCacheGenRef.current !== gen) return prev;
 
           const newCache = new Map(prev);
-          if (newCache.size > 15000) newCache.clear();
+          if (newCache.size > 15000) {
+            // Preserve protected (optimistic) rows before clearing
+            const protIds = protectedRowIdsRef.current;
+            const saved = new Map<number, RowItem>();
+            if (protIds.size > 0) {
+              for (const [k, v] of newCache) {
+                if (protIds.has(v.id)) saved.set(k, v);
+              }
+            }
+            newCache.clear();
+            for (const [k, v] of saved) newCache.set(k, v);
+          }
+          const protIds = protectedRowIdsRef.current;
           (result.items as RowItem[]).forEach((item, idx) => {
-            newCache.set(fetchOffset + idx, item);
+            const key = fetchOffset + idx;
+            // Don't overwrite an optimistic row the user is about to edit.
+            const existing = newCache.get(key);
+            if (existing && protIds.has(existing.id)) return;
+            newCache.set(key, item);
           });
           return newCache;
         });
@@ -443,11 +469,49 @@ export function useGridRows(tableId: string) {
     [],
   );
 
+  /** Mark a row as protected from windowFetch overwrites (optimistic add). */
+  const addProtectedRowId = useCallback((id: string) => {
+    protectedRowIdsRef.current = new Set(protectedRowIdsRef.current).add(id);
+  }, []);
+
+  /** Unprotect a row (it was edited and is now participating in sorting). */
+  const removeProtectedRowId = useCallback((id: string) => {
+    const next = new Set(protectedRowIdsRef.current);
+    next.delete(id);
+    protectedRowIdsRef.current = next;
+  }, []);
+
+  /** Check whether a row is still protected (newly inserted, hasn't been
+   *  subjected to sort/filter yet).  Used by handleCellMembershipChange to
+   *  decide whether to defer reordering until a conditioned column is edited. */
+  const isRowProtected = useCallback((id: string) => {
+    return protectedRowIdsRef.current.has(id);
+  }, []);
+
+  /** Reorder a single row within the jump cache after a cell edit.
+   *  Uses the same compareRows logic as the infinite-page reorder.
+   *  Returns the outcome so the caller can decide whether to hit the server. */
+  const reorderJumpCacheRow = useCallback(
+    (rowId: string, sorts: SortDef[], colTypes: Map<string, "TEXT" | "NUMBER">): SortReorderResult => {
+      const current = jumpCacheRef.current;
+      if (current.size === 0) return "skipped";
+      const { cache: newCache, result } = reorderRowInJumpCache(
+        current, rowId, sorts, colTypes, prevTotalCountRef.current,
+      );
+      if (result !== "skipped") {
+        setJumpCache(newCache);
+      }
+      return result;
+    },
+    [],
+  );
+
   return {
     q, rows, totalCount, input, debouncedSearch, isSortLoading,
     getRowAtIndex, getRowById, triggerJumpFetch,
     clearJumpCache, updateJumpCacheRow, removeFromJumpCache, addToJumpCache,
-    insertIntoJumpCache, removeByIdNoShift, doJumpFetch,
+    insertIntoJumpCache, removeByIdNoShift, reorderJumpCacheRow,
+    addProtectedRowId, removeProtectedRowId, isRowProtected, doJumpFetch,
     /** Ref to the current jump cache Map<actualIndex, RowItem>.
      *  Used by GridWorkspace for overlay positioning & keyboard navigation
      *  on rows that live outside the infinite-query page range. */

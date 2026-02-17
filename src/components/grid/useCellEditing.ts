@@ -29,9 +29,19 @@ export function useCellEditing(
   updateJumpCacheRow?: (rowId: string, updater: (row: RowItem) => RowItem) => void,
   /** Called when a cell edit may have changed the row's position (sort) or
    *  membership (filter) in the current result set.  Receives the edited row's
-   *  ID so the caller can do a *targeted* cache update (remove just that row)
-   *  instead of nuking the entire jump cache. */
-  onMembershipChange?: (rowId: string) => void,
+   *  ID, the edited column ID, and the committed value so the caller can:
+   *  - do a *targeted* cache update (remove just that row)
+   *  - for newly inserted rows, decide whether the edited column is relevant
+   *    to the active sort/filter constraints
+   *  - distinguish no-op commits (null→null) from real value changes */
+  onMembershipChange?: (rowId: string, columnId: string, value: string | number | null) => void,
+  /** Called when a cell value is committed (old → new). Used e.g. to update find count client-side. */
+  onCellValueChange?: (
+    rowId: string,
+    columnId: string,
+    oldValue: string | number | null,
+    newValue: string | number | null,
+  ) => void,
 ) {
   const editingCell = useGridStore((s) => s.editingCell);
   const editorValue = useGridStore((s) => s.editorValue);
@@ -51,6 +61,19 @@ export function useCellEditing(
       await utils.row.infinite.cancel(rowQueryInput);
 
       const prev = utils.row.infinite.getInfiniteData(rowQueryInput);
+
+      // Resolve old value for onCellValueChange (from infinite data or jump cache)
+      let oldVal: string | number | null = null;
+      let foundInPrev = false;
+      for (const page of prev?.pages ?? []) {
+        const r = page.items.find((x: RowItem) => x.id === vars.rowId);
+        if (r) {
+          foundInPrev = true;
+          const v = asCellRecord(r.cells)[vars.columnId];
+          oldVal = v !== undefined && v !== null ? (v as string | number) : null;
+          break;
+        }
+      }
 
       // 1. Optimistic update for infinite query pages
       utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
@@ -84,6 +107,11 @@ export function useCellEditing(
       // 2. Optimistic update for jump-cached rows (rows loaded via windowFetch)
       if (updateJumpCacheRow) {
         updateJumpCacheRow(vars.rowId, (row) => {
+          if (!foundInPrev && onCellValueChange) {
+            const o = asCellRecord(row.cells)[vars.columnId];
+            const old = o !== undefined && o !== null ? (o as string | number) : null;
+            onCellValueChange(vars.rowId, vars.columnId, old, vars.value);
+          }
           const nextCells = { ...asCellRecord(row.cells) };
           if (vars.value === null || vars.value === "") {
             delete nextCells[vars.columnId];
@@ -92,6 +120,10 @@ export function useCellEditing(
           }
           return { ...row, cells: nextCells, updatedAt: new Date() };
         });
+      }
+
+      if (foundInPrev && onCellValueChange) {
+        onCellValueChange(vars.rowId, vars.columnId, oldVal, vars.value);
       }
 
       return { prev };
@@ -117,12 +149,7 @@ export function useCellEditing(
       const hasFilters = filters.length > 0 || !!filterTree;
       const affectsMembership = !!search.trim() || hasFilters || liveSortsActive || permSortsActive;
       if (affectsMembership) {
-        // Targeted: remove only the edited row from the jump cache,
-        // then invalidate the infinite query.  This avoids nuking the
-        // entire cache (which causes skeleton flash + rebuild storm for
-        // all ~15K cached positions) while still removing the stale
-        // entry that would otherwise cause duplicates or ghost rows.
-        onMembershipChange?.(vars.rowId);
+        onMembershipChange?.(vars.rowId, vars.columnId, vars.value);
       }
     },
   });

@@ -190,40 +190,28 @@ export const columnRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      const BATCH = 100_000;
       const tId = input.tableId.replace(/'/g, "''");
+
+      // Single UPDATE per backfill type — no batching.
+      // Neon runs on NVMe with dedicated compute; one query is faster
+      // than multiple batches that burn connection pool slots.
+      // The frontend doesn't block on this — getCellValue already
+      // resolves values via sourceColumnId / defaultValue fallback.
 
       // ── Default value backfill ──
       if (input.defaultValue && input.defaultValue.trim() !== "") {
         const cId = input.columnId.replace(/'/g, "''");
-        const dv = input.defaultValue.replace(/'/g, "''");
 
         const jsonbExpr =
           input.type === "NUMBER" && !isNaN(Number(input.defaultValue))
             ? `to_jsonb(${Number(input.defaultValue)}::double precision)`
-            : `to_jsonb('${dv}'::text)`;
+            : `to_jsonb('${input.defaultValue.replace(/'/g, "''")}'::text)`;
 
-        // COALESCE guards: if searchText is NULL (not just ''), concatenation
-        // with NULL yields NULL → violates NOT NULL constraint.
-        const searchAppend = `CASE WHEN COALESCE("searchText", '') = '' THEN '${dv}' ELSE COALESCE("searchText", '') || chr(31) || '${dv}' END`;
-
-        let total = 0;
-        let batchStart = 0;
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const affected: number = await ctx.db.$executeRawUnsafe(`
-            UPDATE "Row"
-            SET "cells" = jsonb_set(COALESCE("cells", '{}'), '{${cId}}', ${jsonbExpr}),
-                "searchText" = ${searchAppend},
-                "updatedAt" = now()
-            WHERE "tableId" = '${tId}'
-              AND "rowIndex" >= ${batchStart}
-              AND "rowIndex" < ${batchStart + BATCH}
-          `);
-          total += affected;
-          if (affected === 0) break;
-          batchStart += BATCH;
-        }
+        const total: number = await ctx.db.$executeRawUnsafe(`
+          UPDATE "Row"
+          SET "cells" = "cells" || jsonb_build_object('${cId}', ${jsonbExpr})
+          WHERE "tableId" = '${tId}'
+        `);
         console.log(`[column.backfill] Default value: ${total} rows for ${input.columnId}`);
       }
 
@@ -232,36 +220,12 @@ export const columnRouter = createTRPCRouter({
         const srcId = input.sourceColumnId.replace(/'/g, "''");
         const newId = input.columnId.replace(/'/g, "''");
 
-        let total = 0;
-        let batchStart = 0;
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          // COALESCE guards prevent NOT NULL violations:
-          //  - cells: if source column doesn't exist, cells->'src' is SQL NULL,
-          //    and jsonb_set(jsonb, path, NULL) returns NULL. We skip the set
-          //    entirely when the source key is absent.
-          //  - searchText: if searchText is NULL or source value is NULL,
-          //    unguarded concatenation yields NULL.
-          const affected: number = await ctx.db.$executeRawUnsafe(`
-            UPDATE "Row"
-            SET "cells" = CASE
-                  WHEN (COALESCE("cells", '{}') -> '${srcId}') IS NOT NULL
-                  THEN jsonb_set(COALESCE("cells", '{}'), '{${newId}}', COALESCE("cells", '{}') -> '${srcId}')
-                  ELSE COALESCE("cells", '{}')
-                END,
-                "searchText" = CASE
-                  WHEN COALESCE("searchText", '') = '' THEN COALESCE(COALESCE("cells", '{}')->>'${srcId}', '')
-                  ELSE COALESCE("searchText", '') || chr(31) || COALESCE(COALESCE("cells", '{}')->>'${srcId}', '')
-                END,
-                "updatedAt" = now()
-            WHERE "tableId" = '${tId}'
-              AND "rowIndex" >= ${batchStart}
-              AND "rowIndex" < ${batchStart + BATCH}
-          `);
-          total += affected;
-          if (affected === 0) break;
-          batchStart += BATCH;
-        }
+        const total: number = await ctx.db.$executeRawUnsafe(`
+          UPDATE "Row"
+          SET "cells" = "cells" || jsonb_build_object('${newId}', "cells" -> '${srcId}')
+          WHERE "tableId" = '${tId}'
+            AND "cells" ? '${srcId}'
+        `);
         console.log(`[column.backfill] Duplication: ${total} rows for ${input.columnId}`);
       }
 
@@ -374,33 +338,19 @@ export const columnRouter = createTRPCRouter({
         }
       });
 
-      // ── Step 2: Batched cell cleanup (OUTSIDE transaction) ──────────
-      // Strip the column key from cells JSONB in 100K-row batches.
-      // Each batch commits independently so concurrent readers see
-      // progress immediately.  searchText is simplified: just remove
-      // the column value via a string replace on the separator-delimited
-      // text — recomputing from jsonb_each_text is far too slow at 1M rows.
-      const BATCH = 100_000;
+      // ── Step 2: Cell cleanup (OUTSIDE transaction) ──────────
+      // Strip the column key from cells JSONB in a single UPDATE.
+      // Neon's NVMe compute handles this efficiently without batching.
       const colId = input.columnId.replace(/'/g, "''");
       const tId = input.tableId.replace(/'/g, "''");
 
       try {
-        let totalCleaned = 0;
-        let batchStart = 0;
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const affected: number = await ctx.db.$executeRawUnsafe(`
-            UPDATE "Row"
-            SET "cells" = "cells" - '${colId}',
-                "updatedAt" = now()
-            WHERE "tableId" = '${tId}'
-              AND "rowIndex" >= ${batchStart}
-              AND "rowIndex" < ${batchStart + BATCH}
-          `);
-          totalCleaned += affected;
-          if (affected === 0) break;
-          batchStart += BATCH;
-        }
+        const totalCleaned: number = await ctx.db.$executeRawUnsafe(`
+          UPDATE "Row"
+          SET "cells" = "cells" - '${colId}'
+          WHERE "tableId" = '${tId}'
+            AND "cells" ? '${colId}'
+        `);
         console.log(`[column.delete] Cell cleanup: ${totalCleaned} rows cleaned for column ${input.columnId}`);
       } catch (err) {
         console.error("[column.delete] Cell cleanup failed:", err);

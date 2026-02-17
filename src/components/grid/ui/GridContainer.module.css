@@ -789,6 +789,12 @@
   outline: none;
 }
 
+/* Find current cell — deep yellow so it wins over sort/filter tints */
+.gridDataCellFindCurrent,
+.gridDataCell[data-find-current="true"] {
+  background-color: #FFD66B !important;
+}
+
 /* Sorted column tint — data cells get a warm orange tint */
 .gridDataCellSorted {
   background-color: rgb(255, 242, 234);

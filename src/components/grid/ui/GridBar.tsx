@@ -212,14 +212,16 @@ export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar(
 
   /**
    * Compute totalMatches for FindBar:
-   * - undefined → idle / loading (no result indicator shown)
+   * - undefined → no search text, or still loading with no count yet
    * - 0        → "No results"
    * - >0       → "X of Y" + nav arrows
+   * Show count whenever we have search and (we have matches, or we're done loading).
    */
   const findBarTotalMatches = useMemo(() => {
-    if (!search.trim()) return undefined; // no active search
-    if (isSearchPending) return undefined; // waiting for debounce + query
-    return findMatchCount;
+    if (!search.trim()) return undefined;
+    if (findMatchCount > 0) return findMatchCount; // show even while refetching
+    if (!isSearchPending) return findMatchCount;   // show 0 when done loading
+    return undefined;                              // pending and no count yet
   }, [search, isSearchPending, findMatchCount]);
 
   const findBarMatchIndex =
