@@ -117,6 +117,10 @@ interface TableItem {
   name: string;
 }
 
+// Module-level flag so the pending-rename survives component remounts
+// caused by router.push navigation.
+let _pendingRenameTableId: string | null = null;
+
 export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const router = useRouter();
   const utils = api.useUtils();
@@ -226,23 +230,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const createTableMut = api.table.create.useMutation({
     onSuccess: async (result) => {
       await utils.table.listByBase.invalidate({ baseId });
-      const newId = result.table.id;
-      router.push(`/bases/${baseId}/tables/${newId}`);
-      // Open rename popup after navigation settles
-      setTimeout(() => {
-        const newTabButton = document.querySelector(`[data-table-id="${newId}"]`);
-        if (newTabButton) {
-          const tabRect = newTabButton.getBoundingClientRect();
-          const transformOffset = 71;
-          const minLeftMargin = 8;
-          const minLeft = minLeftMargin + transformOffset;
-          const left = Math.max(tabRect.left, minLeft);
-          setRenamePopupPosition({ top: tabRect.bottom + 8, left });
-          setRenameTableName(result.table.name);
-          setRenameRecordName('Record');
-          setIsRenamePopupOpen(true);
-        }
-      }, 150);
+      _pendingRenameTableId = result.table.id;
+      router.push(`/bases/${baseId}/tables/${result.table.id}`);
     },
   });
 
@@ -261,7 +250,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     },
   });
 
-  // Add a new table via DB and navigate to it
+  // Create a new table and navigate to it; rename popup opens via useEffect below
   const handleAddTable = () => {
     const newName = `Table ${tables.length + 1}`;
     createTableMut.mutate({ baseId, name: newName });
@@ -275,7 +264,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       if (parentTab) {
         const tabRect = parentTab.getBoundingClientRect();
         const transformOffset = 72; // CSS transform: translateX(-72px)
-        const minLeftMargin = 8; // Minimum distance from left edge of viewport
+        const minLeftMargin = 12; // Minimum distance from left edge of viewport
         
         // Calculate left position, ensuring popup stays at least 12px from left edge
         // Since transform shifts -70px, we need left >= 82 to maintain 12px margin
@@ -3183,6 +3172,36 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       renameInputRef.current.select();
     }
   }, [isRenamePopupOpen]);
+
+  // === OPEN RENAME POPUP FOR NEWLY CREATED TABLE ===
+  useEffect(() => {
+    if (!_pendingRenameTableId) return;
+    if (tableId !== _pendingRenameTableId) return;
+    const newTable = tables.find(t => t.id === _pendingRenameTableId);
+    if (!newTable) return;
+
+    const pendingId = _pendingRenameTableId;
+    _pendingRenameTableId = null;
+
+    // Poll until the new tab element is in the DOM
+    const tryOpen = (attempts = 0) => {
+      const tab = document.querySelector(`[data-table-id="${pendingId}"]`) as HTMLElement | null;
+      if (tab) {
+        const tabRect = tab.getBoundingClientRect();
+        const transformOffset = 71;
+        const minLeftMargin = 12;
+        const minLeft = minLeftMargin + transformOffset;
+        const left = Math.max(tabRect.left, minLeft);
+        setRenamePopupPosition({ top: tabRect.bottom + 8, left });
+        setRenameTableName(newTable.name);
+        setRenameRecordName('Record');
+        setIsRenamePopupOpen(true);
+      } else if (attempts < 20) {
+        requestAnimationFrame(() => tryOpen(attempts + 1));
+      }
+    };
+    requestAnimationFrame(() => tryOpen());
+  }, [tableId, tables]);
 
   // === AUTO-FOCUS RENAME VIEW INPUT ===
   useEffect(() => {

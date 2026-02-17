@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import styles from "./TableToolbar.module.css";
 import {
   IconMagnifyingGlass,
@@ -340,8 +341,8 @@ export function TableToolbar({
           ))}
         </div>
 
-        {/* Table Rename Popup */}
-        {isRenamePopupOpen && renamePopupPosition && (
+        {/* Table Rename Popup — rendered via Portal so it escapes the toolbar stacking context */}
+        {isRenamePopupOpen && renamePopupPosition && createPortal(
           <div
             ref={renamePopupRef}
             className={styles.tableRenamePopup}
@@ -418,7 +419,8 @@ export function TableToolbar({
                 Save
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Right scroll indicator - only render when there's right overflow (scrollProgress < 1) */}
