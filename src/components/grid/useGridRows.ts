@@ -92,7 +92,7 @@ export function useGridRows(tableId: string) {
 
   // ── Sort transition detection ──
   // When sorts change (especially first sort after bulk insert, where the
-  // backend builds an index ~2-3s), show skeleton rows instead of stale
+  // backend builds an index), show skeleton rows instead of stale
   // data in the wrong order.  Track the sort fingerprint that the current
   // fresh data was fetched with; when it diverges from the desired sorts,
   // we're in a sort transition.

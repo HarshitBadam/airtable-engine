@@ -5,6 +5,7 @@
 
 import { useSession } from "next-auth/react";
 import { api } from "~/trpc/react";
+import { filterPendingDeletes } from "./pendingDeletes";
 
 /**
  * Generate a cuid-like ID client-side
@@ -120,6 +121,7 @@ export function useBases(): UseBasesResult {
   const { data, isLoading, isError } = api.base.listMine.useQuery(undefined, {
     retry: false, // Don't retry on auth errors
     refetchOnWindowFocus: false, // Don't spam requests
+    select: filterPendingDeletes, // Exclude bases mid-deletion
   });
   
   // Optimistic create mutation

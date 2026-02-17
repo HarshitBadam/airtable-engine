@@ -593,23 +593,73 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     }
   }, [gridStoreApi, utils, rowQueryInput, triggerJumpFetch, reorderJumpCacheRow, removeProtectedRowId, isRowProtected]);
 
-  const { commit, cancel } = useCellEditing(tableId, rowQueryInput, updateJumpCacheRow, handleCellMembershipChange);
-
   // Search state for FindBar wiring
   const search = useGridStore((s) => s.search);
   const setFindCurrentMatch = useGridStore((s) => s.setFindCurrentMatch);
+  const addFindCountDelta = useGridStore((s) => s.addFindCountDelta);
+  const resetFindCountDelta = useGridStore((s) => s.resetFindCountDelta);
+
+  /** Count non-overlapping occurrences of `term` in `text` (case-insensitive). */
+  const countOccurrences = useCallback((text: string, term: string): number => {
+    if (!term) return 0;
+    const lower = text.toLowerCase();
+    const tLower = term.toLowerCase();
+    let count = 0;
+    let pos = 0;
+    while (pos <= lower.length - tLower.length) {
+      const idx = lower.indexOf(tLower, pos);
+      if (idx === -1) break;
+      count++;
+      pos = idx + tLower.length;
+    }
+    return count;
+  }, []);
+
+  /** When a cell value changes, adjust the find count delta so "X of Y" updates instantly. */
+  const handleCellValueChange = useCallback((
+    _rowId: string,
+    _columnId: string,
+    oldValue: string | number | null,
+    newValue: string | number | null,
+  ) => {
+    const term = gridStoreApi.getState().search.trim();
+    if (!term) return;
+    const oldStr = oldValue != null ? String(oldValue) : "";
+    const newStr = newValue != null ? String(newValue) : "";
+    const delta = countOccurrences(newStr, term) - countOccurrences(oldStr, term);
+    if (delta !== 0) addFindCountDelta(delta);
+  }, [gridStoreApi, countOccurrences, addFindCountDelta]);
+
+  const { commit, cancel } = useCellEditing(tableId, rowQueryInput, updateJumpCacheRow, handleCellMembershipChange, handleCellValueChange);
 
   // Backend query: count total substring matches across all rows in the table.
   // Only fires when there's an active (debounced) search term.
   const activeSearchTermForCount = debouncedSearch.trim();
   const searchCountQ = api.row.searchMatchCount.useQuery(
     activeSearchTermForCount
-      ? { tableId, search: activeSearchTermForCount }
+      ? {
+          tableId,
+          search: activeSearchTermForCount,
+          filters: rowQueryInput.filters,
+          conjunction: rowQueryInput.conjunction,
+          filterTree: rowQueryInput.filterTree,
+        }
       : skipToken,
     { staleTime: 10_000, refetchOnWindowFocus: false },
   );
   /** Total substring match count across the entire table (from backend). */
   const serverMatchCount: number = searchCountQ.data?.count ?? 0;
+  const findCountDelta = useGridStore((s) => s.findCountDelta);
+
+  // Reset the client-side delta whenever the server count refreshes (it now
+  // incorporates any edits that happened since the last fetch).
+  const searchCountUpdatedAt = searchCountQ.dataUpdatedAt;
+  useEffect(() => {
+    if (searchCountUpdatedAt) resetFindCountDelta();
+  }, [searchCountUpdatedAt, resetFindCountDelta]);
+
+  /** Displayed match count = server count + accumulated client-side delta. */
+  const displayMatchCount: number = Math.max(0, serverMatchCount + findCountDelta);
 
   /** true while debounce timer is pending OR the match-count query is in-flight */
   const isSearchPending = search !== debouncedSearch || searchCountQ.isFetching;
@@ -678,49 +728,49 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const activeSearchTerm = debouncedSearch.trim();
 
   /** Build a flat list of match positions from currently loaded rows.
-   *  Each entry is { rowPos, colId } — one per matching cell.
-   *  Sorted by (rowPos, column order) for deterministic navigation. */
+   *  Each entry is { rowPos, colId, occurrenceIndex } — one per non-overlapping
+   *  substring occurrence.  This makes the list consistent with the server-side
+   *  searchMatchCount (which also counts individual occurrences, not cells).
+   *  Sorted by (rowPos, column order, occurrenceIndex) for deterministic navigation. */
   const localMatches = useMemo(() => {
     if (!activeSearchTerm) return [];
     const termLower = activeSearchTerm.toLowerCase();
-    const matches: Array<{ rowPos: number; colId: string }> = [];
+    const matches: Array<{ rowPos: number; colId: string; occurrenceIndex: number }> = [];
+
+    /** Scan a single row's visible cells, pushing one entry per non-overlapping occurrence. */
+    const scanRow = (rowPos: number, cells: Record<string, unknown>) => {
+      for (const col of visibleColumns) {
+        const val = cells[col.id];
+        if (val == null) continue;
+        const strVal =
+          typeof val === "object" && val !== null
+            ? JSON.stringify(val)
+            : String(val as string | number | boolean);
+        const strLower = strVal.toLowerCase();
+        let searchPos = 0;
+        let occ = 0;
+        while (searchPos <= strLower.length - termLower.length) {
+          const idx = strLower.indexOf(termLower, searchPos);
+          if (idx === -1) break;
+          matches.push({ rowPos, colId: col.id, occurrenceIndex: occ });
+          searchPos = idx + termLower.length;
+          occ++;
+        }
+      }
+    };
 
     // 1. Scan infinite-query rows (sequential pages)
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i] as RowItem;
       if (!row) continue;
-      const cells = (row.cells ?? {}) as Record<string, unknown>;
-      for (const col of visibleColumns) {
-        const val = cells[col.id];
-        if (val != null) {
-          const strVal =
-            typeof val === "object" && val !== null
-              ? JSON.stringify(val)
-              : String(val as string | number | boolean);
-          if (strVal.toLowerCase().includes(termLower)) {
-            matches.push({ rowPos: i, colId: col.id });
-          }
-        }
-      }
+      scanRow(i, (row.cells ?? {}) as Record<string, unknown>);
     }
 
     // 2. Scan jump cache (rows beyond infinite-query range)
     const sortedJumpEntries = [...jumpCache.entries()].sort(([a], [b]) => a - b);
     for (const [pos, row] of sortedJumpEntries) {
       if (pos < rows.length) continue; // already covered above
-      const cells = (row.cells ?? {}) as Record<string, unknown>;
-      for (const col of visibleColumns) {
-        const val = cells[col.id];
-        if (val != null) {
-          const strVal =
-            typeof val === "object" && val !== null
-              ? JSON.stringify(val)
-              : String(val as string | number | boolean);
-          if (strVal.toLowerCase().includes(termLower)) {
-            matches.push({ rowPos: pos, colId: col.id });
-          }
-        }
-      }
+      scanRow(pos, (row.cells ?? {}) as Record<string, unknown>);
     }
 
     return matches;
@@ -745,6 +795,14 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // when the effect re-fires due to referential (but not semantic) dependency changes.
   const prevMatchKeyRef = useRef<string | null>(null);
 
+  // Pending wrap-around navigation: set when the user wraps past the first/last
+  // loaded match and we need to fetch a distant page from the backend.
+  const pendingWrapNavRef = useRef<{
+    rowId: string;
+    absolutePosition: number;
+    direction: "first" | "last";
+  } | null>(null);
+
   // Sync current match index → store highlight + scroll into view
   useEffect(() => {
     if (!activeSearchTerm || localMatches.length === 0) {
@@ -758,28 +816,129 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     const match = localMatches[currentMatchIdx];
     if (!match) return;
 
-    const matchKey = `${match.rowPos}:${match.colId}`;
+    const matchKey = `${match.rowPos}:${match.colId}:${match.occurrenceIndex}`;
     if (matchKey === prevMatchKeyRef.current) return;
     prevMatchKeyRef.current = matchKey;
 
     const row = getRowAtIndex(match.rowPos);
     if (row) {
-      setFindCurrentMatch({ rowId: row.id, columnId: match.colId });
+      setFindCurrentMatch({ rowId: row.id, columnId: match.colId, occurrenceIndex: match.occurrenceIndex });
       const colIdx = visibleColumns.findIndex((c) => c.id === match.colId);
       if (colIdx !== -1) scrollCellIntoView(colIdx, match.rowPos);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMatchIdx, activeSearchTerm, localMatches, visibleColumns, getRowAtIndex, setFindCurrentMatch]);
 
+  // Resolve pending wrap-around navigation once the target row appears in
+  // localMatches (i.e. the windowFetch loaded the page containing it).
+  useEffect(() => {
+    const pending = pendingWrapNavRef.current;
+    if (!pending) return;
+
+    // Scan localMatches for the target rowId.
+    // "first" → use the first localMatch entry for that row.
+    // "last"  → use the last localMatch entry for that row.
+    let targetIdx: number | null = null;
+    for (let i = 0; i < localMatches.length; i++) {
+      const m = localMatches[i];
+      if (!m) continue;
+      const row = getRowAtIndex(m.rowPos);
+      if (row && row.id === pending.rowId) {
+        if (pending.direction === "first") {
+          targetIdx = i;
+          break;
+        }
+        targetIdx = i; // keep updating — last wins
+      }
+    }
+
+    if (targetIdx !== null) {
+      setCurrentMatchIdx(targetIdx);
+      pendingWrapNavRef.current = null;
+    }
+  }, [localMatches, jumpCache, getRowAtIndex]);
+
+  /** Fire the async wrap-around navigation (shared by next/prev). */
+  const doWrapNavigation = useCallback(
+    (matchIndex: number, direction: "first" | "last") => {
+      if (pendingWrapNavRef.current) return; // already in-flight
+      void (async () => {
+        try {
+          const result = await utils.row.searchMatchAt.fetch({
+            tableId,
+            search: activeSearchTerm!,
+            matchIndex,
+            filters: rowQueryInput.filters,
+            conjunction: rowQueryInput.conjunction,
+            filterTree: rowQueryInput.filterTree,
+            sorts: rowQueryInput.sorts,
+          });
+          if (!result.rowId || result.absolutePosition == null) return;
+
+          // Check if the target is already in localMatches
+          const scanStart = direction === "first" ? 0 : localMatches.length - 1;
+          const scanEnd = direction === "first" ? localMatches.length : -1;
+          const scanStep = direction === "first" ? 1 : -1;
+          for (let i = scanStart; i !== scanEnd; i += scanStep) {
+            const m = localMatches[i];
+            if (!m) continue;
+            const row = getRowAtIndex(m.rowPos);
+            if (row && row.id === result.rowId) {
+              setCurrentMatchIdx(i);
+              return;
+            }
+          }
+
+          // Not loaded yet — trigger fetch and set pending ref for the effect.
+          pendingWrapNavRef.current = {
+            rowId: result.rowId,
+            absolutePosition: result.absolutePosition,
+            direction,
+          };
+          triggerJumpFetch(result.absolutePosition, true);
+        } catch {
+          // Silently fail — user can retry
+        }
+      })();
+    },
+    [utils, tableId, activeSearchTerm, rowQueryInput, localMatches, getRowAtIndex, triggerJumpFetch],
+  );
+
+  // Ref to detect wrap-around: updated on every render so handlers can
+  // check boundary conditions without stale closures.
+  const currentMatchIdxRef = useRef(currentMatchIdx);
+  currentMatchIdxRef.current = currentMatchIdx;
+
   const handleNextMatch = useCallback(() => {
     if (!activeSearchTerm || localMatches.length === 0) return;
-    setCurrentMatchIdx((prev) => (prev + 1) % localMatches.length);
-  }, [activeSearchTerm, localMatches.length]);
+
+    // Functional updater ensures correctness with rapid clicks / batching.
+    setCurrentMatchIdx((prev) => {
+      if (prev < localMatches.length - 1) return prev + 1;
+      if (displayMatchCount <= localMatches.length) return 0;
+      return prev; // hold position — async wrap will resolve
+    });
+
+    // Fire wrap navigation outside the updater (no side effects in updaters).
+    // Ref check is correct for single-click scenarios (one click per render).
+    if (currentMatchIdxRef.current >= localMatches.length - 1 && displayMatchCount > localMatches.length) {
+      doWrapNavigation(0, "first");
+    }
+  }, [activeSearchTerm, localMatches, displayMatchCount, doWrapNavigation]);
 
   const handlePrevMatch = useCallback(() => {
     if (!activeSearchTerm || localMatches.length === 0) return;
-    setCurrentMatchIdx((prev) => (prev - 1 + localMatches.length) % localMatches.length);
-  }, [activeSearchTerm, localMatches.length]);
+
+    setCurrentMatchIdx((prev) => {
+      if (prev > 0) return prev - 1;
+      if (displayMatchCount <= localMatches.length) return localMatches.length - 1;
+      return prev; // hold position — async wrap will resolve
+    });
+
+    if (currentMatchIdxRef.current <= 0 && displayMatchCount > localMatches.length) {
+      doWrapNavigation(displayMatchCount - 1, "last");
+    }
+  }, [activeSearchTerm, localMatches, displayMatchCount, doWrapNavigation]);
 
   // Hide-all / Show-all callbacks for the Hide Fields panel
   const handleHideAllColumns = useCallback(() => {
@@ -1243,6 +1402,12 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // Helper to get cell value as string.
   // Resolves default values and duplication source values for columns
   // where the backfill hasn't written to this row yet.
+  //
+  // Key insight: we use `hasOwnProperty` to distinguish between:
+  //   - key missing entirely → cell was never written (backfill hasn't reached it)
+  //     → fall back to sourceColumnId / defaultValue
+  //   - key present but null → cell was explicitly written/cleared by the user
+  //     → return "" (don't fall back, respect the user's edit)
   const getCellValue = useCallback(
     (cells: unknown, columnId: string): string => {
       if (!cells || typeof cells !== "object") return "";
@@ -1253,7 +1418,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         return typeof val === "string" ? val : String(val as number | boolean | bigint | symbol);
       }
 
-      // Value is missing — check if this column has a fallback:
+      // Key exists but value is null — cell was explicitly written (user edit
+      // or backfill set it). Don't fall back to source/default; the user's
+      // intent was to clear this cell.
+      const hasKey = Object.prototype.hasOwnProperty.call(record, columnId);
+      if (hasKey) return "";
+
+      // Key doesn't exist at all — check if this column has a fallback:
       const col = orderedColumns.find((c) => c.id === columnId);
 
       // 1. Duplication: show source column's value (sourceColumnId is stored in DB)
@@ -1777,8 +1948,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   }, []);
 
   // === ROW VIRTUALIZATION (TanStack Virtual) ===
-  // Browser max scrollable height is limited (macOS Retina ≈ 2^24 = 16,777,216px).
-  // At 32px/row that's only ~524K rows. For larger datasets we CAP the virtualizer's
+  // Browser max scrollable height is limited (~16M px across browsers).
+  // At typical row heights this caps out quickly. For larger datasets we CAP the virtualizer's
   // item count and map virtual indices to actual row indices proportionally.
   // This keeps the scroll container within browser limits while rendering rows at
   // full height with correct positions.
@@ -2056,6 +2227,21 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           setRowOrderIdsTop(order);
         }
       }
+
+      // Adjust find count delta — duplicated row has same cells as source
+      const term = gridStoreApi.getState().search.trim();
+      if (term) {
+        const sourceRow = getRowById(vars.rowId);
+        if (sourceRow) {
+          const cells = (sourceRow.cells ?? {}) as Record<string, unknown>;
+          let delta = 0;
+          for (const val of Object.values(cells)) {
+            if (val != null) delta += countOccurrences(String(val), term);
+          }
+          if (delta > 0) addFindCountDelta(delta);
+        }
+      }
+
       refreshRows(1); // +1 row from duplicate
     },
   });
@@ -2164,6 +2350,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // Columns currently being backfilled — cells show grey placeholder text
   const [backfillingColumnIds, setBackfillingColumnIds] = useState<ReadonlySet<string>>(new Set());
 
+
   // Background backfill — writes default/source values to row cells.
   // Runs AFTER column.create returns so the column appears instantly.
   // getCellValue resolves values at render time while this runs.
@@ -2175,11 +2362,24 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         next.delete(vars.columnId);
         return next;
       });
-      // Refresh to pick up persisted data.
-      // Server has cleared sourceColumnId, so invalidate columns too.
+      // Refresh rows to pick up the persisted backfilled data.
+      // Do NOT invalidate column.list here — the column refetch is tiny
+      // and completes before the row refetch, clearing sourceColumnId
+      // while row data is still stale, causing a flash of empty cells.
+      // The stale sourceColumnId is harmless (getCellValue falls back to
+      // source, which has identical data) and gets cleared on the next
+      // natural column refetch (window focus, navigation, etc.).
       refreshRows();
-      void utils.column.list.invalidate({ tableId });
       void utils.view.list.invalidate({ tableId });
+    },
+    onError: (err, vars) => {
+      console.error("[backfill] failed for column", vars.columnId, err);
+      // Clear loading state so UI isn't stuck
+      setBackfillingColumnIds((prev) => {
+        const next = new Set(prev);
+        next.delete(vars.columnId);
+        return next;
+      });
     },
   });
 
@@ -2267,19 +2467,15 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       // View config is already updated by the server transaction.
       void utils.view.list.invalidate({ tableId });
 
-      // Fire background backfill if the column has data to write.
-      // getCellValue already shows the values at render time, so the
-      // user never sees blank cells.
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-      const needsBackfill = (vars.defaultValue && vars.defaultValue.trim() !== "") || vars.sourceColumnId;
-      if (needsBackfill) {
+      // Fire background backfill only for field duplication (cells copy).
+      // Default values don't need a backfill — the value is stored on
+      // the Column record and getCellValue resolves it at render time.
+      if (vars.sourceColumnId) {
         setBackfillingColumnIds((prev) => new Set(prev).add(newCol.id));
         backfillMut.mutate({
           tableId,
           columnId: newCol.id,
-          defaultValue: vars.defaultValue ?? undefined,
-          type: vars.type,
-          sourceColumnId: vars.sourceColumnId ?? undefined,
+          sourceColumnId: vars.sourceColumnId,
         });
       }
     },
@@ -2607,6 +2803,20 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     if (deletingRowIds.has(rowId)) return;
     if (activeCell?.rowId === rowId) clearSelection();
 
+    // Adjust find count delta — subtract occurrences in the deleted row
+    const term = gridStoreApi.getState().search.trim();
+    if (term) {
+      const row = getRowById(rowId);
+      if (row) {
+        const cells = (row.cells ?? {}) as Record<string, unknown>;
+        let delta = 0;
+        for (const val of Object.values(cells)) {
+          if (val != null) delta += countOccurrences(String(val), term);
+        }
+        if (delta > 0) addFindCountDelta(-delta);
+      }
+    }
+
     // 1) Mark as deleting (double-delete guard).  We do NOT use this for
     //    the CSS animation — see the GridContainer render below where we
     //    pass `deletingRowIds={undefined}` to disable it.
@@ -2746,6 +2956,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       tableId,
       name: copyName,
       type: dbType,
+      defaultValue: col.defaultValue ?? undefined,
       numberConfig: col.config ? (col.config as { decimalPlaces: number; thousandsSep: string; showThousands: boolean; largeNumAbbrev: string | null; allowNegative: boolean }) : undefined,
       viewId: activeViewIdFromStore ?? undefined,
       sourceColumnId: duplicateCells ? columnId : undefined,
@@ -3275,7 +3486,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             onToggleAutoSort={handleToggleAutoSort}
             onSaveSorts={handleSaveSorts}
             onCancelSorts={handleCancelSorts}
-            findMatchCount={activeSearchTerm ? serverMatchCount : 0}
+            findMatchCount={activeSearchTerm ? displayMatchCount : 0}
             findCurrentIndex={currentMatchIdx}
             isSearchPending={isSearchPending}
             onPrevMatch={handlePrevMatch}

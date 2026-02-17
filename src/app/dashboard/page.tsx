@@ -37,6 +37,7 @@ import {
 import { AccountDropdown, CreateModal } from "~/components/home";
 import { useBases, BasesGrid, BasesList, getBaseColor, getBaseTextColor, getBaseInitials } from "~/components/bases";
 import { useBaseCardActions } from "~/components/bases/useBaseCardActions";
+import { filterPendingDeletes } from "~/components/bases/pendingDeletes";
 import { SIDEBAR_AUTO_COLLAPSE_WIDTH } from "~/shared/constants";
 import { api } from "~/trpc/react";
 import basesStyles from "~/components/bases/bases.module.css";
@@ -158,6 +159,7 @@ export default function DashboardPage() {
   const { data: starredBases = [] } = api.base.listStarred.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
+    select: filterPendingDeletes, // Exclude bases mid-deletion
   });
   
   // Use shared actions hook for star toggle

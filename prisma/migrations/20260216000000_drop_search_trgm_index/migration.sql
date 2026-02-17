@@ -1,11 +1,11 @@
 -- Remove ALL GIN trigram indexes from the Row table.
 --
 -- The global searchText trigram index speeds up ILIKE substring search but
--- makes bulk inserts (100K+ rows) 4-6x slower due to per-row trigram
+-- makes bulk inserts significantly slower due to per-row trigram
 -- decomposition overhead.  Per-column _tg indexes have the same problem.
 --
--- ILIKE still works without these indexes (sequential scan ~300-600ms at
--- 1M rows).  The trade-off strongly favours fast writes for our workload.
+-- ILIKE still works without these indexes (sequential scan).  The
+-- trade-off strongly favours fast writes for our workload.
 
 -- 1) Global searchText trigram index
 DROP INDEX IF EXISTS "Row_searchText_trgm_idx";

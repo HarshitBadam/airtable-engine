@@ -75,6 +75,14 @@ export function useCellEditing(
         }
       }
 
+      // Find columns that are duplicates of the edited column (backfill in
+      // progress). When we edit c1, we freeze c1's current (pre-edit) value
+      // into c1c's cells so that c1c remains visually independent.
+      const cols = utils.column.list.getData({ tableId });
+      const dependentColIds = cols
+        ?.filter((c: { sourceColumnId?: string | null }) => c.sourceColumnId === vars.columnId)
+        .map((c: { id: string }) => c.id) ?? [];
+
       // 1. Optimistic update for infinite query pages
       utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
         if (!old) return old;
@@ -88,11 +96,20 @@ export function useCellEditing(
 
               const nextCells = { ...asCellRecord(r.cells) };
 
-              if (vars.value === null || vars.value === "") {
-                delete nextCells[vars.columnId];
-              } else {
-                nextCells[vars.columnId] = vars.value;
+              // Freeze pre-edit value into dependent (duplicate) columns so
+              // editing c1 doesn't visually bleed into c1c. Only freeze if
+              // c1c doesn't already have its own value for this cell.
+              for (const depId of dependentColIds) {
+                if (!Object.prototype.hasOwnProperty.call(nextCells, depId)) {
+                  nextCells[depId] = nextCells[vars.columnId] ?? null;
+                }
               }
+
+              // Set null instead of deleting so that the key still exists in
+              // the record. getCellValue uses hasOwnProperty to distinguish
+              // "never written" (fall back to source/default) from
+              // "explicitly cleared by user" (show empty).
+              nextCells[vars.columnId] = (vars.value === null || vars.value === "") ? null : vars.value;
 
               return {
                 ...r,
@@ -113,11 +130,15 @@ export function useCellEditing(
             onCellValueChange(vars.rowId, vars.columnId, old, vars.value);
           }
           const nextCells = { ...asCellRecord(row.cells) };
-          if (vars.value === null || vars.value === "") {
-            delete nextCells[vars.columnId];
-          } else {
-            nextCells[vars.columnId] = vars.value;
+
+          // Freeze pre-edit value into dependent columns (same as above)
+          for (const depId of dependentColIds) {
+            if (!Object.prototype.hasOwnProperty.call(nextCells, depId)) {
+              nextCells[depId] = nextCells[vars.columnId] ?? null;
+            }
           }
+
+          nextCells[vars.columnId] = (vars.value === null || vars.value === "") ? null : vars.value;
           return { ...row, cells: nextCells, updatedAt: new Date() };
         });
       }

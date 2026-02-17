@@ -26,15 +26,16 @@ export function findAllRanges(text: string, query: string): [number, number][] {
 }
 
 /** Render `text` with matching substrings highlighted.
- *  If `currentOccurrenceIndex` is set, only that occurrence (0-based) gets the dark highlight (#FFD66B);
- *  others get #FFF3D3. Otherwise all matches use #FFD66B. */
+ *  All occurrences always get the same yellow (#FFD66B) — matching Airtable's
+ *  behaviour where every match is uniformly highlighted regardless of which
+ *  occurrence is the current navigation target. */
 export function HighlightedText({
   text,
   query,
-  currentOccurrenceIndex,
 }: {
   text: string;
   query: string;
+  /** Kept for API compat but no longer affects highlight colour. */
   currentOccurrenceIndex?: number;
 }) {
   const ranges = findAllRanges(text, query);
@@ -46,12 +47,10 @@ export function HighlightedText({
     if (!range) continue;
     const [start, end] = range;
     if (start > lastEnd) parts.push(text.slice(lastEnd, start));
-    const isCurrent =
-      currentOccurrenceIndex !== undefined ? i === currentOccurrenceIndex : true;
     parts.push(
       <span
         key={start}
-        style={{ backgroundColor: isCurrent ? "#FFD66B" : "#FFF3D3" }}
+        style={{ backgroundColor: "#FFD66B" }}
       >
         {text.slice(start, end)}
       </span>,
@@ -141,7 +140,7 @@ export const GridRow = memo(function GridRow({
     s.findCurrentMatch?.rowId === row.id ? s.findCurrentMatch : null,
   );
   const findMatchColId = findCurrentMatch?.columnId ?? null;
-  const findCurrentOccurrenceIndex = findCurrentMatch?.occurrenceIndex ?? 0;
+  const findCurrentOccurrenceIndex = findCurrentMatch?.occurrenceIndex;
 
   // Sorted column IDs — for tinting sorted columns orange (only when autoSort=true)
   const sortedColumnIds = useGridStore(
@@ -227,7 +226,7 @@ export const GridRow = memo(function GridRow({
           <div className={styles.gridCellContent}>
             <div
               className={isNumber ? styles.gridCellNumber : styles.gridCellText}
-              style={rawMissing ? { color: '#bbb' } : undefined}
+              style={undefined}
             >
               {(() => {
                 const displayText = isNumber

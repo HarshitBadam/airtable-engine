@@ -156,87 +156,146 @@ export const columnRouter = createTRPCRouter({
       // column creation sub-200ms instead of 10-30s.
 
       // Index creation is NOT done here either.  Building a B-tree on
-      // 1M rows of NULL values would take ~5-10s for zero benefit.
-      // The on-demand ensureSortIndex in infinite/windowFetch builds the
-      // index if/when the user actually sorts on this column.
+      // all-NULL rows is wasted work.  The on-demand ensureSortIndex in
+      // infinite/windowFetch builds the index if/when the user actually
+      // sorts on this column.
 
       return col;
     }),
 
   /**
    * Backfill cell values for a newly created column.
-   * Called by the client AFTER column.create returns, so the column
-   * header appears instantly and the heavy row-level writes happen
-   * in the background.  The client shows default/source values at
-   * render time, so the user never sees blank cells.
+   *
+   * ── Default values ──
+   * NOT backfilled.  The default is stored on the Column record and
+   * getCellValue() resolves it at render time.  For sort, all rows
+   * have NULL in the new column → they sort equally (rowIndex
+   * tiebreaker), which is correct when every value is the same.
+   * This makes field-with-default creation O(0) regardless of row count.
+   *
+   * ── Duplication ──
+   * The cells JSONB copy IS needed so the new column becomes independent
+   * of the source column.  To keep it fast:
+   *   • searchText is NOT updated — the source column's contribution
+   *     is already in searchText, so search still finds the values.
+   *   • Batched in 50K-row chunks to limit lock duration and WAL
+   *     pressure.  Each batch auto-commits independently.
+   *   • Deadlocks (40P01) are retried per-batch (up to 3 times).
+   *
+   * While the backfill runs, sort queries redirect to the source
+   * column via validateAndResolveSorts() in row.ts.  Once complete,
+   * sourceColumnId is cleared and sorts use the new column directly.
    */
   backfill: protectedProcedure
     .input(
       z.object({
         tableId: z.string(),
         columnId: z.string(),
-        /** Default value to stamp into every row */
-        defaultValue: z.string().optional(),
-        /** Column type (needed to write numbers as JSONB numbers) */
-        type: z.enum(["TEXT", "NUMBER"]).optional(),
         /** Source column to copy values from (field duplication) */
         sourceColumnId: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Default-value columns no longer need a backfill — the value
+      // lives on the Column record and is resolved at read time.
+      if (!input.sourceColumnId) return { ok: true };
+
       const table = await ctx.db.table.findFirst({
         where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
         select: { id: true },
       });
       if (!table) throw new Error("Table not found");
 
-      const tId = input.tableId.replace(/'/g, "''");
+      // ── Duplication backfill (batched, cells-only) ──
 
-      // Single UPDATE per backfill type — no batching.
-      // Neon runs on NVMe with dedicated compute; one query is faster
-      // than multiple batches that burn connection pool slots.
-      // The frontend doesn't block on this — getCellValue already
-      // resolves values via sourceColumnId / defaultValue fallback.
-
-      // ── Default value backfill ──
-      if (input.defaultValue && input.defaultValue.trim() !== "") {
-        const cId = input.columnId.replace(/'/g, "''");
-
-        const jsonbExpr =
-          input.type === "NUMBER" && !isNaN(Number(input.defaultValue))
-            ? `to_jsonb(${Number(input.defaultValue)}::double precision)`
-            : `to_jsonb('${input.defaultValue.replace(/'/g, "''")}'::text)`;
-
-        const total: number = await ctx.db.$executeRawUnsafe(`
-          UPDATE "Row"
-          SET "cells" = "cells" || jsonb_build_object('${cId}', ${jsonbExpr})
-          WHERE "tableId" = '${tId}'
-        `);
-        console.log(`[column.backfill] Default value: ${total} rows for ${input.columnId}`);
-      }
-
-      // ── Duplication backfill ──
-      if (input.sourceColumnId) {
-        const srcId = input.sourceColumnId.replace(/'/g, "''");
-        const newId = input.columnId.replace(/'/g, "''");
-
-        const total: number = await ctx.db.$executeRawUnsafe(`
-          UPDATE "Row"
-          SET "cells" = "cells" || jsonb_build_object('${newId}', "cells" -> '${srcId}')
-          WHERE "tableId" = '${tId}'
-            AND "cells" ? '${srcId}'
-        `);
-        console.log(`[column.backfill] Duplication: ${total} rows for ${input.columnId}`);
-      }
-
-      // Clear sourceColumnId now that data is persisted — getCellValue
-      // no longer needs the fallback.
-      if (input.sourceColumnId) {
-        await ctx.db.column.update({
-          where: { id: input.columnId },
-          data: { sourceColumnId: null },
+      // Resolve sourceColumnId chain: if the source is itself an
+      // unbackfilled duplicate, follow the chain to the column that
+      // has actual cell data.
+      let resolvedSrcId = input.sourceColumnId;
+      for (let depth = 0; depth < 10; depth++) {
+        const src = await ctx.db.column.findFirst({
+          where: { id: resolvedSrcId },
+          select: { sourceColumnId: true },
         });
+        if (!src?.sourceColumnId) break;
+        resolvedSrcId = src.sourceColumnId;
       }
+
+      const tId = input.tableId.replace(/'/g, "''");
+      const srcId = resolvedSrcId.replace(/'/g, "''");
+      const newId = input.columnId.replace(/'/g, "''");
+
+      const BATCH = 50_000;
+      const MAX_RETRIES = 3;
+
+      let total = 0;
+      let batchStart = 0;
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        let affected = 0;
+
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            affected = await ctx.db.$executeRawUnsafe(`
+              UPDATE "Row"
+              SET "cells" = jsonb_build_object('${newId}', "cells" -> '${srcId}') || "cells"
+              WHERE "tableId" = '${tId}'
+                AND "cells" ? '${srcId}'
+                AND "rowIndex" >= ${batchStart}
+                AND "rowIndex" < ${batchStart + BATCH}
+            `);
+            break; // success
+          } catch (e: unknown) {
+            const isDeadlock =
+              typeof e === "object" && e !== null && "message" in e &&
+              (e as { message: string }).message.includes("40P01");
+            if (isDeadlock && attempt < MAX_RETRIES) {
+              await new Promise((r) => setTimeout(r, 50 * 2 ** attempt));
+              continue;
+            }
+            throw e;
+          }
+        }
+
+        total += affected;
+        if (affected === 0) break;
+        batchStart += BATCH;
+      }
+
+      console.log(
+        `[column.backfill] Duplication: ${total} rows (source resolved to ${resolvedSrcId}) for ${input.columnId}`,
+      );
+
+      // Build the sort index proactively so the user's first sort on
+      // the new column is instant (<1ms) instead of a 3-8s cold build.
+      // While sourceColumnId was set, sorts redirected to the source
+      // column's index.  Now that cells are copied, build the real one.
+      const col = await ctx.db.column.findFirst({
+        where: { id: input.columnId },
+        select: { type: true },
+      });
+      if (col) {
+        try {
+          await ensureSortIndex(
+            ctx.db,
+            input.tableId,
+            input.columnId,
+            col.type as "TEXT" | "NUMBER",
+          );
+        } catch (e) {
+          // Non-critical: if index build fails, it'll be built lazily
+          // on the user's first sort via ensureSortIndex in row.ts.
+          console.error("[column.backfill] Proactive index build failed:", e);
+        }
+      }
+
+      // Clear sourceColumnId — getCellValue and sort-redirect no longer
+      // need the fallback.
+      await ctx.db.column.update({
+        where: { id: input.columnId },
+        data: { sourceColumnId: null },
+      });
 
       return { ok: true };
     }),
@@ -340,7 +399,6 @@ export const columnRouter = createTRPCRouter({
 
       // ── Step 2: Cell cleanup (OUTSIDE transaction) ──────────
       // Strip the column key from cells JSONB in a single UPDATE.
-      // Neon's NVMe compute handles this efficiently without batching.
       const colId = input.columnId.replace(/'/g, "''");
       const tId = input.tableId.replace(/'/g, "''");
 

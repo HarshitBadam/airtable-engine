@@ -5,6 +5,7 @@
  */
 
 import { api } from "~/trpc/react";
+import { markPendingDelete, clearPendingDelete } from "./pendingDeletes";
 
 export function useBaseCardActions() {
   const utils = api.useUtils();
@@ -31,12 +32,17 @@ export function useBaseCardActions() {
     },
   });
 
-  // Optimistic delete mutation
-  // NOTE: onError does NOT restore — once a user confirms delete, the base
-  // stays removed from the UI.  If the server call fails (e.g. concurrent
-  // delete race), onSettled re-fetches to get the true state.
+  // Optimistic delete mutation with pending-delete guard.
+  // markPendingDelete() ensures the base is filtered out of ALL future
+  // query results (via select transforms in useBases / listStarred),
+  // even if an unrelated mutation triggers a refetch while the cascade
+  // delete is still running on the backend.
   const deleteMutation = api.base.delete.useMutation({
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 5000),
     onMutate: async ({ id }) => {
+      markPendingDelete(id);
+
       await utils.base.listMine.cancel();
       await utils.base.listStarred.cancel();
 
@@ -47,7 +53,8 @@ export function useBaseCardActions() {
         old?.filter((b) => b.id !== id)
       );
     },
-    onSettled: () => {
+    onSettled: (_data, _error, { id }) => {
+      clearPendingDelete(id);
       void utils.base.listMine.invalidate();
       void utils.base.listStarred.invalidate();
     },

@@ -7,7 +7,7 @@ import { useGridStore } from "./grid-store";
 /**
  * Step 6 (Recommended):
  * When the user starts sorting (and later, filtering), ensure DB indexes exist
- * for the involved column(s). This makes "1M rows" believable.
+ * for the involved column(s). This keeps sort queries fast at scale.
  *
  * - Dedupe: only once per columnId per session
  * - Fire-and-forget: does not block UI

@@ -17,8 +17,8 @@
  *   - row.windowFetch     → ensureSortIndex (on-demand before sorted jump)
  *   - column.ensureIndexes → ensureSortIndex (explicit index build)
  *
- * Fast path (<1ms) when index already exists (pg_indexes sentinel check).
- * Slow path (~2-3s on 400K rows) creates the index on first call.
+ * Fast path when index already exists (pg_indexes sentinel check).
+ * Slow path creates the index on first call (time depends on table size).
  *
  * Race-safe: concurrent callers that both enter the slow path will not
  * crash — Postgres 23505 (duplicate key on pg_catalog) is caught and
@@ -66,8 +66,8 @@ export async function dropColumnIndexesForTable(
 
 /**
  * Build the single B-tree sort index for a column.
- * ~2-3s on 400K rows.  Direction-agnostic: one ASC NULLS FIRST index
- * serves both ASC (forward scan) and DESC (backward scan) queries.
+ * Direction-agnostic: one ASC NULLS FIRST index serves both ASC
+ * (forward scan) and DESC (backward scan) queries.
  *
  * Called from the sort safety net in infinite/windowFetch queries.
  */
@@ -91,7 +91,7 @@ export async function ensureSortIndex(
   )) as { cnt: number }[];
   if ((existing[0]?.cnt ?? 0) > 0) return;
 
-  // Slow path: build the single index (~2-3s on 400K rows)
+  // Slow path: build the single index
   if (columnType === "TEXT") {
     await safeCreateIndex(
       db,

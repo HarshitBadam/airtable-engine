@@ -155,40 +155,76 @@ export const baseRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify ownership — if not found, the base was already deleted
-      // (or never existed). Treat as a no-op for idempotency.
+      const MAX_RETRIES = 3;
+      const BASE_DELAY_MS = 250;
+
+      // Verify ownership once, up-front.  If not found the base was
+      // already deleted (or never existed) — no-op for idempotency.
       const base = await ctx.db.base.findFirst({
         where: { id: input.id, ownerId: ctx.session.user.id },
       });
       if (!base) return null;
 
-      // Drop custom column indexes for all tables in this base BEFORE
-      // cascade-deleting the rows.  The Prisma cascade removes rows but
-      // leaves orphan partial B-tree indexes in pg_catalog, bloating the
-      // Row table for future inserts.
-      try {
-        const tables = await ctx.db.table.findMany({
-          where: { baseId: input.id },
-          select: { id: true },
-        });
-        await Promise.all(
-          tables.map((t) => dropColumnIndexesForTable(ctx.db, t.id)),
-        );
-      } catch {
-        // Non-critical: if index cleanup fails, we still delete the base.
+      // Collect table IDs for index cleanup (outside retry loop — they
+      // won't change between attempts).
+      const tables = await ctx.db.table.findMany({
+        where: { baseId: input.id },
+        select: { id: true },
+      });
+
+      // Retry loop: transactional delete with exponential back-off.
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          return await ctx.db.$transaction(
+            async (tx) => {
+              // Drop per-column sort indexes first so the cascade
+              // doesn't have to update them for every row delete.
+              await Promise.all(
+                tables.map((t) => dropColumnIndexesForTable(tx, t.id)),
+              );
+
+              // Cascade delete (tables, columns, rows, views, etc.)
+              return await tx.base.delete({
+                where: { id: input.id },
+              });
+            },
+            { timeout: 30_000 },
+          );
+        } catch (error) {
+          // If the base is already gone, treat as success.
+          const msg =
+            typeof error === "object" &&
+            error !== null &&
+            "message" in error
+              ? (error as { message: string }).message
+              : "";
+          if (
+            msg.includes("Record to delete does not exist") ||
+            msg.includes("does not exist")
+          ) {
+            return null;
+          }
+
+          // On last attempt, fall through to a bare delete as a last
+          // resort (skips index cleanup but at least removes the base).
+          if (attempt === MAX_RETRIES) {
+            try {
+              return await ctx.db.base.delete({
+                where: { id: input.id },
+              });
+            } catch {
+              return null;
+            }
+          }
+
+          // Exponential back-off before retry
+          await new Promise((r) =>
+            setTimeout(r, BASE_DELAY_MS * 2 ** attempt),
+          );
+        }
       }
 
-      // Delete (cascade removes tables, rows, views, etc.)
-      // Wrapped in try-catch for idempotency: if another concurrent
-      // delete already removed this base (or a CASCADE is in-flight),
-      // swallow the error — the base is gone either way.
-      try {
-        return await ctx.db.base.delete({
-          where: { id: input.id },
-        });
-      } catch {
-        return null;
-      }
+      return null;
     }),
 
   toggleStar: protectedProcedure

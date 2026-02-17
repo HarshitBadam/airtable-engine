@@ -369,10 +369,6 @@ async function queryRawUnsafe<T>(
  * matching row from the heap (losing index ordering) whereas Index Scan streams
  * rows in index order — critical for Merge Append to work cheaply.
  *
- * Benchmark (200 K offset, 2-value OR filter, 1 M rows):
- *   Bitmap Heap Scan:  2 880 ms
- *   Index Scan:          595 ms     (~4.8× faster)
- *
  * `SET LOCAL` only applies within the transaction scope — no side-effects on
  * other concurrent queries or subsequent queries on the same connection.
  */
@@ -476,7 +472,7 @@ function buildMultiSortCursorSql(
   // Postgres CANNOT use an OR predicate as an Index Cond on a B-tree.
   // We emit the OR predicate for correctness, but ALSO prepend a simple
   // range bound on the FIRST sort key that IS usable as an Index Cond.
-  // Result: 500K-offset jump goes from 53s → 2-3s.
+  // Result: deep-offset jumps become dramatically faster.
 
   // rowIndex tiebreaker direction matches the first sort
   const rowIndexOp = sorts.length > 0 && sorts[0]!.direction === "desc" ? "<" : ">";
@@ -621,6 +617,86 @@ function buildSortOrderByForAlias(sorts: SortInput[], alias: string): string {
   return parts.join(", ");
 }
 
+// ---------------------------------------------------------------------------
+// Sort column validation + duplicate-column redirect
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate sort columns and resolve unbackfilled duplicates.
+ *
+ * 1. Every sort column must belong to `tableId` and the client-supplied type
+ *    must match the DB type.
+ * 2. If a column still has `sourceColumnId` set (the background backfill
+ *    hasn't copied cell data yet), the sort is redirected to the source
+ *    column — values are identical, and the source column already has an
+ *    index.  This lets field duplication appear O(1) while the backfill
+ *    runs asynchronously.
+ * 3. When `buildIndexes` is true, sort indexes are ensured for every
+ *    resolved column (fast-path <1ms when already present).
+ *
+ * Returns a *new* sorts array with possibly redirected columnIds.
+ */
+async function validateAndResolveSorts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  sorts: SortInput[],
+  tableId: string,
+  buildIndexes: boolean,
+): Promise<SortInput[]> {
+  if (sorts.length === 0) return sorts;
+
+  const uniqueColIds = [...new Set(sorts.map((s) => s.columnId))];
+  const cols = await db.column.findMany({
+    where: { id: { in: uniqueColIds }, tableId },
+    select: { id: true, type: true, sourceColumnId: true },
+  }) as { id: string; type: string; sourceColumnId: string | null }[];
+
+  const colMap = new Map(cols.map((c) => [c.id, c]));
+
+  // Validate
+  for (const sort of sorts) {
+    const col = colMap.get(sort.columnId);
+    if (!col) throw new Error("Invalid sort column");
+    if (col.type !== sort.type) throw new Error("Sort type mismatch");
+  }
+
+  // Redirect unbackfilled duplicates to their source column
+  const hasRedirects = cols.some((c) => c.sourceColumnId);
+  const resolved = hasRedirects
+    ? sorts.map((sort) => {
+        const col = colMap.get(sort.columnId)!;
+        return col.sourceColumnId
+          ? { ...sort, columnId: col.sourceColumnId }
+          : sort;
+      })
+    : sorts;
+
+  // Ensure sort indexes for resolved columns
+  if (buildIndexes) {
+    const resolvedColIds = [...new Set(resolved.map((s) => s.columnId))];
+
+    // If redirects introduced columns not in the original set, fetch them
+    const needsFetch = hasRedirects && resolvedColIds.some((id) => !colMap.has(id));
+    const indexCols = needsFetch
+      ? (await db.column.findMany({
+          where: { id: { in: resolvedColIds }, tableId },
+          select: { id: true, type: true },
+        }) as { id: string; type: string }[])
+      : resolvedColIds.map((id) => {
+          const c = colMap.get(id);
+          return { id, type: c?.type ?? "TEXT" };
+        });
+
+    await Promise.all(
+      indexCols.map((c) =>
+        ensureSortIndex(db, tableId, c.id, c.type as "TEXT" | "NUMBER"),
+      ),
+    );
+  }
+
+  return resolved;
+}
+
 // ===========================================================================
 // Router
 // ===========================================================================
@@ -659,7 +735,7 @@ export const rowRouter = createTRPCRouter({
       const conjunction = input.conjunction;
       const filterTree = input.filterTree;
       const useTree = filterTree && filterTreeHasConditions(filterTree);
-      const sorts = input.sorts ?? [];
+      let sorts = input.sorts ?? [];
       const hasQuery = sorts.length > 0 || filters.length > 0 || Boolean(search && search.length > 0) || Boolean(useTree);
 
       // ── FAST PATH: no sorts/filters/search → parallelize auth + data ──
@@ -704,30 +780,9 @@ export const rowRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      // Validate sort columns belong to this table + type matches DB
-      // AND guarantee indexes exist before the query fires.
-      if (sorts.length > 0) {
-        const uniqueSortColIds = [...new Set(sorts.map((s) => s.columnId))];
-        const cols = await ctx.db.column.findMany({
-          where: { id: { in: uniqueSortColIds }, tableId: input.tableId },
-          select: { id: true, type: true },
-        });
-
-        const colMap = new Map(cols.map((c) => [c.id, c.type]));
-        for (const sort of sorts) {
-          const dbType = colMap.get(sort.columnId);
-          if (!dbType) throw new Error("Invalid sort column");
-          if (dbType !== sort.type) throw new Error("Sort type mismatch");
-        }
-
-        // Ensure sort indexes exist before the query runs.
-        // 1 index per column (~2-3s on 400K rows, <1ms if already exists).
-        // Direction-agnostic: one ASC NULLS FIRST index serves both via
-        // forward scan (ASC) and backward scan (DESC).
-        await Promise.all(
-          cols.map((c) => ensureSortIndex(ctx.db, input.tableId, c.id, c.type as "TEXT" | "NUMBER")),
-        );
-      }
+      // Validate sort columns, redirect unbackfilled duplicates to their
+      // source column, and ensure sort indexes exist.
+      sorts = await validateAndResolveSorts(ctx.db, sorts, input.tableId, true);
 
       // Validate filter columnIds belong to this table (required before literal injection)
       {
@@ -755,11 +810,10 @@ export const rowRouter = createTRPCRouter({
       // Used when viewId is provided, ranks are fresh, and no filters/search.
       //
       // Why not for sort+filter?  ViewRowRank only stores (viewId, rank, rowId).
-      // Evaluating filter conditions requires joining to Row for every ranked entry.
-      // For a 1.2M-row table with 8% filter selectivity, the first-page scan does
-      // ~14K PK lookups (~3.5s) — nearly identical to Tier 3's keyset pagination.
-      // For jumping (large OFFSET), Tier 2 is WORSE: it must scan offset/selectivity
-      // entries, while Tier 3 only sorts the filtered subset.
+      // Evaluating filter conditions requires joining to Row for every ranked entry,
+      // which is expensive at scale.  For jumping (large OFFSET), Tier 2 is WORSE:
+      // it must scan offset/selectivity entries, while Tier 3 only sorts the
+      // filtered subset.
       if (input.viewId && isSorted && !hasFiltersOrSearch) {
         const view = await ctx.db.view.findFirst({
           where: { id: input.viewId },
@@ -768,7 +822,7 @@ export const rowRouter = createTRPCRouter({
 
         if (view && !view.ranksStale) {
           // O(log N): backwards index scan on PK (viewId, rank) — instant
-          // even on 1M rows, vs the old COUNT(*) which was O(N).
+          // regardless of table size, vs COUNT(*) which is O(N).
           const [maxRankRow] = await queryRawUnsafe<{ maxRank: number | null }[]>(
             ctx.db,
             `SELECT MAX("rank") AS "maxRank" FROM "ViewRowRank" WHERE "viewId" = $1`,
@@ -968,7 +1022,7 @@ export const rowRouter = createTRPCRouter({
         // Scan on the covering sort index (INCLUDE "id").  Without this, the
         // keyset cursor predicate causes Postgres to scan from the start of
         // the index and do a heap fetch for EVERY entry (including those
-        // eliminated by the filter) — 500K heap reads after deep scrolling.
+        // eliminated by the filter).
         //
         // With the covering index, the inner scan reads compact index pages
         // sequentially with no heap access.  The outer join fetches full row
@@ -1078,24 +1132,14 @@ export const rowRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      // Validate sort columns exist + types match
-      const uniqueSortColIds = [...new Set(input.sorts.map((s) => s.columnId))];
-      const cols = await ctx.db.column.findMany({
-        where: { id: { in: uniqueSortColIds }, tableId: input.tableId },
-        select: { id: true, type: true },
-      });
-
-      const colMap = new Map(cols.map((c) => [c.id, c.type]));
-      for (const sort of input.sorts) {
-        const dbType = colMap.get(sort.columnId);
-        if (!dbType) throw new Error("Invalid sort column");
-        if (dbType !== sort.type) throw new Error("Sort type mismatch");
-      }
+      // Validate + redirect unbackfilled duplicates (no index build needed
+      // for a full-table rewrite).
+      const resolvedSorts = await validateAndResolveSorts(ctx.db, input.sorts, input.tableId, false);
 
       if (table.rowCount === 0) return { ok: true };
 
       const tableIdEscaped = escapeLiteral(input.tableId);
-      const orderByClause = buildSortOrderByForAlias(input.sorts, "r");
+      const orderByClause = buildSortOrderByForAlias(resolvedSorts, "r");
 
       await ctx.db.$transaction(async (tx) => {
         // Phase 1: Compute new order and set to negative values (avoids unique constraint collisions)
@@ -1154,18 +1198,8 @@ export const rowRouter = createTRPCRouter({
       });
       if (!view) throw new Error("View not found");
 
-      // Validate sort columns
-      const uniqueSortColIds = [...new Set(input.sorts.map((s) => s.columnId))];
-      const cols = await ctx.db.column.findMany({
-        where: { id: { in: uniqueSortColIds }, tableId: input.tableId },
-        select: { id: true, type: true },
-      });
-      const colMap = new Map(cols.map((c) => [c.id, c.type]));
-      for (const sort of input.sorts) {
-        const dbType = colMap.get(sort.columnId);
-        if (!dbType) throw new Error("Invalid sort column");
-        if (dbType !== sort.type) throw new Error("Sort type mismatch");
-      }
+      // Validate + redirect unbackfilled duplicates
+      const resolvedSorts = await validateAndResolveSorts(ctx.db, input.sorts, input.tableId, false);
 
       if (table.rowCount === 0) {
         // Clear any existing ranks and mark fresh
@@ -1181,7 +1215,7 @@ export const rowRouter = createTRPCRouter({
 
       const viewIdEscaped = escapeLiteral(input.viewId);
       const tableIdEscaped = escapeLiteral(input.tableId);
-      const orderByClause = buildSortOrderByForAlias(input.sorts, "r");
+      const orderByClause = buildSortOrderByForAlias(resolvedSorts, "r");
 
       // ── TRANSACTIONAL rank materialization with advisory lock ─────
       //
@@ -1192,8 +1226,8 @@ export const rowRouter = createTRPCRouter({
       // The advisory lock serialises calls per-view: if two calls race,
       // the second blocks until the first commits, then runs cleanly.
       //
-      // The transaction holds one connection for ~20-25s for 1M+ rows.
-      // With a 25-connection pool this is acceptable (4% of the pool).
+      // The transaction holds one connection for the duration of the
+      // rank computation.  This is acceptable given the pool size.
 
       // 1. Mark ranks stale — prevents concurrent queries from entering
       //    the ViewRowRank path during the heavy INSERT.
@@ -1297,10 +1331,9 @@ export const rowRouter = createTRPCRouter({
       // ── Step 2: INSERT in batches (outside transaction) ──────────
       // We keep per-column indexes alive during insert instead of
       // dropping and rebuilding.  B-tree maintenance is O(log N) per
-      // row per index — with 1 index per column (5 total), the overhead
-      // is ~5-7s for 100K rows but stays nearly constant as the table
-      // grows (log N).  The huge win: sorts are always instant afterwards,
-      // no cold-start index build that scales linearly with table size.
+      // row per index, so overhead stays nearly constant as the table
+      // grows.  The win: sorts are always instant afterwards — no
+      // cold-start index build that scales linearly with table size.
       //
       // If any batch fails, we compensate by rolling back the counters
       // to match the number of rows actually inserted, preventing drift.
@@ -1875,7 +1908,7 @@ export const rowRouter = createTRPCRouter({
       // which would break sorting and filtering.
       const column = await ctx.db.column.findFirst({
         where: { id: input.columnId, tableId: input.tableId },
-        select: { id: true, type: true },
+        select: { id: true, type: true, sourceColumnId: true },
       });
       if (!column) throw new Error("Column not found");
 
@@ -1887,8 +1920,31 @@ export const rowRouter = createTRPCRouter({
 
       const currentCells = (row.cells ?? {}) as Record<string, unknown>;
 
+      // Freeze pre-edit value into dependent (duplicate) columns.
+      // If c1c was duplicated from c1 (sourceColumnId = c1.id) and the
+      // backfill hasn't written c1c's key yet, copy c1's current value
+      // into c1c so the backfill (which uses existing-wins ordering)
+      // won't overwrite it with the post-edit value.
+      const dependents = await ctx.db.column.findMany({
+        where: { sourceColumnId: input.columnId, tableId: input.tableId },
+        select: { id: true },
+      });
+      for (const dep of dependents) {
+        if (!Object.prototype.hasOwnProperty.call(currentCells, dep.id)) {
+          const oldVal = currentCells[input.columnId];
+          currentCells[dep.id] = oldVal ?? null;
+        }
+      }
+
       if (input.value === null || input.value === "") {
-        delete currentCells[input.columnId];
+        // If this column is still being backfilled (has sourceColumnId),
+        // set to null instead of deleting so the key persists in JSONB.
+        // The backfill uses existing-wins ordering and will skip this key.
+        if (column.sourceColumnId) {
+          currentCells[input.columnId] = null;
+        } else {
+          delete currentCells[input.columnId];
+        }
       } else if (column.type === "NUMBER") {
         // For NUMBER columns, coerce string inputs to numbers.
         // If the value can't be parsed as a number, reject it.
@@ -1979,7 +2035,7 @@ export const rowRouter = createTRPCRouter({
       const conjunction = input.conjunction;
       const filterTree = input.filterTree;
       const useTree = filterTree && filterTreeHasConditions(filterTree);
-      const sorts = input.sorts ?? [];
+      let sorts = input.sorts ?? [];
       const hasQuery = sorts.length > 0 || filters.length > 0 || Boolean(search && search.length > 0) || Boolean(useTree);
 
       // ── TIER 1 FAST PATH: No sort/filter/search → rowIndex estimation + B-tree seek ──
@@ -2045,26 +2101,8 @@ export const rowRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      // Validate sort columns + guarantee indexes exist
-      if (sorts.length > 0) {
-        const uniqueSortColIds = [...new Set(sorts.map((s) => s.columnId))];
-        const cols = await ctx.db.column.findMany({
-          where: { id: { in: uniqueSortColIds }, tableId: input.tableId },
-          select: { id: true, type: true },
-        });
-        const colMap = new Map(cols.map((c) => [c.id, c.type]));
-        for (const sort of sorts) {
-          const dbType = colMap.get(sort.columnId);
-          if (!dbType) throw new Error("Invalid sort column");
-          if (dbType !== sort.type) throw new Error("Sort type mismatch");
-        }
-
-        // Ensure sort indexes exist before the query runs.
-        // 1 index per column, direction-agnostic (forward/backward scan).
-        await Promise.all(
-          cols.map((c) => ensureSortIndex(ctx.db, input.tableId, c.id, c.type as "TEXT" | "NUMBER")),
-        );
-      }
+      // Validate sort columns, redirect unbackfilled duplicates, ensure indexes.
+      sorts = await validateAndResolveSorts(ctx.db, sorts, input.tableId, true);
 
       // Validate filter columns
       {
@@ -2083,7 +2121,7 @@ export const rowRouter = createTRPCRouter({
       // ── TIER 2: Saved view with fresh ViewRowRank → O(limit) fetch ──
       // Only for sort-only (no filters/search).  Sort+filter stays on Tier 3
       // because evaluating filters requires joining every ranked entry to Row
-      // (1.2M PK lookups for a 1.2M-row table) — worse than Tier 3's approach
+      // — worse than Tier 3's approach
       // of filtering first then sorting the smaller filtered set.
       const hasFiltersOrSearch = filters.length > 0 || Boolean(useTree) || Boolean(search && search.length > 0);
       if (input.viewId && sorts.length > 0 && !hasFiltersOrSearch) {
@@ -2140,9 +2178,9 @@ export const rowRouter = createTRPCRouter({
       //
       // A) DEFERRED JOIN — the inner subquery selects only "id" so Postgres
       //    keeps (sort_key, id) in the sort buffer instead of the full cells
-      //    JSONB blob (~1 KB+/row).  For a 500 K-row OFFSET this shrinks the
-      //    sort buffer from ~500 MB to ~50 MB, avoiding disk-spill and reducing
-      //    TOAST decompression to the final window.
+      //    JSONB blob.  This dramatically shrinks memory usage for large
+      //    OFFSETs, avoiding disk-spill and reducing TOAST decompression
+      //    to the final window.
       //
       // B) CURSOR ANCHOR — when the client provides a keyset cursor from a
       //    previous fetch, we add a keyset predicate that lets Postgres skip
@@ -2225,8 +2263,7 @@ export const rowRouter = createTRPCRouter({
         // CRITICAL: each branch gets ORDER BY rowIndex ASC LIMIT (offset+limit).
         // This forces Postgres to use Merge Append instead of Append+Sort.
         // Merge Append consumes pre-sorted streams lazily, stopping once
-        // (offset+limit) rows are emitted — avoiding a full 400K-row sort.
-        // Benchmark: 676ms vs 2880ms for 200K offset.
+        // (offset+limit) rows are emitted — avoiding a full table sort.
         const colId = escapeLiteral(orEqPattern.colId);
         const colExpr = `("Row"."cells" ->> '${colId}')`;
         const anchorClause = anchorRowIndexParam
@@ -2384,8 +2421,10 @@ export const rowRouter = createTRPCRouter({
       const filterTree = input.filterTree;
       const useTree = filterTree && filterTreeHasConditions(filterTree);
 
-      // $1 = searchLower (used in SELECT); $2 = tableId, $3 = escaped pattern; $4+ = filter params
-      const params: SqlParam[] = [input.tableId, `%${escaped}%`];
+      // $1 = searchLower, $2 = tableId, $3 = ILIKE pattern, $4+ = filter params.
+      // searchLower MUST be in the params array so that buildFilterSql/buildFilterTreeSql
+      // generate correct $N references (they use params.length after each push).
+      const params: SqlParam[] = [searchLower, input.tableId, `%${escaped}%`];
       let whereSql = `WHERE "Row"."tableId" = $2 AND "Row"."searchText" ILIKE $3 ESCAPE '\\'`;
       if (useTree) {
         whereSql += buildFilterTreeSql(filterTree, params);
@@ -2400,7 +2439,6 @@ export const rowRouter = createTRPCRouter({
          ), 0)::int AS count
          FROM "Row"
          ${whereSql}`,
-        searchLower,
         ...params,
       );
 
@@ -2408,7 +2446,13 @@ export const rowRouter = createTRPCRouter({
     }),
 
   // =========================================================================
-  // searchMatchAt — get row id and offset for the match at global index (for "prev from first" → jump to last)
+  // searchMatchAt — get row id, absolute position, and occurrence info for
+  // the match at a global index.  Used by wrap-around find navigation
+  // ("prev from first" → jump to last, "next from last" → jump to first).
+  //
+  // When `sorts` are provided the match ordering and absolute position
+  // respect the view's sort order (uses existing composite B-tree indexes).
+  // When omitted, ordering falls back to rowIndex ASC.
   // =========================================================================
   searchMatchAt: protectedProcedure
     .input(
@@ -2419,6 +2463,7 @@ export const rowRouter = createTRPCRouter({
         filters: z.array(filterSchema).optional(),
         conjunction: z.enum(["and", "or"]).default("and"),
         filterTree: filterTreeSchema.optional(),
+        sorts: z.array(sortSchema).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -2426,7 +2471,11 @@ export const rowRouter = createTRPCRouter({
         where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
         select: { id: true },
       });
-      if (!table) return { rowId: null, rowOffset: null, occurrenceInRow: null };
+      if (!table) return { rowId: null, rowOffset: null, occurrenceInRow: null, absolutePosition: null };
+
+      const sorts = await validateAndResolveSorts(
+        ctx.db, input.sorts ?? [], input.tableId, true,
+      );
 
       const escaped = escapeLikePattern(input.search);
       const searchLower = input.search.toLowerCase();
@@ -2435,39 +2484,97 @@ export const rowRouter = createTRPCRouter({
       const filterTree = input.filterTree;
       const useTree = filterTree && filterTreeHasConditions(filterTree);
 
-      const params: SqlParam[] = [input.tableId, `%${escaped}%`];
-      let whereSql = `WHERE "Row"."tableId" = $2 AND "Row"."searchText" ILIKE $3 ESCAPE '\\'`;
+      // ── Query 1: Find the target match row ────────────────────────
+      // Only scans ILIKE-matching rows (much fewer than total), so it's fast.
+      // Include cells only when sorts are active (needed for sort ORDER BY).
+      const q1Params: SqlParam[] = [searchLower, input.tableId, `%${escaped}%`];
+      let q1Where = `WHERE "Row"."tableId" = $2 AND "Row"."searchText" ILIKE $3 ESCAPE '\\'`;
       if (useTree) {
-        whereSql += buildFilterTreeSql(filterTree, params);
+        q1Where += buildFilterTreeSql(filterTree, q1Params);
       } else if (filters.length > 0) {
-        whereSql += buildFilterSql(filters, params, conjunction);
+        q1Where += buildFilterSql(filters, q1Params, conjunction);
       }
-      params.push(input.matchIndex + 1);
+      q1Params.push(input.matchIndex + 1);
+      const q1ThresholdP = q1Params.length;
 
-      const row = await ctx.db.$queryRawUnsafe<
-        [{ id: string; rn: number; cnt: number; cum: number } | undefined]
+      const q1SelectCells = sorts.length > 0 ? ', "Row"."cells"' : '';
+      const q1CteOrder = sorts.length > 0
+        ? buildSortOrderByForAlias(sorts, 't')
+        : `t."rowIndex" ASC`;
+
+      const findResult = await ctx.db.$queryRawUnsafe<
+        [{ id: string; rowIndex: number; rn: number; cnt: number; cum: number } | undefined]
       >(
         `WITH t AS (
-          SELECT "Row"."id", "Row"."rowIndex",
+          SELECT "Row"."id", "Row"."rowIndex"${q1SelectCells},
             (LENGTH("Row"."searchText") - LENGTH(REPLACE(LOWER("Row"."searchText"), $1, ''))) / NULLIF(LENGTH($1), 0) AS cnt
           FROM "Row"
-          ${whereSql}
+          ${q1Where}
         ),
         t2 AS (
           SELECT id, "rowIndex", cnt,
-            SUM(cnt) OVER (ORDER BY "rowIndex") AS cum,
-            ROW_NUMBER() OVER (ORDER BY "rowIndex") - 1 AS rn
+            SUM(cnt) OVER (ORDER BY ${q1CteOrder})::int AS cum,
+            ROW_NUMBER() OVER (ORDER BY ${q1CteOrder})::int - 1 AS rn
           FROM t
         )
-        SELECT id, rn, cnt, cum FROM t2 WHERE cum >= $${params.length} ORDER BY rn ASC LIMIT 1`,
-        searchLower,
-        ...params,
+        SELECT id, "rowIndex", rn, cnt, cum FROM t2 WHERE cum >= $${q1ThresholdP} ORDER BY rn ASC LIMIT 1`,
+        ...q1Params,
       );
 
-      const hit = row[0];
-      if (!hit) return { rowId: null, rowOffset: null, occurrenceInRow: null };
-      // 0-based index of which match within this row (for highlighting the right cell/occurrence)
-      const occurrenceInRow = input.matchIndex - (hit.cum - hit.cnt);
-      return { rowId: hit.id, rowOffset: hit.rn, occurrenceInRow };
+      const hit = findResult[0];
+      if (!hit) return { rowId: null, rowOffset: null, occurrenceInRow: null, absolutePosition: null };
+      const occurrenceInRow = input.matchIndex - (Number(hit.cum) - Number(hit.cnt));
+
+      // ── Query 2: Compute absolute position ────────────────────────
+      // The row's 0-based position among ALL filtered rows (not just matching).
+      // This is what windowFetch needs as `offset` to scroll to the right page.
+      let absolutePosition: number;
+
+      if (sorts.length === 0) {
+        // Unsorted: COUNT rows with smaller rowIndex — O(log N) with B-tree.
+        const q2Params: SqlParam[] = [input.tableId, Number(hit.rowIndex)];
+        let q2Where = `WHERE "Row"."tableId" = $1 AND "Row"."rowIndex" < $2`;
+        if (useTree) {
+          q2Where += buildFilterTreeSql(filterTree, q2Params);
+        } else if (filters.length > 0) {
+          q2Where += buildFilterSql(filters, q2Params, conjunction);
+        }
+        const posResult = await ctx.db.$queryRawUnsafe<[{ pos: number }]>(
+          `SELECT COUNT(*)::int AS pos FROM "Row" ${q2Where}`,
+          ...q2Params,
+        );
+        absolutePosition = posResult[0]?.pos ?? 0;
+      } else {
+        // Sorted: lightweight ROW_NUMBER — selects only "id" (no cells/searchText
+        // materialization). With INCLUDE("id") on the composite sort index this
+        // can be an Index Only Scan.
+        const q2Params: SqlParam[] = [input.tableId];
+        let q2Where = `WHERE "Row"."tableId" = $1`;
+        if (useTree) {
+          q2Where += buildFilterTreeSql(filterTree, q2Params);
+        } else if (filters.length > 0) {
+          q2Where += buildFilterSql(filters, q2Params, conjunction);
+        }
+        q2Params.push(hit.id);
+        const targetIdP = q2Params.length;
+        const q2OrderBy = buildSortOrderByForAlias(sorts, '"Row"');
+
+        const posResult = await ctx.db.$queryRawUnsafe<[{ pos: number } | undefined]>(
+          `SELECT (sub.rn - 1)::int AS pos FROM (
+            SELECT "Row"."id", ROW_NUMBER() OVER (ORDER BY ${q2OrderBy})::int AS rn
+            FROM "Row"
+            ${q2Where}
+          ) sub WHERE sub.id = $${targetIdP}::uuid`,
+          ...q2Params,
+        );
+        absolutePosition = posResult[0]?.pos ?? 0;
+      }
+
+      return {
+        rowId: hit.id,
+        rowOffset: Number(hit.rn),
+        occurrenceInRow,
+        absolutePosition,
+      };
     }),
 });
