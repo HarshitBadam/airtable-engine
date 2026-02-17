@@ -27,6 +27,8 @@ export function useCellEditing(
   rowQueryInput: RowInfiniteInput,
   /** Optimistically update a row in the jump cache (for rows beyond infinite scroll range). */
   updateJumpCacheRow?: (rowId: string, updater: (row: RowItem) => RowItem) => void,
+  /** Look up a row by ID across infinite pages AND jump cache. */
+  getRowById?: (rowId: string) => RowItem | null,
   /** Called when a cell edit may have changed the row's position (sort) or
    *  membership (filter) in the current result set.  Receives the edited row's
    *  ID, the edited column ID, and the committed value so the caller can:
@@ -122,13 +124,20 @@ export function useCellEditing(
       });
 
       // 2. Optimistic update for jump-cached rows (rows loaded via windowFetch)
-      if (updateJumpCacheRow) {
-        updateJumpCacheRow(vars.rowId, (row) => {
-          if (!foundInPrev && onCellValueChange) {
-            const o = asCellRecord(row.cells)[vars.columnId];
-            const old = o !== undefined && o !== null ? (o as string | number) : null;
-            onCellValueChange(vars.rowId, vars.columnId, old, vars.value);
+      //    Read the old value BEFORE the state update so onCellValueChange is
+      //    called exactly once — React 18 StrictMode may invoke state updaters
+      //    twice, which would double-fire side effects placed inside them.
+      if (!foundInPrev && updateJumpCacheRow) {
+        if (onCellValueChange && getRowById) {
+          const jumpRow = getRowById(vars.rowId);
+          if (jumpRow) {
+            const o = asCellRecord(jumpRow.cells)[vars.columnId];
+            oldVal = o !== undefined && o !== null ? (o as string | number) : null;
+            foundInPrev = true; // treat as found so the callback below fires
           }
+        }
+
+        updateJumpCacheRow(vars.rowId, (row) => {
           const nextCells = { ...asCellRecord(row.cells) };
 
           // Freeze pre-edit value into dependent columns (same as above)

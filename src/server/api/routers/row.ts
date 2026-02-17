@@ -90,15 +90,18 @@ function buildFilterSql(filters: FilterInput[], params: SqlParam[], conjunction:
 
   for (const f of filters) {
     const colId = escapeLiteral(f.columnId);
-    const colExpr = `("Row"."cells" ->> '${colId}')`;
+    // Use NULLIF(cells->>'colId','') so Postgres matches the expression
+    // B-tree index created by ensureSortIndex — enables Index Scan instead
+    // of Seq Scan for equality, empty, and range filters on TEXT columns.
+    const colExpr = `(NULLIF("Row"."cells" ->> '${colId}', ''))`;
 
     switch (f.op) {
       case "is_empty": {
-        clauses.push(`(${colExpr} IS NULL OR ${colExpr} = '')`);
+        clauses.push(`(${colExpr} IS NULL)`);
         break;
       }
       case "is_not_empty": {
-        clauses.push(`(${colExpr} IS NOT NULL AND ${colExpr} <> '')`);
+        clauses.push(`(${colExpr} IS NOT NULL)`);
         break;
       }
       case "contains": {
@@ -131,7 +134,7 @@ function buildFilterSql(filters: FilterInput[], params: SqlParam[], conjunction:
       case "lte": {
         params.push(f.value);
         const opMap = { gt: ">", lt: "<", gte: ">=", lte: "<=" } as const;
-        clauses.push(`(NULLIF(${colExpr}, '')::double precision ${opMap[f.op]} $${params.length})`);
+        clauses.push(`(${colExpr}::double precision ${opMap[f.op]} $${params.length})`);
         break;
       }
       default: {
@@ -160,14 +163,15 @@ function buildConditionClause(
   params: SqlParam[],
 ): string | null {
   const colId = escapeLiteral(cond.columnId);
-  const colExpr = `("Row"."cells" ->> '${colId}')`;
+  // Use NULLIF to match the expression B-tree index from ensureSortIndex.
+  const colExpr = `(NULLIF("Row"."cells" ->> '${colId}', ''))`;
   const op = cond.op;
 
   switch (op) {
     case "is_empty":
-      return `(${colExpr} IS NULL OR ${colExpr} = '')`;
+      return `(${colExpr} IS NULL)`;
     case "is_not_empty":
-      return `(${colExpr} IS NOT NULL AND ${colExpr} <> '')`;
+      return `(${colExpr} IS NOT NULL)`;
     case "contains": {
       if (typeof cond.value !== "string" || cond.value === "") return null;
       const escaped = escapeLikePattern(cond.value);
@@ -211,7 +215,7 @@ function buildConditionClause(
       if (typeof cond.value !== "number") return null;
       params.push(cond.value);
       const opMap = { gt: ">", lt: "<", gte: ">=", lte: "<=" } as const;
-      return `(NULLIF(${colExpr}, '')::double precision ${opMap[op]} $${params.length})`;
+      return `(${colExpr}::double precision ${opMap[op]} $${params.length})`;
     }
     default:
       return null;
@@ -1001,7 +1005,7 @@ export const rowRouter = createTRPCRouter({
       let sql: string;
       if (orEqInfinite && cursorRowIndexParam !== null) {
         const colId = escapeLiteral(orEqInfinite.colId);
-        const colExpr = `("Row"."cells" ->> '${colId}')`;
+        const colExpr = `(NULLIF("Row"."cells" ->> '${colId}', ''))`;
         const branches: string[] = [];
         for (const val of orEqInfinite.values) {
           params.push(val);
@@ -2265,7 +2269,7 @@ export const rowRouter = createTRPCRouter({
         // Merge Append consumes pre-sorted streams lazily, stopping once
         // (offset+limit) rows are emitted — avoiding a full table sort.
         const colId = escapeLiteral(orEqPattern.colId);
-        const colExpr = `("Row"."cells" ->> '${colId}')`;
+        const colExpr = `(NULLIF("Row"."cells" ->> '${colId}', ''))`;
         const anchorClause = anchorRowIndexParam
           ? ` AND "Row"."rowIndex" > $${anchorRowIndexParam}`
           : "";

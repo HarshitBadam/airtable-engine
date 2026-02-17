@@ -641,7 +641,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     if (delta !== 0) addFindCountDelta(delta);
   }, [gridStoreApi, countOccurrences, addFindCountDelta]);
 
-  const { commit, cancel } = useCellEditing(tableId, rowQueryInput, updateJumpCacheRow, handleCellMembershipChange, handleCellValueChange);
+  const { commit, cancel } = useCellEditing(tableId, rowQueryInput, updateJumpCacheRow, getRowById, handleCellMembershipChange, handleCellValueChange);
 
   // Backend query: count total substring matches across all rows in the table.
   // Only fires when there's an active (debounced) search term.

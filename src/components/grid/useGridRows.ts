@@ -188,6 +188,41 @@ export function useGridRows(tableId: string) {
   // Each row is individually removed from the set when it is first edited.
   const protectedRowIdsRef = useRef<Set<string>>(new Set());
 
+  // ── Dedup: remove protected rows from jump cache once they appear in
+  //    the infinite query pages (after a refetch).  Without this, a row
+  //    added via "+" sits at position `totalCount` in the jump cache AND
+  //    at its sorted position in `rows`, causing duplicate rendering.
+  useEffect(() => {
+    if (q.isPlaceholderData) return; // wait for fresh data
+    const protIds = protectedRowIdsRef.current;
+    if (protIds.size === 0) return;
+
+    const rowIdSet = new Set(rows.map((r) => (r as RowItem).id));
+    const idsToRemove: string[] = [];
+    for (const id of protIds) {
+      if (rowIdSet.has(id)) idsToRemove.push(id);
+    }
+    if (idsToRemove.length === 0) return;
+
+    // Unprotect and remove from jump cache
+    const nextProt = new Set(protIds);
+    for (const id of idsToRemove) nextProt.delete(id);
+    protectedRowIdsRef.current = nextProt;
+
+    setJumpCache((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [key, item] of next) {
+        if (idsToRemove.includes(item.id)) {
+          next.delete(key);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, q.isPlaceholderData]);
+
   // Clear jump cache when query params change — also bumps generation so
   // any in-flight fetches with old params are discarded on arrival.
   useEffect(() => {
