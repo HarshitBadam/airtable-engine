@@ -821,10 +821,11 @@
 }
 
 /* ========================================================================
-   SELECTION OVERLAY — inside the scroll content (for zero-lag vertical
-   scrolling) but participates in gridBody's stacking context because
-   neither the scroller nor the inner wrapper create one.  z-index:6
-   paints ABOVE the freeze bar (z:4), frozen groups (z:2), and all cells.
+   SELECTION OVERLAY — inside the scroll content so it scrolls with both
+   vertical and horizontal content at compositor speed (zero lag).  z-index:6
+   paints above the freeze bar (z:4), frozen groups (z:2), and all cells.
+   For non-frozen cells a JS clip-path clips the overlay at the freeze bar
+   so it never paints over the frozen columns.
    ======================================================================== */
 .gridSelectionOverlay {
   position: absolute;
@@ -835,7 +836,7 @@
   border-radius: 2px;
   box-sizing: border-box;
   pointer-events: none;
-  z-index: 6; /* above freeze line (z:4) and everything else */
+  z-index: 6; /* above freeze line (z:4) and cells */
   display: none; /* shown by JS when a cell is active */
   will-change: transform; /* own GPU layer so it doesn't affect scroll compositing */
 }
@@ -2079,7 +2080,7 @@
   background: #FFFFFF;
   border: 1px solid rgba(0, 0, 0, 0.16);
   box-shadow: none;
-  z-index: 5;
+  z-index: 7; /* above selection overlay (z:6) so the blue box doesn't cover it */
   cursor: pointer;
   user-select: none;
   font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;

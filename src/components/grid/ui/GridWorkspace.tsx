@@ -1460,8 +1460,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // === SELECTION OVERLAY — imperatively positioned inside the scroll content ===
   //
   // The overlay lives inside gridContentScrollerInner so it scrolls with the
-  // rows at compositor speed (no JS-driven repositioning on vertical scroll).
-  // Only horizontal scroll (for non-frozen columns) requires a JS update.
+  // rows at compositor speed (no JS-driven repositioning on scroll).  Both
+  // vertical and horizontal scroll are handled by the compositor.  Only frozen
+  // columns (position:sticky) need a JS correction on horizontal scroll, and
+  // a clip-path is applied to prevent non-frozen overlays from painting over
+  // the frozen area.
 
   /** Compute cell position and update the overlay div's inline styles. */
   const updateSelectionOverlay = useCallback(() => {
@@ -1504,13 +1507,17 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     const colWidth = widths[targetCell.columnId] ?? COLUMN_WIDTH;
     const isFrozen = colIdx < frozenCount;
 
-    // Cell X — viewport-relative (horizontal scroll is a separate element)
+    // Cell X — content-relative.  The overlay is inside gridContentScrollerInner
+    // whose scrollLeft is synced to the horizontal scrollbar, so the overlay
+    // naturally scrolls with the content (just like Y scrolls with the rows).
+    // Frozen cells use position:sticky and do NOT scroll, so we must compensate
+    // by adding scrollLeft for frozen columns to keep the overlay aligned.
     let cellX = ROW_NUM_WIDTH;
     for (let i = 0; i < colIdx; i++) {
       cellX += widths[cols[i]!.id] ?? COLUMN_WIDTH;
     }
-    if (!isFrozen) {
-      cellX -= scrollLeft;
+    if (isFrozen) {
+      cellX += scrollLeft;
     }
 
     // Cell Y — content-relative (overlay is inside the scroll content,
@@ -1550,13 +1557,27 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     }
 
     // Use transform for GPU-accelerated positioning.  The overlay lives inside
-    // the scroll content so Y scrolls naturally with the compositor.  Only X
-    // needs JS adjustment (for horizontal scroll of non-frozen columns).
+    // the scroll content so both X and Y scroll naturally with the compositor.
     overlay.style.transform = `translate(${overlayLeft}px, ${overlayTop}px)`;
     overlay.style.width = `${overlayWidth}px`;
     overlay.style.height = `${overlayHeight}px`;
-    // No clipPath needed — the scroller's overflow: hidden clips automatically.
-    overlay.style.clipPath = "";
+
+    // Clip the overlay at the freeze bar for non-frozen cells so it doesn't
+    // paint over the frozen columns when scrolled partially behind them.
+    if (!isFrozen && frozenCount > 0) {
+      const fw = freezeWidthRef.current;
+      const freezeEdgeContent = scrollLeft + fw;
+      const clipLeft = freezeEdgeContent - overlayLeft;
+      if (clipLeft >= overlayWidth) {
+        overlay.style.display = "none";
+      } else if (clipLeft > 0) {
+        overlay.style.clipPath = `inset(0 0 0 ${clipLeft}px)`;
+      } else {
+        overlay.style.clipPath = "";
+      }
+    } else {
+      overlay.style.clipPath = "";
+    }
   }, []);
 
   /** Scroll horizontally/vertically so a cell is fully visible. */
@@ -1678,9 +1699,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [activeCell, editingCell, rows, totalCount, visibleColumns, setActiveCell, startEditing, clearSelection, getCellValue, scrollCellIntoView, findRowPosition, getRowAtIndex]);
 
-  // Overlay is inside the vertical scroll content, so it scrolls with the
-  // rows at compositor speed (zero lag).  Only horizontal scroll needs a JS
-  // listener to adjust the X transform for non-frozen columns.
+  // Overlay is inside the scroll content, so it scrolls naturally with both
+  // vertical and horizontal movement.  The hScroll listener is still needed to
+  // update frozen-column offsets and the clip-path for non-frozen cells.
   useEffect(() => {
     const hScroll = hScrollRef.current;
     const onHScroll = () => updateSelectionOverlay();
@@ -2875,7 +2896,14 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     if (!isValidTable) return;
     insertFieldTargetRef.current = insertPosition ?? null;
     const dbType: "TEXT" | "NUMBER" = type === "Number" ? "NUMBER" : "TEXT";
-    const fieldName = name.trim() || (dbType === "NUMBER" ? "Number" : "Field");
+    const baseName = name.trim() || (dbType === "NUMBER" ? "Number" : "Label");
+    const existingNames = new Set(orderedColumns.map((c) => c.name));
+    let fieldName = baseName;
+    if (existingNames.has(fieldName)) {
+      let i = 2;
+      while (existingNames.has(`${baseName} ${i}`)) i++;
+      fieldName = `${baseName} ${i}`;
+    }
     createColumnMut.mutate({
       tableId,
       name: fieldName,
@@ -2883,11 +2911,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       defaultValue: defaultValue.trim() || undefined,
       numberConfig: numberConfig ?? undefined,
       viewId: activeViewIdFromStore ?? undefined,
-      // Pass insert position to the server so ALL views insert relative to the anchor
       anchorColumnId: insertPosition?.anchorColId ?? undefined,
       insertSide: insertPosition?.side ?? undefined,
     });
-  }, [isValidTable, tableId, activeViewIdFromStore, createColumnMut]);
+  }, [isValidTable, tableId, activeViewIdFromStore, createColumnMut, orderedColumns]);
 
   // === EDIT FIELD (rename / update config via header dropdown → Edit field) ===
   const handleEditFieldSave = useCallback((columnId: string, name: string, numberConfig?: NumberFormatConfig) => {
@@ -2950,7 +2977,14 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     const col = orderedColumns.find((c) => c.id === columnId);
     if (!col) return;
     const dbType: "TEXT" | "NUMBER" = col.type === "NUMBER" ? "NUMBER" : "TEXT";
-    const copyName = `${col.name} copy`;
+    const baseCopyName = `${col.name} copy`;
+    const existingNames = new Set(orderedColumns.map((c) => c.name));
+    let copyName = baseCopyName;
+    if (existingNames.has(copyName)) {
+      let i = 2;
+      while (existingNames.has(`${baseCopyName} ${i}`)) i++;
+      copyName = `${baseCopyName} ${i}`;
+    }
     insertFieldTargetRef.current = { anchorColId: columnId, side: "right" };
     createColumnMut.mutate({
       tableId,
