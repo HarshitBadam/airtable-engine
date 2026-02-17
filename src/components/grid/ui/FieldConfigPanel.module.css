@@ -37,6 +37,45 @@
   margin: 0;
 }
 
+/* Create mode: reserves space for the duplicate warning text (106px) */
+.configTopCreate {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 106px;
+  line-height: 18px;
+  margin: 0;
+  padding: 8px 16px;
+  unicode-bidi: isolate;
+  width: 400px;
+}
+
+/* Duplicate field name warning (create mode, on button press) */
+.configCreateDuplicateWarning {
+  animation-duration: 0.24s;
+  animation-name: bounceIn;
+  box-sizing: border-box;
+  color: rgb(177, 15, 65);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu,
+    Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 500;
+  height: 18px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 8px;
+  padding: 0;
+  unicode-bidi: isolate;
+  width: 368px;
+}
+
 /* Field name input */
 .configNameInput {
   appearance: auto;
@@ -996,4 +1035,73 @@
   line-height: 18px;
   margin-left: 8px;
   white-space: nowrap;
+}
+
+/* =============================================================
+   EDIT MODE: Wrapper holding optional warning + actions row.
+   Fixed height so the panel doesn't shift when warning appears.
+   Total = 26px (warning area: 8px margin-top + 18px) + 56px (actions) = 82px
+   ============================================================= */
+.configActionsEditWrapper {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  height: 82px;
+  width: 400px;
+  margin: 0;
+}
+
+.configActionsInner {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  flex-shrink: 0;
+  height: 56px;
+  justify-content: space-between;
+  width: 400px;
+  margin: 0;
+  padding: 8px 16px 16px 16px;
+}
+
+/* =============================================================
+   DUPLICATE FIELD NAME WARNING (edit mode, auto-detect)
+   ============================================================= */
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.configDuplicateWarning {
+  animation-duration: 0.24s;
+  animation-name: bounceIn;
+  box-sizing: border-box;
+  color: rgb(177, 15, 65);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 500;
+  height: 18px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 8px;
+  padding-bottom: 0px;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  width: 400px;
 }

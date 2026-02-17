@@ -1821,7 +1821,7 @@
   box-sizing: border-box;
   width: 331px;
   max-width: 384px;
-  height: 212px;
+  height: auto;
   margin-bottom: 0px;
   margin-left: 0px;
   margin-right: 0px;
@@ -1846,13 +1846,19 @@
   transform: translateX(-71px);
 }
 
+/* Input wrapper — relative container for overlay tooltip */
+.tableRenameInputWrapper {
+  position: relative;
+  margin-bottom: 16px;
+}
+
 /* Input box */
 .tableRenameInput {
   display: block;
   box-sizing: border-box;
   width: 299px;
   height: 38px;
-  margin-bottom: 16px;
+  margin-bottom: 0px;
   margin-left: 0px;
   margin-right: 0px;
   margin-top: 0px;
@@ -2340,4 +2346,59 @@
 
 .tableRenameSaveButton:hover {
   background-color: rgb(18, 95, 195);
+}
+
+/* ============================================
+   Table Rename – Duplicate name error tooltip
+   Matches Airtable's jQuery UI tooltip exactly.
+   ============================================ */
+@keyframes tooltipFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.tableRenameTooltip {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 16px;
+  background-color: rgb(255, 242, 250);
+  border-radius: 3px;
+  box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 0px 2px;
+  color: rgb(177, 15, 65);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  max-width: 300px;
+  overflow-wrap: break-word;
+  padding: 8px;
+  z-index: 1000000000;
+  white-space: nowrap;
+  animation: tooltipFadeIn 0.3s ease;
+}
+
+.tableRenameTooltipContent {
+  position: relative;
+  color: rgb(177, 15, 65);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  overflow-wrap: break-word;
+}
+
+/* Upward-pointing arrow (triangle) above the tooltip */
+.tableRenameTooltipContent::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -18px;
+  left: 72px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid rgb(177, 15, 65);
+  border-top: 0 solid transparent;
 }

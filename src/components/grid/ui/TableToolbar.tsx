@@ -39,6 +39,7 @@ interface TableToolbarProps {
   renameTableName: string;
   setRenameTableName: React.Dispatch<React.SetStateAction<string>>;
   renameRecordName: string;
+  showDuplicateTooltip: boolean;
   handleOpenRenamePopup: () => void;
   handleSaveRename: () => void;
   handleCancelRename: () => void;
@@ -94,6 +95,7 @@ export function TableToolbar({
   renameTableName,
   setRenameTableName,
   renameRecordName,
+  showDuplicateTooltip,
   handleOpenRenamePopup,
   handleSaveRename,
   handleCancelRename,
@@ -351,21 +353,32 @@ export function TableToolbar({
               left: renamePopupPosition.left,
             }}
           >
-            {/* Input box */}
-            <input
-              ref={renameInputRef}
-              type="text"
-              className={styles.tableRenameInput}
-              value={renameTableName}
-              onChange={(e) => setRenameTableName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSaveRename();
-                } else if (e.key === 'Escape') {
-                  handleCancelRename();
-                }
-              }}
-            />
+            {/* Input box + overlay tooltip */}
+            <div className={styles.tableRenameInputWrapper}>
+              <input
+                ref={renameInputRef}
+                type="text"
+                className={styles.tableRenameInput}
+                value={renameTableName}
+                onChange={(e) => setRenameTableName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveRename();
+                  } else if (e.key === 'Escape') {
+                    handleCancelRename();
+                  }
+                }}
+              />
+
+              {/* Duplicate name error tooltip (shown on Save, overlays below input) */}
+              {showDuplicateTooltip && (
+                <div className={styles.tableRenameTooltip}>
+                  <div className={styles.tableRenameTooltipContent}>
+                    Please enter a unique table name
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* "What should each record be called?" row */}
             <div className={styles.tableRenameRecordLabelRow}>

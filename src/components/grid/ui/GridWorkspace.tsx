@@ -168,6 +168,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const [renameTableName, setRenameTableName] = useState('');
   const [renameRecordName, setRenameRecordName] = useState('Record');
   
+  // Duplicate table name tooltip (shown on Save, hides after 10s or on next save)
+  const [showDuplicateTooltip, setShowDuplicateTooltip] = useState(false);
+  const duplicateTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Clear data modal state
   const [isClearDataModalOpen, setIsClearDataModalOpen] = useState(false);
 
@@ -252,7 +256,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
   // Create a new table and navigate to it; rename popup opens via useEffect below
   const handleAddTable = () => {
-    const newName = `Table ${tables.length + 1}`;
+    const existingNames = new Set(tables.map(t => t.name));
+    let num = tables.length + 1;
+    let newName = `Table ${num}`;
+    while (existingNames.has(newName)) {
+      num++;
+      newName = `Table ${num}`;
+    }
     createTableMut.mutate({ baseId, name: newName });
   };
   
@@ -283,12 +293,22 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     }
   };
   
-  // Handle save rename — persist to DB
+  // Handle save rename — persist to DB (shows tooltip on duplicate)
   const handleSaveRename = () => {
     const trimmed = renameTableName.trim();
-    if (trimmed) {
-      renameTableMut.mutate({ id: activeTableId, name: trimmed });
+    if (!trimmed) return;
+
+    const isDuplicate = tables.some(t => t.id !== activeTableId && t.name === trimmed);
+    if (isDuplicate) {
+      setShowDuplicateTooltip(true);
+      if (duplicateTooltipTimerRef.current) clearTimeout(duplicateTooltipTimerRef.current);
+      duplicateTooltipTimerRef.current = setTimeout(() => setShowDuplicateTooltip(false), 10000);
+      return;
     }
+
+    setShowDuplicateTooltip(false);
+    if (duplicateTooltipTimerRef.current) clearTimeout(duplicateTooltipTimerRef.current);
+    renameTableMut.mutate({ id: activeTableId, name: trimmed });
     setIsRenamePopupOpen(false);
     setRenamePopupPosition(null);
   };
@@ -297,6 +317,8 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const handleCancelRename = () => {
     setIsRenamePopupOpen(false);
     setRenamePopupPosition(null);
+    setShowDuplicateTooltip(false);
+    if (duplicateTooltipTimerRef.current) clearTimeout(duplicateTooltipTimerRef.current);
   };
   
   // Handle opening clear data modal
@@ -2217,6 +2239,10 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   const [renamingSidebarViewId, setRenamingSidebarViewId] = useState<string | null>(null);
   const [sidebarRenameValue, setSidebarRenameValue] = useState('');
 
+  // Duplicate view name tooltip (shown on Enter/save, hides after 10s or on valid save)
+  const [showDuplicateViewTooltip, setShowDuplicateViewTooltip] = useState(false);
+  const duplicateViewTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // === ROW MUTATIONS ===
   const addRowMut = api.row.addMany.useMutation();
 
@@ -3389,14 +3415,27 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
   const commitRenameView = () => {
     const trimmed = renameViewValue.trim();
-    if (trimmed && trimmed !== activeViewName && activeViewId) {
-      renameViewMut.mutate({ viewId: activeViewId, name: trimmed });
+    if (!trimmed || !activeViewId) { setIsRenamingView(false); return; }
+    if (trimmed === activeViewName) { setIsRenamingView(false); setShowDuplicateViewTooltip(false); return; }
+
+    const isDuplicate = views.some(v => v.id !== activeViewId && v.name === trimmed);
+    if (isDuplicate) {
+      setShowDuplicateViewTooltip(true);
+      if (duplicateViewTooltipTimerRef.current) clearTimeout(duplicateViewTooltipTimerRef.current);
+      duplicateViewTooltipTimerRef.current = setTimeout(() => setShowDuplicateViewTooltip(false), 10000);
+      return;
     }
+
+    setShowDuplicateViewTooltip(false);
+    if (duplicateViewTooltipTimerRef.current) clearTimeout(duplicateViewTooltipTimerRef.current);
+    renameViewMut.mutate({ viewId: activeViewId, name: trimmed });
     setIsRenamingView(false);
   };
 
   const cancelRenameView = () => {
     setIsRenamingView(false);
+    setShowDuplicateViewTooltip(false);
+    if (duplicateViewTooltipTimerRef.current) clearTimeout(duplicateViewTooltipTimerRef.current);
   };
 
   // === SIDEBAR INLINE RENAME HELPERS ===
@@ -3413,17 +3452,29 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
   const commitSidebarRename = useCallback(() => {
     const trimmed = sidebarRenameValue.trim();
-    if (trimmed && renamingSidebarViewId) {
-      const view = views.find(v => v.id === renamingSidebarViewId);
-      if (view && trimmed !== view.name) {
-        renameViewMut.mutate({ viewId: renamingSidebarViewId, name: trimmed });
-      }
+    if (!trimmed || !renamingSidebarViewId) { setRenamingSidebarViewId(null); return; }
+
+    const view = views.find(v => v.id === renamingSidebarViewId);
+    if (view && trimmed === view.name) { setRenamingSidebarViewId(null); setShowDuplicateViewTooltip(false); return; }
+
+    const isDuplicate = views.some(v => v.id !== renamingSidebarViewId && v.name === trimmed);
+    if (isDuplicate) {
+      setShowDuplicateViewTooltip(true);
+      if (duplicateViewTooltipTimerRef.current) clearTimeout(duplicateViewTooltipTimerRef.current);
+      duplicateViewTooltipTimerRef.current = setTimeout(() => setShowDuplicateViewTooltip(false), 10000);
+      return;
     }
+
+    setShowDuplicateViewTooltip(false);
+    if (duplicateViewTooltipTimerRef.current) clearTimeout(duplicateViewTooltipTimerRef.current);
+    renameViewMut.mutate({ viewId: renamingSidebarViewId, name: trimmed });
     setRenamingSidebarViewId(null);
   }, [sidebarRenameValue, renamingSidebarViewId, views, renameViewMut]);
 
   const cancelSidebarRename = useCallback(() => {
     setRenamingSidebarViewId(null);
+    setShowDuplicateViewTooltip(false);
+    if (duplicateViewTooltipTimerRef.current) clearTimeout(duplicateViewTooltipTimerRef.current);
   }, []);
 
   // === RENDER ===
@@ -3471,6 +3522,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             renameTableName={renameTableName}
             setRenameTableName={setRenameTableName}
             renameRecordName={renameRecordName}
+            showDuplicateTooltip={showDuplicateTooltip}
             handleOpenRenamePopup={handleOpenRenamePopup}
             handleSaveRename={handleSaveRename}
             handleCancelRename={handleCancelRename}
@@ -3511,6 +3563,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             startRenamingView={startRenamingView}
             commitRenameView={commitRenameView}
             cancelRenameView={cancelRenameView}
+            showDuplicateViewTooltip={showDuplicateViewTooltip}
             isViewDropdownOpen={isViewDropdownOpen}
             setIsViewDropdownOpen={setIsViewDropdownOpen}
             setIsCreateNewDropdownOpen={setIsCreateNewDropdownOpen}
@@ -3588,6 +3641,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
               startSidebarRename={startSidebarRename}
               commitSidebarRename={commitSidebarRename}
               cancelSidebarRename={cancelSidebarRename}
+              showDuplicateViewTooltip={showDuplicateViewTooltip}
             />
 
             {/* Grid content wrapper — scopes the view-loading overlay to

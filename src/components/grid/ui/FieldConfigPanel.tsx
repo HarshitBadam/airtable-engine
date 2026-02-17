@@ -344,6 +344,10 @@ interface FieldConfigPanelProps {
   initialNumberConfig?: NumberFormatConfig;
   /** Called when saving in edit mode (name + optional number config) */
   onEditFieldSave?: (name: string, numberConfig?: NumberFormatConfig) => void;
+  /** Existing field names in the table (for duplicate detection) */
+  existingFieldNames?: string[];
+  /** Base theme color for the automate icon */
+  baseColor?: string;
 }
 
 export function FieldConfigPanel({
@@ -356,10 +360,13 @@ export function FieldConfigPanel({
   initialFieldName,
   initialNumberConfig,
   onEditFieldSave,
+  existingFieldNames,
+  baseColor,
 }: FieldConfigPanelProps) {
   const [fieldName, setFieldName] = useState(initialFieldName ?? "");
   const [defaultValue, setDefaultValue] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const [showCreateDuplicateWarning, setShowCreateDuplicateWarning] = useState(false);
 
   // Number-specific state (pre-fill from initialNumberConfig when editing)
   const [showThousandsSep, setShowThousandsSep] = useState(initialNumberConfig?.showThousands ?? true);
@@ -406,7 +413,24 @@ export function FieldConfigPanel({
     setTimeout(() => nameInputRef.current?.focus(), 0);
   }, []);
 
+  // Duplicate field name detection (edit mode: exclude current name)
+  const isDuplicateFieldName = (() => {
+    const trimmed = fieldName.trim();
+    if (!trimmed || !existingFieldNames) return false;
+    if (isEditMode && trimmed === initialFieldName) return false;
+    return existingFieldNames.some(n => n === trimmed);
+  })();
+
   const handleCreate = () => {
+    if (isEditMode && isDuplicateFieldName) return;
+
+    // Create mode: check duplicate on button press
+    if (!isEditMode && isDuplicateFieldName) {
+      setShowCreateDuplicateWarning(true);
+      return;
+    }
+    setShowCreateDuplicateWarning(false);
+
     // Build number format config if this is a Number field
     const numConfig: NumberFormatConfig | undefined = isNumber
       ? {
@@ -435,15 +459,20 @@ export function FieldConfigPanel({
       }
     >
       {/* ========== TOP: Field name + Type selector ========== */}
-      <div className={styles.configTop}>
+      <div className={!isEditMode ? styles.configTopCreate : styles.configTop}>
         <input
           ref={nameInputRef}
           className={styles.configNameInput}
           type="text"
           placeholder="Field name (optional)"
           value={fieldName}
-          onChange={(e) => setFieldName(e.target.value)}
+          onChange={(e) => { setFieldName(e.target.value); if (showCreateDuplicateWarning) setShowCreateDuplicateWarning(false); }}
         />
+        {showCreateDuplicateWarning && (
+          <div className={styles.configCreateDuplicateWarning}>
+            Please enter a unique field name
+          </div>
+        )}
         <div
           className={`${styles.configTypeSelector}${isEditMode ? ` ${styles.configTypeSelectorDisabled}` : ""}`}
           onClick={isEditMode ? undefined : onBack}
@@ -589,35 +618,69 @@ export function FieldConfigPanel({
       )}
 
       {/* ========== ACTIONS: Add description, Cancel, Create field ========== */}
-      <div className={styles.configActions}>
-        <button type="button" className={styles.configAddDescBtn}>
-          <span className={styles.configAddDescBtnIcon}>
-            <PlusIcon />
-          </span>
-          <span className={styles.configAddDescBtnText}>Add description</span>
-        </button>
-        <div className={styles.configActionsRight}>
-          <button
-            type="button"
-            className={styles.configCancelBtn}
-            onClick={onClose}
-          >
-            <span className={styles.configCancelBtnText}>Cancel</span>
-          </button>
-          <button
-            type="button"
-            className={styles.configCreateBtn}
-            onClick={handleCreate}
-          >
-            <span className={styles.configCreateBtnText}>{isEditMode ? "Save" : "Create field"}</span>
-          </button>
+      {isEditMode ? (
+        <div className={styles.configActionsEditWrapper}>
+          {isDuplicateFieldName && (
+            <div className={styles.configDuplicateWarning}>
+              Please enter a unique field name
+            </div>
+          )}
+          <div className={styles.configActionsInner}>
+            <button type="button" className={styles.configAddDescBtn}>
+              <span className={styles.configAddDescBtnIcon}>
+                <PlusIcon />
+              </span>
+              <span className={styles.configAddDescBtnText}>Add description</span>
+            </button>
+            <div className={styles.configActionsRight}>
+              <button
+                type="button"
+                className={styles.configCancelBtn}
+                onClick={onClose}
+              >
+                <span className={styles.configCancelBtnText}>Cancel</span>
+              </button>
+              <button
+                type="button"
+                className={styles.configCreateBtn}
+                onClick={handleCreate}
+              >
+                <span className={styles.configCreateBtnText}>Save</span>
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className={styles.configActions}>
+          <button type="button" className={styles.configAddDescBtn}>
+            <span className={styles.configAddDescBtnIcon}>
+              <PlusIcon />
+            </span>
+            <span className={styles.configAddDescBtnText}>Add description</span>
+          </button>
+          <div className={styles.configActionsRight}>
+            <button
+              type="button"
+              className={styles.configCancelBtn}
+              onClick={onClose}
+            >
+              <span className={styles.configCancelBtnText}>Cancel</span>
+            </button>
+            <button
+              type="button"
+              className={styles.configCreateBtn}
+              onClick={handleCreate}
+            >
+              <span className={styles.configCreateBtnText}>Create field</span>
+            </button>
+          </div>
+        </div>
+      )}
 
-      {/* ========== FOOTER: Automate + Convert ========== */}
-      <div className={styles.configFooter}>
+      {/* ========== FOOTER: Automate + Convert (hidden in edit mode) ========== */}
+      {!isEditMode && <div className={styles.configFooter}>
         <div className={styles.configAutomateSection}>
-          <span className={styles.configAutomateIcon}>
+          <span className={styles.configAutomateIcon} style={baseColor ? { color: baseColor } : undefined}>
             <AiAgentIcon />
           </span>
           <span className={styles.configAutomateText}>
@@ -630,7 +693,7 @@ export function FieldConfigPanel({
         <button type="button" className={styles.configConvertBtn}>
           <span className={styles.configConvertBtnText}>Convert</span>
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

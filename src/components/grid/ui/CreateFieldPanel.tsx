@@ -390,12 +390,16 @@ interface CreateFieldPanelProps {
   editField?: EditFieldInfo;
   /** Called when saving in edit mode (name + optional number config) */
   onEditFieldSave?: (name: string, numberConfig?: NumberFormatConfig) => void;
+  /** Existing field names in the table (for duplicate detection) */
+  existingFieldNames?: string[];
+  /** Base theme color for the automate icon */
+  baseColor?: string;
 }
 
 // Only these field types are fully implemented
 const enabledFieldTypes = new Set(["Single line text", "Number"]);
 
-export function CreateFieldPanel({ position, onClose, onSelectFieldType, onCreateField, editField, onEditFieldSave }: CreateFieldPanelProps) {
+export function CreateFieldPanel({ position, onClose, onSelectFieldType, onCreateField, editField, onEditFieldSave, existingFieldNames, baseColor }: CreateFieldPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedField, setSelectedField] = useState<{ label: string; icon: React.ReactNode } | null>(null);
   // "full" = initial picker (agents + standard), "typeSwitch" = shortened (standard only)
@@ -512,6 +516,8 @@ export function CreateFieldPanel({ position, onClose, onSelectFieldType, onCreat
           initialFieldName={editField?.fieldName}
           initialNumberConfig={editField?.numberConfig}
           onEditFieldSave={onEditFieldSave}
+          existingFieldNames={existingFieldNames}
+          baseColor={baseColor}
         />
       ) : (
         /* === FIELD TYPE PICKER VIEW === */

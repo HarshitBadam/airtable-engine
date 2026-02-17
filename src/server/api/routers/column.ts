@@ -529,6 +529,15 @@ export const columnRouter = createTRPCRouter({
       });
       if (!col) throw new Error("Column not found");
 
+      // Uniqueness check: no two columns in the same table can share a name
+      if (input.name) {
+        const duplicate = await ctx.db.column.findFirst({
+          where: { tableId: input.tableId, name: input.name, NOT: { id: input.columnId } },
+          select: { id: true },
+        });
+        if (duplicate) throw new Error("A field with this name already exists in this table");
+      }
+
       const data: Record<string, unknown> = {};
       if (input.name !== undefined) data.name = input.name;
       if (input.numberConfig !== undefined) data.config = input.numberConfig as unknown as object;

@@ -48,6 +48,13 @@ export const viewRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
+      // Uniqueness check: no two views in the same table can share a name
+      const duplicate = await ctx.db.view.findFirst({
+        where: { tableId: input.tableId, name: input.name },
+        select: { id: true },
+      });
+      if (duplicate) throw new Error("A view with this name already exists in this table");
+
       return ctx.db.view.create({
         data: { tableId: input.tableId, name: input.name, config: input.config },
         select: { id: true, name: true, config: true },
@@ -66,9 +73,18 @@ export const viewRouter = createTRPCRouter({
       // ownership check via view->table->base
       const view = await ctx.db.view.findFirst({
         where: { id: input.viewId, table: { base: { ownerId: ctx.session.user.id } } },
-        select: { id: true },
+        select: { id: true, tableId: true },
       });
       if (!view) throw new Error("View not found");
+
+      // Uniqueness check: no two views in the same table can share a name
+      if (input.name) {
+        const duplicate = await ctx.db.view.findFirst({
+          where: { tableId: view.tableId, name: input.name, NOT: { id: input.viewId } },
+          select: { id: true },
+        });
+        if (duplicate) throw new Error("A view with this name already exists in this table");
+      }
 
       return ctx.db.view.update({
         where: { id: input.viewId },

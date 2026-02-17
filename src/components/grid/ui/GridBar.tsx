@@ -33,6 +33,7 @@ interface GridBarProps {
   startRenamingView: () => void;
   commitRenameView: () => void;
   cancelRenameView: () => void;
+  showDuplicateViewTooltip: boolean;
 
   // View dropdown
   isViewDropdownOpen: boolean;
@@ -102,6 +103,7 @@ export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar(
   startRenamingView,
   commitRenameView,
   cancelRenameView,
+  showDuplicateViewTooltip,
   isViewDropdownOpen,
   setIsViewDropdownOpen,
   setIsCreateNewDropdownOpen,
@@ -455,9 +457,22 @@ export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar(
                   if (e.key === 'Enter') commitRenameView();
                   if (e.key === 'Escape') cancelRenameView();
                 }}
-                onBlur={() => commitRenameView()}
+                onBlur={() => {
+                  if (showDuplicateViewTooltip) {
+                    cancelRenameView();
+                  } else {
+                    commitRenameView();
+                  }
+                }}
                 onClick={(e) => e.stopPropagation()}
               />
+              {showDuplicateViewTooltip && (
+                <div className={styles.viewRenameTooltip}>
+                  <div className={styles.viewRenameTooltipContent}>
+                    Please enter a unique view name
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>

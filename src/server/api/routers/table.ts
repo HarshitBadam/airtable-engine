@@ -36,6 +36,13 @@ export const tableRouter = createTRPCRouter({
       });
       if (!base) throw new Error("Base not found");
 
+      // Uniqueness check: no two tables in the same base can share a name
+      const duplicate = await ctx.db.table.findFirst({
+        where: { baseId: input.baseId, name: input.name },
+        select: { id: true },
+      });
+      if (duplicate) throw new Error("A table with this name already exists in this base");
+
       const seedCount = 25;
 
       const defaultViewConfig: ViewConfig = {
@@ -143,6 +150,14 @@ export const tableRouter = createTRPCRouter({
       if (!table || table.base.ownerId !== ctx.session.user.id) {
         throw new Error("Table not found");
       }
+
+      // Uniqueness check: no two tables in the same base can share a name
+      const duplicate = await ctx.db.table.findFirst({
+        where: { baseId: table.baseId, name: input.name, NOT: { id: input.id } },
+        select: { id: true },
+      });
+      if (duplicate) throw new Error("A table with this name already exists in this base");
+
       return ctx.db.table.update({
         where: { id: input.id },
         data: { name: input.name },

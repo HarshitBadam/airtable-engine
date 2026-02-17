@@ -1452,6 +1452,8 @@ export function GridContainer({
           onEditFieldSave={editFieldInfo ? (name, numCfg) => {
             onEditFieldSave?.(editFieldInfo.columnId, name, numCfg);
           } : undefined}
+          existingFieldNames={allVisibleColumns.map(c => c.name)}
+          baseColor={baseColor}
         />
       )}
 

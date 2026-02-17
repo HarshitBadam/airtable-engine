@@ -53,6 +53,7 @@ interface ViewsSidebarProps {
   startSidebarRename: (viewId: string) => void;
   commitSidebarRename: () => void;
   cancelSidebarRename: () => void;
+  showDuplicateViewTooltip: boolean;
 
   // Drag-and-drop reorder callback (new order of view IDs)
   onReorderViews?: (orderedViewIds: string[]) => void;
@@ -93,6 +94,7 @@ export function ViewsSidebar({
   startSidebarRename,
   commitSidebarRename,
   cancelSidebarRename,
+  showDuplicateViewTooltip,
   onReorderViews,
 }: ViewsSidebarProps) {
   // Read parent view state from the grid store for inheritance
@@ -481,6 +483,11 @@ export function ViewsSidebar({
                 value={createViewName}
                 onChange={(e) => setCreateViewName(e.target.value)}
               />
+              {views.some(v => v.name === createViewName.trim()) && createViewName.trim() !== '' && (
+                <div className={styles.createViewDuplicateWarning}>
+                  Please enter a unique view name
+                </div>
+              )}
             </div>
 
             {/* "Who can edit" label */}
@@ -550,9 +557,9 @@ export function ViewsSidebar({
               <button
                 type="button"
                 className={styles.createViewBoxCreateButton}
-                disabled={createViewMut.isPending || !createViewName.trim()}
+                disabled={createViewMut.isPending || !createViewName.trim() || views.some(v => v.name === createViewName.trim())}
                 onClick={() => {
-                  if (createViewName.trim()) {
+                  if (createViewName.trim() && !views.some(v => v.name === createViewName.trim())) {
                     createViewMut.mutate({
                       tableId,
                       name: createViewName.trim(),
@@ -637,19 +644,35 @@ export function ViewsSidebar({
 
               {/* View name text OR inline rename input */}
               {renamingSidebarViewId === view.id ? (
-                <input
-                  ref={sidebarRenameInputRef}
-                  type="text"
-                  className={styles.viewsSidebarViewItemRenameInput}
-                  value={sidebarRenameValue}
-                  onChange={(e) => setSidebarRenameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); commitSidebarRename(); }
-                    if (e.key === 'Escape') { e.preventDefault(); cancelSidebarRename(); }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  onDoubleClick={(e) => e.stopPropagation()}
-                />
+                <>
+                  <input
+                    ref={sidebarRenameInputRef}
+                    type="text"
+                    className={styles.viewsSidebarViewItemRenameInput}
+                    value={sidebarRenameValue}
+                    onChange={(e) => setSidebarRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); commitSidebarRename(); }
+                      if (e.key === 'Escape') { e.preventDefault(); cancelSidebarRename(); }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                  />
+                  {showDuplicateViewTooltip && sidebarRenameInputRef.current && createPortal(
+                    <div
+                      className={styles.viewRenameTooltipPortal}
+                      style={{
+                        top: sidebarRenameInputRef.current.getBoundingClientRect().bottom,
+                        left: sidebarRenameInputRef.current.getBoundingClientRect().left,
+                      }}
+                    >
+                      <div className={styles.viewRenameTooltipContent}>
+                        Please enter a unique view name
+                      </div>
+                    </div>,
+                    document.body
+                  )}
+                </>
               ) : (
                 <span className={styles.viewsSidebarViewItemText}>{view.name}</span>
               )}
