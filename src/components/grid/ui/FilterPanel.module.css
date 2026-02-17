@@ -355,6 +355,9 @@
 }
 
 /* === FILTER ROWS CONTAINER (scrollable) === */
+/* max-height is set dynamically via JS so the panel keeps a 104px gap
+   from the bottom of the viewport.  Falls back to a generous static
+   value if JS hasn't run yet. */
 .filterRowsContainer {
   display: block;
   box-sizing: border-box;
@@ -370,6 +373,30 @@
   line-height: 18px;
   color: rgb(29, 31, 37);
   white-space: nowrap;
+
+  /* Custom vertical scrollbar (matches project style) */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+}
+
+.filterRowsContainer::-webkit-scrollbar {
+  width: 10px;
+  background: transparent;
+}
+
+.filterRowsContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.filterRowsContainer::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.28);
+  border-radius: 7px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.filterRowsContainer::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.38);
 }
 
 /* === INDIVIDUAL FILTER ROW === */

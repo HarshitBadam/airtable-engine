@@ -33,12 +33,16 @@
 }
 
 /* Inner wrapper - preserves layout at fixed width during animation.
-   Padding lives here so it never animates / shifts content. */
+   Padding lives here so it never animates / shifts content.
+   flex:1 + min-height:0 lets it fill the sidebar height so the
+   view list can scroll when there are many items. */
 .viewsSidebarInner {
   display: flex;
   flex-direction: column;
   min-width: 264px;
   width: 264px;
+  flex: 1;
+  min-height: 0;
   flex-shrink: 0;
   padding: 10px 8px;
   box-sizing: border-box;
@@ -183,6 +187,36 @@
   margin: 0;
   padding: 0;
   transform: translateY(11px);
+
+  /* Fill remaining sidebar height and scroll when items overflow */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* Custom vertical scrollbar (matches project style) */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+}
+
+.viewsSidebarViewList::-webkit-scrollbar {
+  width: 10px;
+  background: transparent;
+}
+
+.viewsSidebarViewList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.viewsSidebarViewList::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.28);
+  border-radius: 7px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.viewsSidebarViewList::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.38);
 }
 
 /* --- View item (default / non-hover) --- */

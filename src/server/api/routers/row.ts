@@ -2358,17 +2358,19 @@ export const rowRouter = createTRPCRouter({
     }),
 
   // =========================================================================
-  // searchMatchCount — count total substring occurrences across all rows
+  // searchMatchCount — count total substring occurrences across rows (respects filters)
   // =========================================================================
   searchMatchCount: protectedProcedure
     .input(
       z.object({
         tableId: z.string(),
         search: z.string().min(1),
+        filters: z.array(filterSchema).optional(),
+        conjunction: z.enum(["and", "or"]).default("and"),
+        filterTree: filterTreeSchema.optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
-      // Auth check
       const table = await ctx.db.table.findFirst({
         where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
         select: { id: true },
@@ -2377,24 +2379,95 @@ export const rowRouter = createTRPCRouter({
 
       const escaped = escapeLikePattern(input.search);
       const searchLower = input.search.toLowerCase();
+      const filters = input.filters ?? [];
+      const conjunction = input.conjunction;
+      const filterTree = input.filterTree;
+      const useTree = filterTree && filterTreeHasConditions(filterTree);
 
-      // Count non-overlapping occurrences of the search term in every row's
-      // searchText.  The formula: for each row, compute how many characters
-      // are removed when we strip all occurrences of the term, then divide
-      // by the term length to get the occurrence count.
+      // $1 = searchLower (used in SELECT); $2 = tableId, $3 = escaped pattern; $4+ = filter params
+      const params: SqlParam[] = [input.tableId, `%${escaped}%`];
+      let whereSql = `WHERE "Row"."tableId" = $2 AND "Row"."searchText" ILIKE $3 ESCAPE '\\'`;
+      if (useTree) {
+        whereSql += buildFilterTreeSql(filterTree, params);
+      } else if (filters.length > 0) {
+        whereSql += buildFilterSql(filters, params, conjunction);
+      }
+
       const result = await ctx.db.$queryRawUnsafe<[{ count: number }]>(
         `SELECT COALESCE(SUM(
            (LENGTH("searchText") - LENGTH(REPLACE(LOWER("searchText"), $1, '')))
            / NULLIF(LENGTH($1), 0)
          ), 0)::int AS count
          FROM "Row"
-         WHERE "tableId" = $2
-           AND "searchText" ILIKE $3 ESCAPE '\\'`,
+         ${whereSql}`,
         searchLower,
-        input.tableId,
-        `%${escaped}%`,
+        ...params,
       );
 
       return { count: result[0]?.count ?? 0 };
+    }),
+
+  // =========================================================================
+  // searchMatchAt — get row id and offset for the match at global index (for "prev from first" → jump to last)
+  // =========================================================================
+  searchMatchAt: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        search: z.string().min(1),
+        matchIndex: z.number().int().min(0),
+        filters: z.array(filterSchema).optional(),
+        conjunction: z.enum(["and", "or"]).default("and"),
+        filterTree: filterTreeSchema.optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true },
+      });
+      if (!table) return { rowId: null, rowOffset: null, occurrenceInRow: null };
+
+      const escaped = escapeLikePattern(input.search);
+      const searchLower = input.search.toLowerCase();
+      const filters = input.filters ?? [];
+      const conjunction = input.conjunction;
+      const filterTree = input.filterTree;
+      const useTree = filterTree && filterTreeHasConditions(filterTree);
+
+      const params: SqlParam[] = [input.tableId, `%${escaped}%`];
+      let whereSql = `WHERE "Row"."tableId" = $2 AND "Row"."searchText" ILIKE $3 ESCAPE '\\'`;
+      if (useTree) {
+        whereSql += buildFilterTreeSql(filterTree, params);
+      } else if (filters.length > 0) {
+        whereSql += buildFilterSql(filters, params, conjunction);
+      }
+      params.push(input.matchIndex + 1);
+
+      const row = await ctx.db.$queryRawUnsafe<
+        [{ id: string; rn: number; cnt: number; cum: number } | undefined]
+      >(
+        `WITH t AS (
+          SELECT "Row"."id", "Row"."rowIndex",
+            (LENGTH("Row"."searchText") - LENGTH(REPLACE(LOWER("Row"."searchText"), $1, ''))) / NULLIF(LENGTH($1), 0) AS cnt
+          FROM "Row"
+          ${whereSql}
+        ),
+        t2 AS (
+          SELECT id, "rowIndex", cnt,
+            SUM(cnt) OVER (ORDER BY "rowIndex") AS cum,
+            ROW_NUMBER() OVER (ORDER BY "rowIndex") - 1 AS rn
+          FROM t
+        )
+        SELECT id, rn, cnt, cum FROM t2 WHERE cum >= $${params.length} ORDER BY rn ASC LIMIT 1`,
+        searchLower,
+        ...params,
+      );
+
+      const hit = row[0];
+      if (!hit) return { rowId: null, rowOffset: null, occurrenceInRow: null };
+      // 0-based index of which match within this row (for highlighting the right cell/occurrence)
+      const occurrenceInRow = input.matchIndex - (hit.cum - hit.cnt);
+      return { rowId: hit.id, rowOffset: hit.rn, occurrenceInRow };
     }),
 });

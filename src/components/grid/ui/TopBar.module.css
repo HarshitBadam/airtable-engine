@@ -295,3 +295,118 @@
   visibility: visible;
   opacity: 1;
 }
+
+/* === SAVING INDICATOR === */
+.savingIndicator {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  color: #88898D;
+  fill: #88898D;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+}
+
+.savingSpinnerWrapper {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  color: #88898D;
+  fill: #88898D;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 10.7969px;
+  line-height: 18px;
+  width: 16px;
+}
+
+.savingSpinner {
+  display: block;
+  box-sizing: border-box;
+  color: #88898D;
+  fill: #88898D;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 10.7969px;
+  line-height: 18px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  width: 10.7969px;
+  animation: spinScale 1.8s cubic-bezier(0.785, 0.135, 0.15, 0.86) infinite;
+}
+
+@keyframes spinScale {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(360deg) scale(1.15); }
+  100% { transform: rotate(720deg) scale(1); }
+}
+
+.savingText {
+  display: block;
+  box-sizing: border-box;
+  color: #88898D;
+  fill: #88898D;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 18px;
+  line-height: 18px;
+  margin-left: 4px;
+}
+
+/* === LINK BUTTON === */
+.topBarLinkButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgb(255, 255, 255);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 28px;
+  line-height: 18px;
+  margin: 0;
+  padding: 0;
+  width: 28px;
+  flex-shrink: 0;
+  border: none;
+}
+
+.topBarLinkButton:hover {
+  box-shadow: rgba(0, 0, 0, 0.36) 0px 0px 1px 0px, rgba(0, 0, 0, 0.1) 0px 1px 3px 0px, rgba(0, 0, 0, 0.08) 0px 2px 4px 0px;
+}
+
+.topBarLinkIcon {
+  display: block;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  width: 16px;
+}

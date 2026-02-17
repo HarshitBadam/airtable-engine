@@ -372,7 +372,9 @@
   overflow-x: hidden;
   background: #F7F8FC;
   box-sizing: border-box;
-  z-index: 1;
+  /* z-index intentionally omitted (auto) so this does NOT create a stacking
+     context.  This lets the selection overlay (z-index:6) inside paint above
+     the freeze line (z-index:4) which is a sibling in gridBody. */
   will-change: scroll-position;
   /* Hide native vertical scrollbar — replaced by custom overlay thumb */
   scrollbar-width: none; /* Firefox */
@@ -410,10 +412,14 @@
 .customVScrollThumb:hover {
   background-color: rgba(0, 0, 0, 0.38);
 }
-/* Inner wrapper — min-width set via inline style to match header scroll extent */
+/* Inner wrapper — min-width set via inline style to match header scroll extent.
+   `contain: style` (not layout) avoids creating a stacking context so the
+   selection overlay's z-index can reach gridBody level and paint above the
+   freeze line.  Individual virtual-row wrappers already have their own
+   `contain: layout style paint` for rendering isolation. */
 .gridContentScrollerInner {
   position: relative;
-  contain: layout style;
+  contain: style;
 }
 
 /* Frozen cell group within each row — sticks to left during horizontal scroll */
@@ -815,8 +821,10 @@
 }
 
 /* ========================================================================
-   SELECTION OVERLAY — rendered as a sibling of the freeze line in .gridBody
-   so it paints ABOVE the freeze bar, frozen groups, and all cells.
+   SELECTION OVERLAY — inside the scroll content (for zero-lag vertical
+   scrolling) but participates in gridBody's stacking context because
+   neither the scroller nor the inner wrapper create one.  z-index:6
+   paints ABOVE the freeze bar (z:4), frozen groups (z:2), and all cells.
    ======================================================================== */
 .gridSelectionOverlay {
   position: absolute;

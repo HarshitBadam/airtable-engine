@@ -513,6 +513,27 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
 
   const hasConditions = conditions.length > 0;
 
+  /* ---- Dynamic max-height for filterRowsContainer ----
+     Keep the panel at least 104px from the bottom of the viewport.
+     The actions bar below the rows container is ~34px. */
+  const BOTTOM_GAP = 104;
+  const ACTIONS_HEIGHT = 34;
+  const [rowsMaxHeight, setRowsMaxHeight] = useState<number | undefined>(undefined);
+
+  const updateRowsMaxHeight = useCallback(() => {
+    const el = rowsContainerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const available = window.innerHeight - rect.top - BOTTOM_GAP - ACTIONS_HEIGHT;
+    setRowsMaxHeight(Math.max(80, available));
+  }, []);
+
+  useEffect(() => {
+    updateRowsMaxHeight();
+    window.addEventListener("resize", updateRowsMaxHeight);
+    return () => window.removeEventListener("resize", updateRowsMaxHeight);
+  }, [updateRowsMaxHeight]);
+
   /* ---- GROUP TREE STATE ---- */
   const [rootItems, setRootItems] = useState<FilterTreeItem[]>([]);
   const [rootConjunction, setRootConjunction] = useState<"and" | "or">("and");
@@ -596,6 +617,11 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
       setFilterTree(undefined);
     }
   }, [rootItems, rootConjunction, columns, setConditions, setFilterTree]);
+
+  // Re-calculate rows max-height when items change (panel height changes)
+  useEffect(() => {
+    updateRowsMaxHeight();
+  }, [rootItems, updateRowsMaxHeight]);
 
   const hasAnyItems = rootItems.length > 0;
   const panelHasGroups = hasGroups(rootItems);
@@ -1596,7 +1622,11 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
       <div className={styles.filterShowRecords}>In this view, show records</div>
 
       {/* 4. Filter rows — iterate rootItems (conditions + groups) */}
-      <div ref={rowsContainerRef} className={styles.filterRowsContainer}>
+      <div
+        ref={rowsContainerRef}
+        className={styles.filterRowsContainer}
+        style={rowsMaxHeight !== undefined ? { maxHeight: rowsMaxHeight } : undefined}
+      >
         {rootItems.map((item, idx) => {
           if (isGroup(item)) {
             /* ---- GROUP item ---- */
