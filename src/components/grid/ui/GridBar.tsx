@@ -91,7 +91,7 @@ interface GridBarProps {
 }
 
 export const GridBar = forwardRef<GridBarHandle, GridBarProps>(function GridBar({
-  isViewsSidebarOpen,
+  isViewsSidebarOpen: _isViewsSidebarOpen,
   handleToggleViewsSidebar,
   handleListButtonMouseEnter,
   handleListButtonMouseLeave,

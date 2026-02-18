@@ -774,6 +774,7 @@ async function validateAndResolveSorts(
   if (sorts.length === 0) return sorts;
 
   const uniqueColIds = [...new Set(sorts.map((s) => s.columnId))];
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
   const cols = await db.column.findMany({
     where: { id: { in: uniqueColIds }, tableId },
     select: { id: true, type: true, sourceColumnId: true },
@@ -806,7 +807,7 @@ async function validateAndResolveSorts(
     // If redirects introduced columns not in the original set, fetch them
     const needsFetch = hasRedirects && resolvedColIds.some((id) => !colMap.has(id));
     const indexCols = needsFetch
-      ? (await db.column.findMany({
+      ? (await db.column.findMany({ // eslint-disable-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
           where: { id: { in: resolvedColIds }, tableId },
           select: { id: true, type: true },
         }) as { id: string; type: string }[])

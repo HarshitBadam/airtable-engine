@@ -218,7 +218,6 @@ export function useGridRows(tableId: string) {
       }
       return changed ? next : prev;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, q.isPlaceholderData]);
 
   // Clear jump cache when query params change — also bumps generation so

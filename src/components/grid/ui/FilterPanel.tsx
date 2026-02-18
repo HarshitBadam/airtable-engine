@@ -511,8 +511,6 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
   const inGroupItemRectsRef = useRef<DOMRect[]>([]);
   const groupContentRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  const hasConditions = conditions.length > 0;
-
   /* ---- Dynamic max-height for filterRowsContainer ----
      Keep the panel at least 104px from the bottom of the viewport.
      The actions bar below the rows container is ~34px. */

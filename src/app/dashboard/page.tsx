@@ -240,7 +240,7 @@ export default function DashboardPage() {
   // Compute transform style for each starred item during drag
   const getStarredItemStyle = useCallback((index: number): React.CSSProperties => {
     if (!dragState) return {};
-    const { dragIndex, overIndex, startY, currentY } = dragState;
+    const { dragIndex, overIndex } = dragState;
 
     if (index === dragIndex) {
       // Ghost stays in place - no transform

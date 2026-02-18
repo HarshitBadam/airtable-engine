@@ -42,8 +42,7 @@ export function HighlightedText({
   if (ranges.length === 0) return <>{text}</>;
   const parts: React.ReactNode[] = [];
   let lastEnd = 0;
-  for (let i = 0; i < ranges.length; i++) {
-    const range = ranges[i];
+  for (const range of ranges) {
     if (!range) continue;
     const [start, end] = range;
     if (start > lastEnd) parts.push(text.slice(lastEnd, start));
@@ -119,7 +118,7 @@ export const GridRow = memo(function GridRow({
   onRowDragStart,
   canDragRows = false,
   cellHeight = 32,
-  backfillingColumnIds,
+  backfillingColumnIds: _backfillingColumnIds,
 }: GridRowProps) {
   // Subscribe to only this row's state — other rows won't re-render
   const activeColId = useGridStore(
@@ -169,13 +168,6 @@ export const GridRow = memo(function GridRow({
     extraStyle?: React.CSSProperties,
   ) {
     const isNumber = col.type === "NUMBER";
-    // Check if this cell's value is a fallback (backfill pending)
-    const isBackfilling = backfillingColumnIds?.has(col.id) ?? false;
-    const rawMissing = isBackfilling && (() => {
-      if (!row.cells || typeof row.cells !== "object") return true;
-      const v = (row.cells as Record<string, unknown>)[col.id];
-      return v === null || v === undefined;
-    })();
 
     // Search match detection (only when not editing)
     const cellHasMatch =

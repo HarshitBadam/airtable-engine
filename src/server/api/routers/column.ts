@@ -231,7 +231,6 @@ export const columnRouter = createTRPCRouter({
       let total = 0;
       let batchStart = 0;
 
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         let affected = 0;
 

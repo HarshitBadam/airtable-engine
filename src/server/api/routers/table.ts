@@ -176,6 +176,7 @@ export const tableRouter = createTRPCRouter({
 
       // Drop custom column indexes before deleting the table's rows.
       // Without this, orphan partial B-tree indexes accumulate in pg_catalog.
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       await dropColumnIndexesForTable(ctx.db, input.id).catch(() => {});
 
       // Ensure at least one table remains — check + delete in one transaction

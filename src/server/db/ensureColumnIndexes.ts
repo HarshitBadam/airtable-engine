@@ -38,6 +38,7 @@ function isIndexRaceError(e: unknown): boolean {
 
 async function safeCreateIndex(db: PrismaClient, sql: string): Promise<void> {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     await db.$executeRawUnsafe(sql);
   } catch (e) {
     if (isIndexRaceError(e)) return; // another connection created it first
@@ -54,12 +55,14 @@ export async function dropColumnIndexesForTable(
   tableId: string,
 ): Promise<void> {
   const prefix = `ri_${tableId.slice(0, 8)}_`;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
   const indexes = (await db.$queryRawUnsafe(
     `SELECT indexname FROM pg_indexes WHERE tablename = 'Row' AND indexname LIKE $1`,
     `${prefix}%`,
   )) as { indexname: string }[];
 
   for (const idx of indexes) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     await db.$executeRawUnsafe(`DROP INDEX IF EXISTS "${idx.indexname}"`);
   }
 }
@@ -85,6 +88,7 @@ export async function ensureSortIndex(
   const indexName = `${baseName}${suffix}`;
 
   // Fast path: check if this specific index already exists (~0.5ms)
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
   const existing = (await db.$queryRawUnsafe(
     `SELECT COUNT(*)::int AS cnt FROM pg_indexes WHERE indexname = $1`,
     indexName,

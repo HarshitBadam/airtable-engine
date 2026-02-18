@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
 import { skipToken } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
 import type { inferProcedureOutput } from "@trpc/server";
@@ -12,21 +10,6 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import styles from "./GridWorkspace.module.css";
 import { api } from "~/trpc/react";
 import { getBaseColor, getBaseBorderColor, getBaseTextColor, getBaseToolbarColor } from "~/components/bases/useBases";
-import {
-  UserIcon,
-  UsersIcon,
-  AirtablePlusFillIcon,
-  BellIcon,
-  TranslateIcon,
-  PaletteIcon,
-  EnvelopeSimpleIcon,
-  UpsellStarIcon,
-  LinkIcon,
-  WrenchIcon,
-  TrashIcon,
-  SignOutIcon,
-  ChevronDownIcon,
-} from "~/components/home/Icons";
 import { useGridRows } from "~/components/grid/useGridRows";
 import type { RowItem } from "~/components/grid/useGridRows";
 import { useCellEditing } from "~/components/grid/useCellEditing";
@@ -37,34 +20,6 @@ import { reconcileColumnOrder } from "~/components/grid/useGridMeta";
 import type { NumberFormatConfig } from "~/shared/numberUtils";
 import { reorderRowInCache } from "~/components/grid/sortReorder";
 
-import {
-  AirtableLogoMonochrome,
-  IconBackArrow,
-  IconOmni,
-  IconHelp,
-  IconBell,
-  IconGrid,
-  IconChevronLeft,
-  IconChevronRight,
-  IconPlus,
-  IconMagnifyingGlass,
-  IconDotsSixVertical,
-  IconCheck,
-  IconEyeSlash,
-  IconHide,
-  IconFilter,
-  IconSort,
-  IconGroup,
-  IconSearch,
-  IconText,
-  IconNumber,
-  IconTable,
-  IconBaseLogo,
-  IconChevronDown,
-  IconSidebarPlay,
-  IconClockCounterClockwise,
-} from "./icons";
-import { GridRow } from "./GridRow";
 import type { GridColumnDef } from "./GridRow";
 import { TopBar } from "./TopBar";
 import { ClearDataModal, DeleteTablePopup } from "./TableModals";
@@ -518,7 +473,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   //  Both paths fire a background `invalidate()` so the server confirms
   //  the final state.  React Query deduplicates rapid calls, so multiple
   //  edits don't stack up redundant refetches.
-  const handleCellMembershipChange = useCallback((rowId: string, columnId: string, value: string | number | null) => {
+  const handleCellMembershipChange = useCallback((rowId: string, columnId: string, _value: string | number | null) => {
     const store = gridStoreApi.getState();
     const effectiveSorts = (store.autoSort && store.sorts.length > 0)
       ? store.sorts
@@ -723,7 +678,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // === TanStack Table integration ===
   // Provides a proper column model with visibility/ordering state.
   // The table instance is used for column defs and could drive flexRender for cells.
-  const _table = useGridTable(columns, rows as RowItem[]);
+  useGridTable(columns, rows as RowItem[]);
 
   // ================================================================
   // FIND-IN-VIEW: client-side match navigation
@@ -854,7 +809,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       const m = localMatches[i];
       if (!m) continue;
       const row = getRowAtIndex(m.rowPos);
-      if (row && row.id === pending.rowId) {
+      if (row?.id === pending.rowId) {
         if (pending.direction === "first") {
           targetIdx = i;
           break;
@@ -877,7 +832,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         try {
           const result = await utils.row.findEdgeMatch.fetch({
             tableId,
-            search: activeSearchTerm!,
+            search: activeSearchTerm,
             edge: direction,
             filters: rowQueryInput.filters,
             conjunction: rowQueryInput.conjunction,
@@ -896,7 +851,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
             const m = localMatches[i];
             if (!m) continue;
             const row = getRowAtIndex(m.rowPos);
-            if (row && row.id === result.rowId) {
+            if (row?.id === result.rowId) {
               setCurrentMatchIdx(i);
               return;
             }
@@ -1070,13 +1025,11 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   useEffect(() => {
     return () => {
       const viewId = unmountViewIdRef.current;
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       const scroller = gridScrollerRef.current;
       if (viewId && scroller) {
         localStorage.setItem(`view-scrollTop-${viewId}`, String(scroller.scrollTop));
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Scroll to top when sort/filter params change ──
@@ -2274,7 +2227,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
           const cells = (sourceRow.cells ?? {}) as Record<string, unknown>;
           let delta = 0;
           for (const val of Object.values(cells)) {
-            if (val != null) delta += countOccurrences(String(val), term);
+            if (typeof val === "string" || typeof val === "number") delta += countOccurrences(String(val), term);
           }
           if (delta > 0) addFindCountDelta(delta);
         }
@@ -2849,7 +2802,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         const cells = (row.cells ?? {}) as Record<string, unknown>;
         let delta = 0;
         for (const val of Object.values(cells)) {
-          if (val != null) delta += countOccurrences(String(val), term);
+          if (typeof val === "string" || typeof val === "number") delta += countOccurrences(String(val), term);
         }
         if (delta > 0) addFindCountDelta(-delta);
       }
@@ -3213,7 +3166,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     // Poll until the new tab element is in the DOM
     const tryOpen = (attempts = 0) => {
-      const tab = document.querySelector(`[data-table-id="${pendingId}"]`) as HTMLElement | null;
+      const tab = document.querySelector<HTMLElement>(`[data-table-id="${pendingId}"]`);
       if (tab) {
         const tabRect = tab.getBoundingClientRect();
         const transformOffset = 71;
@@ -3457,7 +3410,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     if (!trimmed || !renamingSidebarViewId) { setRenamingSidebarViewId(null); return; }
 
     const view = views.find(v => v.id === renamingSidebarViewId);
-    if (view && trimmed === view.name) { setRenamingSidebarViewId(null); setShowDuplicateViewTooltip(false); return; }
+    if (trimmed === view?.name) { setRenamingSidebarViewId(null); setShowDuplicateViewTooltip(false); return; }
 
     const isDuplicate = views.some(v => v.id !== renamingSidebarViewId && v.name === trimmed);
     if (isDuplicate) {

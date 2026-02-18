@@ -119,7 +119,7 @@ export function GridContainer({
   frozenColumns,
   scrollableColumns,
   getColWidth,
-  rows,
+  rows: _rows,
   virtualItems,
   totalSize,
   totalCount,
@@ -312,7 +312,7 @@ export function GridContainer({
 
   // === RECORD CELL CONTEXT MENU ===
   const [recordMenuRowId, setRecordMenuRowId] = useState<string | null>(null);
-  const [recordMenuColId, setRecordMenuColId] = useState<string | null>(null);
+  const [, setRecordMenuColId] = useState<string | null>(null);
   const [recordMenuPosition, setRecordMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const recordMenuRef = useRef<HTMLDivElement>(null);
 

@@ -166,13 +166,6 @@ function ListItem({ base }: ListItemProps) {
     }
   }, [showDeleteConfirm]);
 
-  const handleStarClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (showDeleteConfirm) return;
-    actions.toggleStar(base.id);
-  };
-
   const handleRenameClick = () => {
     setMenuOpen(false);
     setEditName(base.name);
