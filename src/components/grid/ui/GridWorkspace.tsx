@@ -896,7 +896,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   currentMatchIdxRef.current = currentMatchIdx;
 
   const handleNextMatch = useCallback(() => {
-    if (!activeSearchTerm || localMatches.length === 0) return;
+    if (!activeSearchTerm) return;
+
+    // Matches exist on the server but none are loaded locally — fetch the first remote match.
+    if (localMatches.length === 0) {
+      if (displayMatchCount > 0) doWrapNavigation("first");
+      return;
+    }
 
     // Functional updater ensures correctness with rapid clicks / batching.
     setCurrentMatchIdx((prev) => {
@@ -913,7 +919,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   }, [activeSearchTerm, localMatches, displayMatchCount, doWrapNavigation]);
 
   const handlePrevMatch = useCallback(() => {
-    if (!activeSearchTerm || localMatches.length === 0) return;
+    if (!activeSearchTerm) return;
+
+    // Matches exist on the server but none are loaded locally — fetch the last remote match.
+    if (localMatches.length === 0) {
+      if (displayMatchCount > 0) doWrapNavigation("last");
+      return;
+    }
 
     setCurrentMatchIdx((prev) => {
       if (prev > 0) return prev - 1;
