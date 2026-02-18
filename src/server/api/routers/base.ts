@@ -121,7 +121,7 @@ export const baseRouter = createTRPCRouter({
         });
 
         return { base, table, cols };
-      });
+      }, { timeout: 30_000 });
 
       // Build sort indexes for all 5 seed columns (outside transaction).
       // On 25 rows this is <50ms total and means sorts are instant from

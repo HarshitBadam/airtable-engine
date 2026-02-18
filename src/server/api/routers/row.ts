@@ -563,6 +563,130 @@ function buildMultiSortCursorSql(
 }
 
 // ---------------------------------------------------------------------------
+// Reversed ORDER BY builder (for findEdgeMatch "last" queries)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the ORDER BY clause with all directions reversed.
+ *
+ * ASC NULLS FIRST → DESC NULLS LAST (exact reverse for Postgres backward scan)
+ * DESC NULLS LAST → ASC NULLS FIRST
+ * rowIndex tiebreaker also reverses.
+ */
+function buildMultiSortOrderByReversed(sorts: SortInput[]): string {
+  if (sorts.length === 0) return `"Row"."rowIndex" DESC`;
+
+  const parts: string[] = [];
+  for (const sort of sorts) {
+    const sortExpr = getSortExpr(sort);
+    if (sort.direction === "asc") {
+      parts.push(`${sortExpr} DESC NULLS LAST`);
+    } else {
+      parts.push(`${sortExpr} ASC NULLS FIRST`);
+    }
+  }
+
+  const rowIndexDir = sorts[0]!.direction === "desc" ? "ASC" : "DESC";
+  parts.push(`"Row"."rowIndex" ${rowIndexDir}`);
+  return parts.join(", ");
+}
+
+// ---------------------------------------------------------------------------
+// "Before cursor" keyset predicate builder (for position counting)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a lexicographic keyset predicate for rows STRICTLY BEFORE the cursor
+ * in the current sort order.  Mirror of buildMultiSortCursorSql (which builds
+ * the "after" predicate).
+ *
+ * Used by findEdgeMatch to COUNT rows before the target for position computation.
+ */
+function buildMultiSortBeforeCursorSql(
+  sorts: SortInput[],
+  cursor: SortedCursorInput,
+  params: SqlParam[],
+): string {
+  const rowIndexOp = sorts.length > 0 && sorts[0]!.direction === "desc" ? ">" : "<";
+
+  const orClauses: string[] = [];
+
+  for (let level = 0; level <= sorts.length; level++) {
+    const andParts: string[] = [];
+
+    // Equality on all prior dimensions
+    for (let j = 0; j < level && j < sorts.length; j++) {
+      const sort = sorts[j]!;
+      const sortExpr = getSortExpr(sort);
+      const cursorVal = cursor.sortValues[j] ?? null;
+
+      if (cursorVal === null) {
+        andParts.push(`(${sortExpr} IS NULL)`);
+      } else {
+        params.push(cursorVal);
+        andParts.push(`(${sortExpr} = $${params.length})`);
+      }
+    }
+
+    if (level < sorts.length) {
+      // "Before" on dimension `level`
+      const sort = sorts[level]!;
+      const sortExpr = getSortExpr(sort);
+      const cursorVal = cursor.sortValues[level] ?? null;
+
+      if (cursorVal === null) {
+        if (sort.direction === "asc") {
+          // ASC NULLS FIRST: null is first, nothing before it → skip
+          continue;
+        } else {
+          // DESC NULLS LAST: null is last, everything non-null before it
+          andParts.push(`(${sortExpr} IS NOT NULL)`);
+        }
+      } else {
+        if (sort.direction === "asc") {
+          // ASC NULLS FIRST: null and smaller values come before
+          params.push(cursorVal);
+          andParts.push(`(${sortExpr} IS NULL OR ${sortExpr} < $${params.length})`);
+        } else {
+          // DESC NULLS LAST: larger values come before in DESC
+          params.push(cursorVal);
+          andParts.push(`(${sortExpr} > $${params.length})`);
+        }
+      }
+    } else {
+      // Tiebreaker: all sort keys equal, rowIndex strictly before
+      params.push(cursor.rowIndex);
+      andParts.push(`("Row"."rowIndex" ${rowIndexOp} $${params.length})`);
+    }
+
+    if (andParts.length > 0) {
+      orClauses.push(`(${andParts.join(" AND ")})`);
+    }
+  }
+
+  if (orClauses.length === 0) return " AND FALSE";
+
+  // Prepend index-cond-friendly range bound on the first sort key
+  const firstCursorVal = cursor.sortValues[0] ?? null;
+  let indexCondHint = "";
+  if (firstCursorVal !== null && sorts.length > 0) {
+    const firstSort = sorts[0]!;
+    const firstExpr = getSortExpr(firstSort);
+    if (firstSort.direction === "asc") {
+      // Before in ASC: values ≤ cursorVal or NULL
+      params.push(firstCursorVal);
+      indexCondHint = ` AND (${firstExpr} <= $${params.length} OR ${firstExpr} IS NULL)`;
+    } else {
+      // Before in DESC: values ≥ cursorVal
+      params.push(firstCursorVal);
+      indexCondHint = ` AND ${firstExpr} >= $${params.length}`;
+    }
+  }
+
+  return `${indexCondHint} AND (\n      ${orClauses.join("\n      OR ")}\n    )`;
+}
+
+// ---------------------------------------------------------------------------
 // Sort value normalization (for building nextCursor from last row)
 // ---------------------------------------------------------------------------
 
@@ -2447,6 +2571,234 @@ export const rowRouter = createTRPCRouter({
       );
 
       return { count: result[0]?.count ?? 0 };
+    }),
+
+  // =========================================================================
+  // findEdgeMatch — fast O(log N) first/last match for wrap-around navigation
+  // =========================================================================
+  //
+  // Replaces the slow searchMatchAt for wrap-around (prev-from-first,
+  // next-from-last).  Instead of materializing ALL matches with window
+  // functions, this uses a simple LIMIT 1 query with the appropriate
+  // ORDER BY to find the edge match directly.
+  //
+  // Position computation strategy (avoids O(N) ROW_NUMBER):
+  //   - Unsorted: COUNT(rowIndex < target) — bounded B-tree scan
+  //   - Sorted + ViewRowRank fresh: rank lookup — O(1)
+  //   - Sorted + "first" edge: COUNT(before target) — O(position), small
+  //   - Sorted + "last" edge:  totalCount - 1 - COUNT(after target) — O(small)
+  // =========================================================================
+  findEdgeMatch: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        search: z.string().min(1),
+        edge: z.enum(["first", "last"]),
+        filters: z.array(filterSchema).optional(),
+        conjunction: z.enum(["and", "or"]).default("and"),
+        filterTree: filterTreeSchema.optional(),
+        sorts: z.array(sortSchema).optional(),
+        viewId: z.string().optional(),
+        /** Client-side hint for totalCount (avoids a re-count for "last" edge). */
+        totalCount: z.number().int().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findFirst({
+        where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
+        select: { id: true, rowCount: true },
+      });
+      if (!table) return { rowId: null, absolutePosition: null };
+
+      const sorts = await validateAndResolveSorts(
+        ctx.db, input.sorts ?? [], input.tableId, true,
+      );
+
+      const escaped = escapeLikePattern(input.search);
+      const filters = input.filters ?? [];
+      const conjunction = input.conjunction;
+      const filterTree = input.filterTree;
+      const useTree = filterTree && filterTreeHasConditions(filterTree);
+
+      // ── Q1: Find the edge match row (LIMIT 1) ───────────────────────
+      const q1Params: SqlParam[] = [input.tableId, `%${escaped}%`];
+      let q1Where = `WHERE "Row"."tableId" = $1 AND "Row"."searchText" ILIKE $2 ESCAPE '\\'`;
+      if (useTree) {
+        q1Where += buildFilterTreeSql(filterTree, q1Params);
+      } else if (filters.length > 0) {
+        q1Where += buildFilterSql(filters, q1Params, conjunction);
+      }
+
+      // Forward ORDER BY for "first", reversed for "last"
+      const orderBy = sorts.length > 0
+        ? (input.edge === "first" ? buildMultiSortOrderBy(sorts) : buildMultiSortOrderByReversed(sorts))
+        : (input.edge === "first" ? `"Row"."rowIndex" ASC` : `"Row"."rowIndex" DESC`);
+
+      // Include cells when sorted (needed to extract sort values for cursor)
+      const q1SelectCells = sorts.length > 0 ? ', "Row"."cells"' : '';
+
+      const hitResult = await ctx.db.$queryRawUnsafe<
+        [{ id: string; rowIndex: number; cells?: unknown } | undefined]
+      >(
+        `SELECT "Row"."id", "Row"."rowIndex"${q1SelectCells}
+         FROM "Row"
+         ${q1Where}
+         ORDER BY ${orderBy}
+         LIMIT 1`,
+        ...q1Params,
+      );
+
+      const hit = hitResult[0];
+      if (!hit) return { rowId: null, absolutePosition: null };
+
+      // ── Q2: Compute absolute position ────────────────────────────────
+      let absolutePosition = 0;
+
+      if (sorts.length === 0) {
+        // Unsorted: position = COUNT(rowIndex < target) — fast B-tree scan.
+        // For "last" edge, use totalCount - 1 - COUNT(rowIndex > target)
+        // so the COUNT is small (few rows after the last match).
+        if (input.edge === "first") {
+          const q2Params: SqlParam[] = [input.tableId, Number(hit.rowIndex)];
+          let q2Where = `WHERE "Row"."tableId" = $1 AND "Row"."rowIndex" < $2`;
+          if (useTree) {
+            q2Where += buildFilterTreeSql(filterTree, q2Params);
+          } else if (filters.length > 0) {
+            q2Where += buildFilterSql(filters, q2Params, conjunction);
+          }
+          const posResult = await ctx.db.$queryRawUnsafe<[{ pos: number }]>(
+            `SELECT COUNT(*)::int AS pos FROM "Row" ${q2Where}`,
+            ...q2Params,
+          );
+          absolutePosition = posResult[0]?.pos ?? 0;
+        } else {
+          // "last": count rows AFTER the target, derive position
+          const q2Params: SqlParam[] = [input.tableId, Number(hit.rowIndex)];
+          let q2Where = `WHERE "Row"."tableId" = $1 AND "Row"."rowIndex" > $2`;
+          if (useTree) {
+            q2Where += buildFilterTreeSql(filterTree, q2Params);
+          } else if (filters.length > 0) {
+            q2Where += buildFilterSql(filters, q2Params, conjunction);
+          }
+          const countAfterResult = await ctx.db.$queryRawUnsafe<[{ pos: number }]>(
+            `SELECT COUNT(*)::int AS pos FROM "Row" ${q2Where}`,
+            ...q2Params,
+          );
+          const countAfter = countAfterResult[0]?.pos ?? 0;
+
+          // Resolve totalCount
+          let total = input.totalCount;
+          if (total == null) {
+            if (!useTree && filters.length === 0) {
+              total = table.rowCount;
+            } else {
+              const cntParams: SqlParam[] = [input.tableId];
+              let cntWhere = `WHERE "Row"."tableId" = $1`;
+              if (useTree) {
+                cntWhere += buildFilterTreeSql(filterTree, cntParams);
+              } else if (filters.length > 0) {
+                cntWhere += buildFilterSql(filters, cntParams, conjunction);
+              }
+              const cntResult = await ctx.db.$queryRawUnsafe<[{ count: number }]>(
+                `SELECT COUNT(*)::int AS count FROM "Row" ${cntWhere}`,
+                ...cntParams,
+              );
+              total = cntResult[0]?.count ?? 0;
+            }
+          }
+          absolutePosition = Math.max(0, total - 1 - countAfter);
+        }
+      } else {
+        // ── Sorted case ─────────────────────────────────────────────────
+        let usedViewRowRank = false;
+
+        // Try ViewRowRank (only sort-only, no filters/search — search
+        // doesn't affect rank because it doesn't filter the view).
+        if (input.viewId && !useTree && filters.length === 0) {
+          const view = await ctx.db.view.findFirst({
+            where: { id: input.viewId, ranksStale: false },
+            select: { id: true },
+          });
+          if (view) {
+            const rankResult = await ctx.db.$queryRawUnsafe<[{ rank: number } | undefined]>(
+              `SELECT "rank" FROM "ViewRowRank" WHERE "viewId" = $1 AND "rowId" = $2::uuid`,
+              input.viewId, hit.id,
+            );
+            if (rankResult[0]) {
+              absolutePosition = rankResult[0].rank - 1; // rank is 1-based
+              usedViewRowRank = true;
+            }
+          }
+        }
+
+        if (!usedViewRowRank) {
+          // COUNT with keyset predicate — much faster than ROW_NUMBER.
+          // "first" edge: COUNT(before) ≈ small (target is early in sort)
+          // "last" edge:  COUNT(after) ≈ small (target is late in sort)
+          const hitCursor: SortedCursorInput = {
+            rowIndex: Number(hit.rowIndex),
+            sortValues: normalizeSortValuesFromCells(sorts, hit.cells),
+          };
+
+          if (input.edge === "first") {
+            // Count rows strictly before the target in sort order
+            const q2Params: SqlParam[] = [input.tableId];
+            let q2Where = `WHERE "Row"."tableId" = $1`;
+            if (useTree) {
+              q2Where += buildFilterTreeSql(filterTree, q2Params);
+            } else if (filters.length > 0) {
+              q2Where += buildFilterSql(filters, q2Params, conjunction);
+            }
+            q2Where += buildMultiSortBeforeCursorSql(sorts, hitCursor, q2Params);
+
+            const posResult = await ctx.db.$queryRawUnsafe<[{ pos: number }]>(
+              `SELECT COUNT(*)::int AS pos FROM "Row" ${q2Where}`,
+              ...q2Params,
+            );
+            absolutePosition = posResult[0]?.pos ?? 0;
+          } else {
+            // Count rows strictly after the target in sort order
+            const q2Params: SqlParam[] = [input.tableId];
+            let q2Where = `WHERE "Row"."tableId" = $1`;
+            if (useTree) {
+              q2Where += buildFilterTreeSql(filterTree, q2Params);
+            } else if (filters.length > 0) {
+              q2Where += buildFilterSql(filters, q2Params, conjunction);
+            }
+            q2Where += buildMultiSortCursorSql(sorts, hitCursor, q2Params);
+
+            const countAfterResult = await ctx.db.$queryRawUnsafe<[{ pos: number }]>(
+              `SELECT COUNT(*)::int AS pos FROM "Row" ${q2Where}`,
+              ...q2Params,
+            );
+            const countAfter = countAfterResult[0]?.pos ?? 0;
+
+            // Resolve totalCount
+            let total = input.totalCount;
+            if (total == null) {
+              if (!useTree && filters.length === 0) {
+                total = table.rowCount;
+              } else {
+                const cntParams: SqlParam[] = [input.tableId];
+                let cntWhere = `WHERE "Row"."tableId" = $1`;
+                if (useTree) {
+                  cntWhere += buildFilterTreeSql(filterTree, cntParams);
+                } else if (filters.length > 0) {
+                  cntWhere += buildFilterSql(filters, cntParams, conjunction);
+                }
+                const cntResult = await ctx.db.$queryRawUnsafe<[{ count: number }]>(
+                  `SELECT COUNT(*)::int AS count FROM "Row" ${cntWhere}`,
+                  ...cntParams,
+                );
+                total = cntResult[0]?.count ?? 0;
+              }
+            }
+            absolutePosition = Math.max(0, total - 1 - countAfter);
+          }
+        }
+      }
+
+      return { rowId: hit.id, absolutePosition };
     }),
 
   // =========================================================================

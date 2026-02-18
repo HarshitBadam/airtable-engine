@@ -871,18 +871,20 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
   /** Fire the async wrap-around navigation (shared by next/prev). */
   const doWrapNavigation = useCallback(
-    (matchIndex: number, direction: "first" | "last") => {
+    (direction: "first" | "last") => {
       if (pendingWrapNavRef.current) return; // already in-flight
       void (async () => {
         try {
-          const result = await utils.row.searchMatchAt.fetch({
+          const result = await utils.row.findEdgeMatch.fetch({
             tableId,
             search: activeSearchTerm!,
-            matchIndex,
+            edge: direction,
             filters: rowQueryInput.filters,
             conjunction: rowQueryInput.conjunction,
             filterTree: rowQueryInput.filterTree,
             sorts: rowQueryInput.sorts,
+            viewId: rowQueryInput.viewId,
+            totalCount: totalCount ?? undefined,
           });
           if (!result.rowId || result.absolutePosition == null) return;
 
@@ -912,7 +914,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         }
       })();
     },
-    [utils, tableId, activeSearchTerm, rowQueryInput, localMatches, getRowAtIndex, triggerJumpFetch],
+    [utils, tableId, activeSearchTerm, rowQueryInput, totalCount, localMatches, getRowAtIndex, triggerJumpFetch],
   );
 
   // Ref to detect wrap-around: updated on every render so handlers can
@@ -933,7 +935,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     // Fire wrap navigation outside the updater (no side effects in updaters).
     // Ref check is correct for single-click scenarios (one click per render).
     if (currentMatchIdxRef.current >= localMatches.length - 1 && displayMatchCount > localMatches.length) {
-      doWrapNavigation(0, "first");
+      doWrapNavigation("first");
     }
   }, [activeSearchTerm, localMatches, displayMatchCount, doWrapNavigation]);
 
@@ -947,7 +949,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     });
 
     if (currentMatchIdxRef.current <= 0 && displayMatchCount > localMatches.length) {
-      doWrapNavigation(displayMatchCount - 1, "last");
+      doWrapNavigation("last");
     }
   }, [activeSearchTerm, localMatches, displayMatchCount, doWrapNavigation]);
 
