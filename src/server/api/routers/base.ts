@@ -8,11 +8,10 @@ const STATUSES = ["Todo", "In progress", "In review", "Done", "Blocked"] as cons
 
 export const baseRouter = createTRPCRouter({
   listMine: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.db.base.findMany({
-      where: { ownerId: ctx.session.user.id },
-      // Sort by lastOpenedAt so recently opened bases appear first
-      orderBy: { lastOpenedAt: "desc" },
-    });
+      return ctx.db.base.findMany({
+        where: { ownerId: ctx.session.user.id },
+        orderBy: { lastOpenedAt: "desc" },
+      });
   }),
 
   getById: protectedProcedure
@@ -44,7 +43,6 @@ export const baseRouter = createTRPCRouter({
       };
 
       const result = await ctx.db.$transaction(async (tx) => {
-        // 1. Create the base
         const base = await tx.base.create({
           data: {
             id: input.id,
@@ -53,12 +51,11 @@ export const baseRouter = createTRPCRouter({
           },
         });
 
-        // 2. Create default "Table 1"
         const table = await tx.table.create({
           data: { baseId: base.id, name: "Table 1" },
         });
 
-        // 3. Default columns matching Airtable's layout
+        // Default columns matching Airtable's layout
         const colDefs: { name: string; type: "TEXT" | "NUMBER"; order: number }[] = [
           { name: "Name",        type: "TEXT",   order: 1 },
           { name: "Notes",       type: "TEXT",   order: 2 },
@@ -78,7 +75,6 @@ export const baseRouter = createTRPCRouter({
           data: { nextColumnOrder: colDefs.length + 1 },
         });
 
-        // 4. Create default "Grid view"
         await tx.view.create({
           data: {
             tableId: table.id,
@@ -87,7 +83,7 @@ export const baseRouter = createTRPCRouter({
           },
         });
 
-        // 5. Seed rows with faker.js data
+        // Seed rows with faker.js data
         const rowsData = Array.from({ length: seedCount }, (_, i) => {
           const name = faker.person.fullName();
           const notes = faker.company.catchPhrase();
@@ -123,9 +119,7 @@ export const baseRouter = createTRPCRouter({
         return { base, table, cols };
       }, { timeout: 30_000 });
 
-      // Build sort indexes for all 5 seed columns (outside transaction).
-      // On 25 rows this is <50ms total and means sorts are instant from
-      // the start — no cold-start index build on first sort.
+      // Build sort indexes outside transaction to avoid cold-start index build on first sort
       await Promise.all(
         result.cols.map((c) =>
           ensureSortIndex(ctx.db, result.table.id, c.id, c.type as "TEXT" | "NUMBER"),
@@ -138,14 +132,12 @@ export const baseRouter = createTRPCRouter({
   rename: protectedProcedure
     .input(z.object({ id: z.string(), name: z.string().min(1).max(80) }))
     .mutation(async ({ ctx, input }) => {
-      // First verify ownership
       const base = await ctx.db.base.findFirst({
         where: { id: input.id, ownerId: ctx.session.user.id },
       });
       if (!base) {
         throw new Error("Base not found or access denied");
       }
-      // Then update
       return ctx.db.base.update({
         where: { id: input.id },
         data: { name: input.name },
@@ -177,8 +169,7 @@ export const baseRouter = createTRPCRouter({
         try {
           return await ctx.db.$transaction(
             async (tx) => {
-              // Drop per-column sort indexes first so the cascade
-              // doesn't have to update them for every row delete.
+              // Drop per-column sort indexes first so cascade doesn't update them for every row delete
               await Promise.all(
                 tables.map((t) => dropColumnIndexesForTable(tx, t.id)),
               );
@@ -217,7 +208,6 @@ export const baseRouter = createTRPCRouter({
             }
           }
 
-          // Exponential back-off before retry
           await new Promise((r) =>
             setTimeout(r, BASE_DELAY_MS * 2 ** attempt),
           );
@@ -230,14 +220,12 @@ export const baseRouter = createTRPCRouter({
   toggleStar: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // First verify ownership and get current state
       const base = await ctx.db.base.findFirst({
         where: { id: input.id, ownerId: ctx.session.user.id },
       });
       if (!base) {
         throw new Error("Base not found or access denied");
       }
-      // Toggle the starred state
       return ctx.db.base.update({
         where: { id: input.id },
         data: { isStarred: !base.isStarred },
@@ -247,7 +235,6 @@ export const baseRouter = createTRPCRouter({
   listStarred: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.base.findMany({
       where: { ownerId: ctx.session.user.id, isStarred: true },
-      // Sort by lastOpenedAt so recently opened bases appear first
       orderBy: { lastOpenedAt: "desc" },
     });
   }),
@@ -255,14 +242,12 @@ export const baseRouter = createTRPCRouter({
   recordOpen: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify ownership first
       const base = await ctx.db.base.findFirst({
         where: { id: input.id, ownerId: ctx.session.user.id },
       });
       if (!base) {
         throw new Error("Base not found or access denied");
       }
-      // Update lastOpenedAt timestamp
       return ctx.db.base.update({
         where: { id: input.id },
         data: { lastOpenedAt: new Date() },

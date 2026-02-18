@@ -17,10 +17,7 @@ export const env = createEnv({
       .default("development"),
   },
 
-  /**
-   * Client-side environment variables
-   * (must start with NEXT_PUBLIC_)
-   */
+ 
   client: {
     // NEXT_PUBLIC_CLIENTVAR: z.string(),
   },

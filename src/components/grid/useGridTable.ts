@@ -11,7 +11,6 @@ import {
 import { useGridStore } from "./grid-store";
 import type { RowItem } from "./useGridRows";
 
-/** Column info from the database */
 export interface DbColumn {
   id: string;
   name: string;
@@ -21,18 +20,11 @@ export interface DbColumn {
 
 const columnHelper = createColumnHelper<RowItem>();
 
-/**
- * Thin TanStack Table wrapper that manages column definitions, visibility,
- * and ordering from the Zustand grid store. The actual cell rendering still
- * happens in our custom GridRow component — this hook primarily satisfies the
- * spec requirement of using @tanstack/react-table and provides a proper
- * column model that can drive flexRender for cell content.
- */
+/** TanStack Table wrapper managing column definitions, visibility, and ordering. */
 export function useGridTable(dbColumns: DbColumn[], data: RowItem[]) {
   const hiddenColumnIds = useGridStore((s) => s.hiddenColumnIds);
   const columnOrderIds = useGridStore((s) => s.columnOrderIds);
 
-  // Build TanStack Table column definitions from DB columns
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const columns: ColumnDef<RowItem, any>[] = useMemo(() => {
     return dbColumns.map((col) =>
@@ -58,7 +50,6 @@ export function useGridTable(dbColumns: DbColumn[], data: RowItem[]) {
     );
   }, [dbColumns]);
 
-  // Visibility state: TanStack Table uses { [colId]: boolean }
   const columnVisibility: VisibilityState = useMemo(() => {
     const vis: VisibilityState = {};
     for (const col of dbColumns) {
@@ -67,7 +58,6 @@ export function useGridTable(dbColumns: DbColumn[], data: RowItem[]) {
     return vis;
   }, [dbColumns, hiddenColumnIds]);
 
-  // Column ordering: TanStack Table uses string[] of column IDs
   const columnOrder = useMemo(() => {
     if (columnOrderIds.length > 0) return columnOrderIds;
     return dbColumns.map((c) => c.id);
@@ -81,8 +71,6 @@ export function useGridTable(dbColumns: DbColumn[], data: RowItem[]) {
       columnOrder,
     },
     getCoreRowModel: getCoreRowModel(),
-    // We manage visibility and ordering externally via Zustand store,
-    // so we provide these as controlled state (no onColumnVisibilityChange etc.)
   });
 
   return table;

@@ -25,19 +25,9 @@ function asCellRecord(cells: unknown): Record<string, unknown> {
 export function useCellEditing(
   tableId: string,
   rowQueryInput: RowInfiniteInput,
-  /** Optimistically update a row in the jump cache (for rows beyond infinite scroll range). */
   updateJumpCacheRow?: (rowId: string, updater: (row: RowItem) => RowItem) => void,
-  /** Look up a row by ID across infinite pages AND jump cache. */
   getRowById?: (rowId: string) => RowItem | null,
-  /** Called when a cell edit may have changed the row's position (sort) or
-   *  membership (filter) in the current result set.  Receives the edited row's
-   *  ID, the edited column ID, and the committed value so the caller can:
-   *  - do a *targeted* cache update (remove just that row)
-   *  - for newly inserted rows, decide whether the edited column is relevant
-   *    to the active sort/filter constraints
-   *  - distinguish no-op commits (null→null) from real value changes */
   onMembershipChange?: (rowId: string, columnId: string, value: string | number | null) => void,
-  /** Called when a cell value is committed (old → new). Used e.g. to update find count client-side. */
   onCellValueChange?: (
     rowId: string,
     columnId: string,
@@ -77,15 +67,12 @@ export function useCellEditing(
         }
       }
 
-      // Find columns that are duplicates of the edited column (backfill in
-      // progress). When we edit c1, we freeze c1's current (pre-edit) value
-      // into c1c's cells so that c1c remains visually independent.
+      // Freeze pre-edit value into dependent (duplicate) columns
       const cols = utils.column.list.getData({ tableId });
       const dependentColIds = cols
         ?.filter((c: { sourceColumnId?: string | null }) => c.sourceColumnId === vars.columnId)
         .map((c: { id: string }) => c.id) ?? [];
 
-      // 1. Optimistic update for infinite query pages
       utils.row.infinite.setInfiniteData(rowQueryInput, (old): RowInfiniteData | undefined => {
         if (!old) return old;
 
@@ -98,19 +85,13 @@ export function useCellEditing(
 
               const nextCells = { ...asCellRecord(r.cells) };
 
-              // Freeze pre-edit value into dependent (duplicate) columns so
-              // editing c1 doesn't visually bleed into c1c. Only freeze if
-              // c1c doesn't already have its own value for this cell.
+              // Freeze pre-edit value into dependent columns if not already set
               for (const depId of dependentColIds) {
                 if (!Object.prototype.hasOwnProperty.call(nextCells, depId)) {
                   nextCells[depId] = nextCells[vars.columnId] ?? null;
                 }
               }
 
-              // Set null instead of deleting so that the key still exists in
-              // the record. getCellValue uses hasOwnProperty to distinguish
-              // "never written" (fall back to source/default) from
-              // "explicitly cleared by user" (show empty).
               nextCells[vars.columnId] = (vars.value === null || vars.value === "") ? null : vars.value;
 
               return {
@@ -123,10 +104,6 @@ export function useCellEditing(
         };
       });
 
-      // 2. Optimistic update for jump-cached rows (rows loaded via windowFetch)
-      //    Read the old value BEFORE the state update so onCellValueChange is
-      //    called exactly once — React 18 StrictMode may invoke state updaters
-      //    twice, which would double-fire side effects placed inside them.
       if (!foundInPrev && updateJumpCacheRow) {
         if (onCellValueChange && getRowById) {
           const jumpRow = getRowById(vars.rowId);
@@ -140,7 +117,7 @@ export function useCellEditing(
         updateJumpCacheRow(vars.rowId, (row) => {
           const nextCells = { ...asCellRecord(row.cells) };
 
-          // Freeze pre-edit value into dependent columns (same as above)
+          // Freeze pre-edit value into dependent columns
           for (const depId of dependentColIds) {
             if (!Object.prototype.hasOwnProperty.call(nextCells, depId)) {
               nextCells[depId] = nextCells[vars.columnId] ?? null;
@@ -168,12 +145,7 @@ export function useCellEditing(
     },
 
     onSuccess: (_data, vars) => {
-      // Detect whether the edit could change which rows are visible or
-      // where they appear.  We must check:
-      //   - search (client-side, but affects highlight counts)
-      //   - filters / filterTree (server-side row membership)
-      //   - live sorts (autoSort + sorts → row position changes)
-      //   - permanent sorts (autoSort=false + permanentSorts → row position)
+      // Detect whether the edit could change row visibility or position
       const liveSortsActive = autoSort && sorts.length > 0;
       const permSortsActive = !autoSort && permanentSorts.length > 0;
       const hasFilters = filters.length > 0 || !!filterTree;
@@ -201,8 +173,6 @@ export function useCellEditing(
 
       if (args.columnType === "NUMBER") {
         if (value !== null) {
-          // Use robust parsing: handles scientific notation (1e4), K/M/B suffixes,
-          // various thousands separators, etc. Returns null for non-numeric input.
           const cfg = args.numberConfig as NumberFormatConfig | null | undefined;
           const allowNeg = cfg?.allowNegative ?? true;
           const parsed = parseNumberInput(raw, allowNeg);

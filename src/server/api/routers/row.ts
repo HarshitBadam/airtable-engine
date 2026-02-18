@@ -1,4 +1,3 @@
-// src/server/api/routers/row.ts
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { ensureSortIndex } from "~/server/db/ensureColumnIndexes";
@@ -9,10 +8,6 @@ import {
   type FilterTree,
 } from "~/shared/grid";
 
-/**
- * Params we pass into $queryRawUnsafe.
- * Keep this narrow; Prisma accepts many types, but we only need these.
- */
 type SqlParam = string | number | boolean | null | Date;
 
 const filterSchema = z.discriminatedUnion("op", [
@@ -56,20 +51,10 @@ type RowSelect = {
 
 type CountRow = { count: number };
 
-/**
- * Sorting helpers
- * We only inject columnId as a literal after validating it belongs to this table.
- * We reuse the same escape function for filter literal injection too.
- */
 function escapeLiteral(input: string): string {
   return input.replace(/'/g, "''");
 }
 
-/**
- * Escape special LIKE/ILIKE pattern characters so user input
- * is treated as a literal substring, not a wildcard.
- * Must be used with `ESCAPE '\'` in the SQL.
- */
 function escapeLikePattern(input: string): string {
   return input
     .replace(/\\/g, "\\\\")
@@ -77,14 +62,8 @@ function escapeLikePattern(input: string): string {
     .replace(/_/g, "\\_");
 }
 
-/**
- * PERF UPGRADE:
- * Build filter SQL using literal JSONB keys (cells->>'<colId>') so Postgres can use
- * expression indexes created by column.ensureIndexes.
- *
- * IMPORTANT: caller must validate all columnIds belong to this table before calling.
- * Values remain parameterized.
- */
+// Build filter SQL using literal JSONB keys for index utilization.
+// Caller must validate all columnIds belong to this table before calling.
 function buildFilterSql(filters: FilterInput[], params: SqlParam[], conjunction: "and" | "or" = "and"): string {
   const clauses: string[] = [];
 
@@ -138,7 +117,6 @@ function buildFilterSql(filters: FilterInput[], params: SqlParam[], conjunction:
         break;
       }
       default: {
-        // exhaustive
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const _exhaustive: never = f;
         break;
@@ -150,14 +128,9 @@ function buildFilterSql(filters: FilterInput[], params: SqlParam[], conjunction:
   return clauses.length ? ` AND (${clauses.join(joiner)})` : "";
 }
 
-/* ============================================================
-   Filter tree SQL builder (nested condition groups)
-   ============================================================ */
+// Filter tree SQL builder (nested condition groups)
 
-/**
- * Build a SQL clause for a single condition node.
- * Returns the clause string and may push params.
- */
+// Build SQL clause for a single filter condition.
 function buildConditionClause(
   cond: FilterTreeCondition,
   params: SqlParam[],
@@ -222,10 +195,7 @@ function buildConditionClause(
   }
 }
 
-/**
- * Recursively build SQL for a filter tree item.
- * Returns a SQL fragment (without leading AND) or null if the item produces no clauses.
- */
+// Recursively build SQL for a filter tree item.
 function buildFilterTreeItemSql(
   item: FilterTreeItem,
   params: SqlParam[],
@@ -234,7 +204,6 @@ function buildFilterTreeItemSql(
     return buildConditionClause(item, params);
   }
 
-  // Group node
   const group = item;
   const clauses: string[] = [];
 
@@ -250,10 +219,7 @@ function buildFilterTreeItemSql(
   return `(${clauses.join(joiner)})`;
 }
 
-/**
- * Build SQL WHERE fragment for a complete filter tree.
- * Returns a string like ` AND (...)` or empty string if no effective filters.
- */
+// Build SQL WHERE fragment for a complete filter tree.
 function buildFilterTreeSql(tree: FilterTree, params: SqlParam[]): string {
   const clauses: string[] = [];
 
@@ -269,14 +235,7 @@ function buildFilterTreeSql(tree: FilterTree, params: SqlParam[]): string {
   return ` AND (${clauses.join(joiner)})`;
 }
 
-/**
- * Detect if the filter is an OR of equality conditions on the SAME column.
- * When true, the windowFetch Tier 3 path can rewrite the query as UNION ALL
- * so Postgres uses a Merge Append of per-value index scans instead of
- * BitmapOr (which loses rowIndex ordering and requires a re-sort).
- *
- * Returns { colId, values } when the pattern matches, null otherwise.
- */
+// Detect OR-of-equals on the same column (for UNION ALL optimization).
 function detectOrEqualsPattern(
   filterTree: FilterTree | undefined,
   filters: FilterInput[],
@@ -319,9 +278,6 @@ function detectOrEqualsPattern(
   return null;
 }
 
-/**
- * Extract all columnIds from a filter tree (for validation).
- */
 function extractColumnIds(tree: FilterTree): string[] {
   const ids = new Set<string>();
   const walk = (items: FilterTreeItem[]) => {
@@ -337,9 +293,6 @@ function extractColumnIds(tree: FilterTree): string[] {
   return [...ids];
 }
 
-/**
- * Check if a filter tree has any effective conditions (non-empty groups with conditions).
- */
 function filterTreeHasConditions(tree: FilterTree): boolean {
   const check = (items: FilterTreeItem[]): boolean => {
     for (const item of items) {
@@ -351,10 +304,6 @@ function filterTreeHasConditions(tree: FilterTree): boolean {
   return check(tree.items);
 }
 
-/**
- * Small wrapper to keep call sites clean.
- * Prisma's $queryRawUnsafe returns a PrismaPromise, which is awaitable.
- */
 async function queryRawUnsafe<T>(
   db: {
     $queryRawUnsafe: <R = unknown>(query: string, ...values: unknown[]) => PromiseLike<R>;
@@ -365,17 +314,7 @@ async function queryRawUnsafe<T>(
   return (await db.$queryRawUnsafe<T>(sql, ...params)) as T;
 }
 
-/**
- * Run a query inside a short-lived transaction with `SET LOCAL enable_bitmapscan = off`.
- *
- * This forces Postgres to use Index Scan / Index-Only Scan instead of Bitmap
- * Heap Scan for the UNION ALL branches.  Bitmap Heap Scan materialises every
- * matching row from the heap (losing index ordering) whereas Index Scan streams
- * rows in index order — critical for Merge Append to work cheaply.
- *
- * `SET LOCAL` only applies within the transaction scope — no side-effects on
- * other concurrent queries or subsequent queries on the same connection.
- */
+// Run query with bitmapscan disabled (forces Index Scan for UNION ALL branches).
 async function queryNoBitmap<T>(
   db: {
     $transaction: <R>(fn: (tx: {
@@ -392,16 +331,8 @@ async function queryNoBitmap<T>(
   });
 }
 
-// ---------------------------------------------------------------------------
 // Sort expression helpers
-// ---------------------------------------------------------------------------
 
-/**
- * Get the SQL expression for a sort column.
- * TEXT and NUMBER both use NULLIF to treat empty strings as NULL.
- *   TEXT:   NULLIF(cells->>'colId', '')
- *   NUMBER: NULLIF(cells->>'colId', '')::double precision
- */
 function getSortExpr(sort: SortInput): string {
   const colId = escapeLiteral(sort.columnId);
 
@@ -412,23 +343,8 @@ function getSortExpr(sort: SortInput): string {
   return `(NULLIF("Row"."cells" ->> '${colId}', '')::double precision)`;
 }
 
-// ---------------------------------------------------------------------------
 // Multi-sort ORDER BY builder
-// ---------------------------------------------------------------------------
-
-/**
- * Build the ORDER BY clause for multiple sorts.
- *
- * NULL / empty = -infinity (Airtable convention):
- *   ASC  → NULLS FIRST  (smallest value, appears first)
- *   DESC → NULLS LAST   (smallest value, sinks to end)
- *
- * The rowIndex tiebreaker matches the FIRST sort's direction so Postgres
- * can serve both ASC and DESC from a single index via forward/backward scan:
- *   Index:  (expr ASC NULLS FIRST, "rowIndex" ASC)
- *   ASC  → forward scan  → expr ASC  NULLS FIRST, rowIndex ASC   ✓
- *   DESC → backward scan → expr DESC NULLS LAST,  rowIndex DESC  ✓
- */
+// NULL/empty = -infinity (Airtable convention): ASC → NULLS FIRST, DESC → NULLS LAST.
 function buildMultiSortOrderBy(sorts: SortInput[]): string {
   if (sorts.length === 0) return `"Row"."rowIndex" ASC`;
 
@@ -447,25 +363,8 @@ function buildMultiSortOrderBy(sorts: SortInput[]): string {
   return parts.join(", ");
 }
 
-// ---------------------------------------------------------------------------
-// Multi-sort keyset cursor predicate builder
-// ---------------------------------------------------------------------------
-
-/**
- * Build a lexicographic keyset cursor predicate for multi-sort pagination.
- *
- * NULL = -infinity (Airtable convention):
- *   ASC  NULLS FIRST → null is the smallest, appears first
- *   DESC NULLS LAST  → null is the smallest, sinks to end
- *
- * "After cursor" logic per dimension:
- *   ASC  NULLS FIRST, cursorVal=null:     (expr IS NOT NULL)  — everything comes after null
- *   ASC  NULLS FIRST, cursorVal=non-null: (expr > cursorVal)  — null is before, not after
- *   DESC NULLS LAST,  cursorVal=null:     skip branch         — nothing after null (it's last)
- *   DESC NULLS LAST,  cursorVal=non-null: (expr < cursorVal) OR (expr IS NULL)  — null is after
- *
- * rowIndex tiebreaker matches first sort direction (ASC→>, DESC→<).
- */
+// Lexicographic keyset cursor predicate for multi-sort pagination.
+// Follows the same NULL = -infinity convention as buildMultiSortOrderBy.
 function buildMultiSortCursorSql(
   sorts: SortInput[],
   cursor: SortedCursorInput,
@@ -508,25 +407,20 @@ function buildMultiSortCursorSql(
 
       if (cursorVal === null) {
         if (sort.direction === "asc") {
-          // ASC NULLS FIRST: everything non-null comes after null
           andParts.push(`(${sortExpr} IS NOT NULL)`);
         } else {
-          // DESC NULLS LAST: nothing comes after null (it's last) → skip
           continue;
         }
       } else {
         if (sort.direction === "asc") {
-          // ASC NULLS FIRST: null is before non-null, only greater values come after
           params.push(cursorVal);
           andParts.push(`(${sortExpr} > $${params.length})`);
         } else {
-          // DESC NULLS LAST: null is after non-null (at end), so lesser OR null come after
           params.push(cursorVal);
           andParts.push(`(${sortExpr} IS NULL OR ${sortExpr} < $${params.length})`);
         }
       }
     } else {
-      // Final tie-break: all sort keys equal, advance by rowIndex
       params.push(cursor.rowIndex);
       andParts.push(`("Row"."rowIndex" ${rowIndexOp} $${params.length})`);
     }
@@ -562,17 +456,7 @@ function buildMultiSortCursorSql(
   return `${indexCondHint} AND (\n      ${orClauses.join("\n      OR ")}\n    )`;
 }
 
-// ---------------------------------------------------------------------------
-// Reversed ORDER BY builder (for findEdgeMatch "last" queries)
-// ---------------------------------------------------------------------------
-
-/**
- * Build the ORDER BY clause with all directions reversed.
- *
- * ASC NULLS FIRST → DESC NULLS LAST (exact reverse for Postgres backward scan)
- * DESC NULLS LAST → ASC NULLS FIRST
- * rowIndex tiebreaker also reverses.
- */
+// Reversed ORDER BY (for findEdgeMatch "last" queries).
 function buildMultiSortOrderByReversed(sorts: SortInput[]): string {
   if (sorts.length === 0) return `"Row"."rowIndex" DESC`;
 
@@ -591,17 +475,7 @@ function buildMultiSortOrderByReversed(sorts: SortInput[]): string {
   return parts.join(", ");
 }
 
-// ---------------------------------------------------------------------------
-// "Before cursor" keyset predicate builder (for position counting)
-// ---------------------------------------------------------------------------
-
-/**
- * Build a lexicographic keyset predicate for rows STRICTLY BEFORE the cursor
- * in the current sort order.  Mirror of buildMultiSortCursorSql (which builds
- * the "after" predicate).
- *
- * Used by findEdgeMatch to COUNT rows before the target for position computation.
- */
+// "Before cursor" keyset predicate (mirror of buildMultiSortCursorSql).
 function buildMultiSortBeforeCursorSql(
   sorts: SortInput[],
   cursor: SortedCursorInput,
@@ -636,25 +510,20 @@ function buildMultiSortBeforeCursorSql(
 
       if (cursorVal === null) {
         if (sort.direction === "asc") {
-          // ASC NULLS FIRST: null is first, nothing before it → skip
           continue;
         } else {
-          // DESC NULLS LAST: null is last, everything non-null before it
           andParts.push(`(${sortExpr} IS NOT NULL)`);
         }
       } else {
         if (sort.direction === "asc") {
-          // ASC NULLS FIRST: null and smaller values come before
           params.push(cursorVal);
           andParts.push(`(${sortExpr} IS NULL OR ${sortExpr} < $${params.length})`);
         } else {
-          // DESC NULLS LAST: larger values come before in DESC
           params.push(cursorVal);
           andParts.push(`(${sortExpr} > $${params.length})`);
         }
       }
     } else {
-      // Tiebreaker: all sort keys equal, rowIndex strictly before
       params.push(cursor.rowIndex);
       andParts.push(`("Row"."rowIndex" ${rowIndexOp} $${params.length})`);
     }
@@ -686,9 +555,7 @@ function buildMultiSortBeforeCursorSql(
   return `${indexCondHint} AND (\n      ${orClauses.join("\n      OR ")}\n    )`;
 }
 
-// ---------------------------------------------------------------------------
-// Sort value normalization (for building nextCursor from last row)
-// ---------------------------------------------------------------------------
+// Sort value normalization
 
 function normalizeSortValueFromCells(
   sort: SortInput,
@@ -721,11 +588,7 @@ function normalizeSortValuesFromCells(
   return sorts.map((sort) => normalizeSortValueFromCells(sort, cellsUnknown));
 }
 
-// ---------------------------------------------------------------------------
-// ORDER BY builder for raw SQL (used by applyPermanentSort)
-// Uses table alias "r" instead of "Row" for subqueries.
-// ---------------------------------------------------------------------------
-
+// ORDER BY builder using a table alias (for applyPermanentSort subqueries).
 function buildSortOrderByForAlias(sorts: SortInput[], alias: string): string {
   const parts: string[] = [];
 
@@ -745,25 +608,10 @@ function buildSortOrderByForAlias(sorts: SortInput[], alias: string): string {
   return parts.join(", ");
 }
 
-// ---------------------------------------------------------------------------
 // Sort column validation + duplicate-column redirect
-// ---------------------------------------------------------------------------
 
-/**
- * Validate sort columns and resolve unbackfilled duplicates.
- *
- * 1. Every sort column must belong to `tableId` and the client-supplied type
- *    must match the DB type.
- * 2. If a column still has `sourceColumnId` set (the background backfill
- *    hasn't copied cell data yet), the sort is redirected to the source
- *    column — values are identical, and the source column already has an
- *    index.  This lets field duplication appear O(1) while the backfill
- *    runs asynchronously.
- * 3. When `buildIndexes` is true, sort indexes are ensured for every
- *    resolved column (fast-path <1ms when already present).
- *
- * Returns a *new* sorts array with possibly redirected columnIds.
- */
+// Validate sort columns, redirect unbackfilled duplicates to their source
+// column, and optionally ensure sort indexes.
 async function validateAndResolveSorts(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
@@ -781,7 +629,6 @@ async function validateAndResolveSorts(
 
   const colMap = new Map(cols.map((c) => [c.id, c]));
 
-  // Validate
   for (const sort of sorts) {
     const col = colMap.get(sort.columnId);
     if (!col) throw new Error("Invalid sort column");
@@ -824,10 +671,6 @@ async function validateAndResolveSorts(
 
   return resolved;
 }
-
-// ===========================================================================
-// Router
-// ===========================================================================
 
 export const rowRouter = createTRPCRouter({
   infinite: protectedProcedure
@@ -908,11 +751,8 @@ export const rowRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      // Validate sort columns, redirect unbackfilled duplicates to their
-      // source column, and ensure sort indexes exist.
       sorts = await validateAndResolveSorts(ctx.db, sorts, input.tableId, true);
 
-      // Validate filter columnIds belong to this table (required before literal injection)
       {
         const colIdsToValidate: string[] = useTree
           ? extractColumnIds(filterTree)
@@ -1066,7 +906,6 @@ export const rowRouter = createTRPCRouter({
 
       // ── STANDARD SORTED/FILTERED PATH (live ORDER BY) ──
 
-      // Cursor normalization
       const cursor = input.cursor;
 
       const cursorRowIndex =
@@ -1083,7 +922,6 @@ export const rowRouter = createTRPCRouter({
           ? cursor
           : null;
 
-      // Build WHERE
       const params: SqlParam[] = [];
       params.push(input.tableId);
       let whereSql = `WHERE "Row"."tableId" = $${params.length}`;
@@ -1094,15 +932,13 @@ export const rowRouter = createTRPCRouter({
         whereSql += ` AND "Row"."searchText" ILIKE $${params.length} ESCAPE '\\'`;
       }
 
-      // Use tree-structured filters when available, fall back to flat filters
       if (useTree) {
         whereSql += buildFilterTreeSql(filterTree, params);
       } else {
         whereSql += buildFilterSql(filters, params, conjunction);
       }
 
-      // Cursor predicate
-      let cursorRowIndexParam: number | null = null; // track $N for UNION ALL
+      let cursorRowIndexParam: number | null = null;
       if (sorts.length === 0) {
         params.push(cursorRowIndex);
         cursorRowIndexParam = params.length;
@@ -1111,16 +947,12 @@ export const rowRouter = createTRPCRouter({
         whereSql += buildMultiSortCursorSql(sorts, sortedCursor, params);
       }
 
-      // ORDER BY
       const orderBySql = buildMultiSortOrderBy(sorts);
 
-      // LIMIT
       params.push(take);
       const limitP = params.length;
 
-      // ── UNION ALL optimisation for OR-of-equals filters (infinite scroll) ──
-      // Same optimisation as windowFetch: split OR conditions into per-value
-      // branches so Postgres uses Merge Append instead of BitmapOr + re-sort.
+      // UNION ALL optimisation for OR-of-equals filters (Merge Append vs BitmapOr).
       const orEqInfinite =
         !search && sorts.length === 0
           ? detectOrEqualsPattern(filterTree, filters, conjunction, Boolean(useTree))
@@ -1177,7 +1009,6 @@ export const rowRouter = createTRPCRouter({
         `;
       }
 
-      // COUNT:
       const isFirstPage = input.cursor === null;
       const hasFiltersForCount = Boolean(useTree) || filters.length > 0;
       const needsCount = isFirstPage && (Boolean(search && search.length > 0) || hasFiltersForCount);
@@ -1209,7 +1040,6 @@ export const rowRouter = createTRPCRouter({
         ? () => queryNoBitmap<RowSelect[]>(ctx.db, sql, params)
         : () => queryRawUnsafe<RowSelect[]>(ctx.db, sql, params);
 
-      // Fire data + count queries in parallel
       const [rows, countResult] = await Promise.all([
         runInfiniteQuery(),
         countPromise,
@@ -1243,9 +1073,7 @@ export const rowRouter = createTRPCRouter({
       return { items, nextCursor, totalCount };
     }),
 
-  // =========================================================================
   // applyPermanentSort — rewrite rowIndex for all rows in the table
-  // =========================================================================
   applyPermanentSort: protectedProcedure
     .input(
       z.object({
@@ -1302,9 +1130,7 @@ export const rowRouter = createTRPCRouter({
       return { ok: true };
     }),
 
-  // =========================================================================
   // computeViewRanks — materialize sort ranks into ViewRowRank for a view
-  // =========================================================================
   computeViewRanks: protectedProcedure
     .input(
       z.object({
@@ -1654,16 +1480,8 @@ export const rowRouter = createTRPCRouter({
       return { startRowIndex, count };
     }),
 
-  /**
-   * Insert a single empty row at a specific position.
-   *
-   * Strategy (Float rowIndex, zero shifting):
-   *   position="end"   → atomically claim nextRowIndex (O(1), race-safe)
-   *   position="above"  → midpoint between prev row and atIndex
-   *   position="below"  → midpoint between atIndex and next row
-   *
-   * No existing rows are ever touched — just one INSERT.
-   */
+  // Insert a single empty row at a specific position using float midpoint
+  // insertion (O(1), zero shifting). Race-safe via atomic nextRowIndex claim.
   insertAt: protectedProcedure
     .input(
       z.object({
@@ -1764,10 +1582,6 @@ export const rowRouter = createTRPCRouter({
       });
     }),
 
-  /**
-   * Duplicate a row: copy its cells and insert the clone right below it.
-   * Uses the same capped-shift strategy as insertAt.
-   */
   duplicateAt: protectedProcedure
     .input(
       z.object({
@@ -1834,12 +1648,7 @@ export const rowRouter = createTRPCRouter({
       });
     }),
 
-  /**
-   * Delete a single row by ID.
-   *
-   * Idempotent: if the row is already gone (concurrent delete, double-click),
-   * the mutation succeeds with count: 0 instead of throwing.
-   */
+  // Delete a single row by ID. Idempotent (concurrent deletes return count: 0).
   delete: protectedProcedure
     .input(
       z.object({
@@ -1869,7 +1678,6 @@ export const rowRouter = createTRPCRouter({
         });
 
         if (result.count > 0) {
-          // Only decrement rowCount if a row was actually deleted
           await tx.table.update({
             where: { id: input.tableId },
             data: { rowCount: { decrement: 1 } },
@@ -1880,10 +1688,6 @@ export const rowRouter = createTRPCRouter({
       });
     }),
 
-  /**
-   * Clear all rows from a table (delete every row, reset counters).
-   * Idempotent: calling on an already-empty table is a no-op.
-   */
   clearData: protectedProcedure
     .input(
       z.object({
@@ -1902,7 +1706,6 @@ export const rowRouter = createTRPCRouter({
       const tableIdEscaped = escapeLiteral(input.tableId);
 
       await ctx.db.$transaction(async (tx) => {
-        // Delete all ViewRowRank entries for rows in this table
         await tx.$executeRawUnsafe(`
           DELETE FROM "ViewRowRank"
           WHERE "rowId" IN (
@@ -1910,12 +1713,10 @@ export const rowRouter = createTRPCRouter({
           )
         `);
 
-        // Delete all rows
         await tx.$executeRawUnsafe(`
           DELETE FROM "Row" WHERE "tableId" = '${tableIdEscaped}'
         `);
 
-        // Reset table counters
         await tx.table.update({
           where: { id: input.tableId },
           data: {
@@ -1928,18 +1729,7 @@ export const rowRouter = createTRPCRouter({
       return { deletedCount: table.rowCount };
     }),
 
-  /**
-   * Reorder a single row: move it from one rowIndex to another.
-   * Uses a 3-step SQL transaction with a temporary negative index
-   * to avoid unique constraint violations on (tableId, rowIndex).
-   */
-  /**
-   * Reorder a single row: move it from its current rowIndex to another.
-   *
-   * Strategy: park the row at a temp index, then shift each affected row
-   * ONE AT A TIME in the correct order so every write fills the slot that
-   * was just vacated — no negation trick, no unique-constraint risk.
-   */
+  // Reorder a single row using float midpoint placement (zero shifting).
   reorder: protectedProcedure
     .input(
       z.object({
@@ -2120,13 +1910,8 @@ export const rowRouter = createTRPCRouter({
       return result;
     }),
 
-  // =========================================================================
-  // windowFetch — positional window fetch for virtualized grid jumps
-  // =========================================================================
-  // Three-tier strategy:
-  //   Tier 1 (no sort/filter/search): rowIndex estimation + B-tree seek → O(log N)
-  //   Tier 2 (saved view with fresh ranks): JOIN ViewRowRank, rank BETWEEN → O(log N)
-  //   Tier 3 (temporary sort / stale ranks): OFFSET + LIMIT → O(offset)
+  // windowFetch — positional window fetch for virtualized grid jumps.
+  // Tier 1: rowIndex estimation (no query). Tier 2: ViewRowRank. Tier 3: OFFSET+LIMIT.
   windowFetch: protectedProcedure
     .input(
       z.object({
@@ -2232,7 +2017,6 @@ export const rowRouter = createTRPCRouter({
       // Validate sort columns, redirect unbackfilled duplicates, ensure indexes.
       sorts = await validateAndResolveSorts(ctx.db, sorts, input.tableId, true);
 
-      // Validate filter columns
       {
         const colIdsToValidate: string[] = useTree
           ? extractColumnIds(filterTree)
@@ -2247,7 +2031,7 @@ export const rowRouter = createTRPCRouter({
       }
 
       // ── TIER 2: Saved view with fresh ViewRowRank → O(limit) fetch ──
-      // Only for sort-only (no filters/search).  Sort+filter stays on Tier 3
+      // Sort-only (no filters/search). Sort+filter stays on Tier 3
       // because evaluating filters requires joining every ranked entry to Row
       // — worse than Tier 3's approach
       // of filtering first then sorting the smaller filtered set.
@@ -2282,7 +2066,6 @@ export const rowRouter = createTRPCRouter({
             `;
             const items = await queryRawUnsafe<RowSelect[]>(ctx.db, rankedSql, rp);
 
-            // Build nextCursor from last item
             let nextCursor: number | { rowIndex: number; sortValues: (string | number | null)[] } | null = null;
             if (items.length > 0) {
               const last = items[items.length - 1]!;
@@ -2300,21 +2083,7 @@ export const rowRouter = createTRPCRouter({
         }
       }
 
-      // ── TIER 3: Temporary sort / stale ranks → OFFSET + LIMIT ──
-      //
-      // Two optimisations layered together:
-      //
-      // A) DEFERRED JOIN — the inner subquery selects only "id" so Postgres
-      //    keeps (sort_key, id) in the sort buffer instead of the full cells
-      //    JSONB blob.  This dramatically shrinks memory usage for large
-      //    OFFSETs, avoiding disk-spill and reducing TOAST decompression
-      //    to the final window.
-      //
-      // B) CURSOR ANCHOR — when the client provides a keyset cursor from a
-      //    previous fetch, we add a keyset predicate that lets Postgres skip
-      //    all rows before the anchor.  The OFFSET is then only the distance
-      //    from the anchor to the target position.
-      //    Example: jump to row 500 K with anchor at 480 K → OFFSET = 20 K.
+      // ── TIER 3: OFFSET + LIMIT with deferred join + optional cursor anchor ──
       const params: SqlParam[] = [];
       params.push(input.tableId);
       let whereSql = `WHERE "Row"."tableId" = $${params.length}`;
@@ -2366,17 +2135,7 @@ export const rowRouter = createTRPCRouter({
       params.push(effectiveOffset);
       const offsetP = params.length;
 
-      // ── UNION ALL optimisation for OR-of-equals filters ──
-      //
-      // When the filter is `col = 'A' OR col = 'B'` (same column, no sorts,
-      // no search), Postgres uses BitmapOr which loses rowIndex ordering and
-      // requires a full re-sort of all matching rows.
-      //
-      // UNION ALL lets Postgres do a Merge Append of per-value index scans
-      // on the composite index (cells->>'col', rowIndex).  Each branch is
-      // already sorted by rowIndex, so the merge is O(offset) pointer
-      // comparisons on compact index entries — much cheaper than the
-      // BitmapOr + heap scan + sort path.
+      // UNION ALL optimisation for OR-of-equals filters (Merge Append vs BitmapOr).
       const orEqPattern =
         !search && sorts.length === 0
           ? detectOrEqualsPattern(filterTree, filters, conjunction, Boolean(useTree))
@@ -2456,7 +2215,6 @@ export const rowRouter = createTRPCRouter({
 
         const items = await runDataQuery();
 
-        // Build nextCursor from last item
         let nextCursor:
           | number
           | { rowIndex: number; sortValues: (string | number | null)[] }
@@ -2494,7 +2252,6 @@ export const rowRouter = createTRPCRouter({
 
       const countSql = `SELECT COUNT(*)::int AS count FROM "Row" ${countWhere}`;
 
-      // Fire both in parallel
       const [items, countRes] = await Promise.all([
         runDataQuery(),
         queryRawUnsafe<CountRow[]>(ctx.db, countSql, countParams),
@@ -2502,7 +2259,6 @@ export const rowRouter = createTRPCRouter({
 
       totalCount = countRes[0]?.count ?? 0;
 
-      // Build nextCursor from last item
       let nextCursor:
         | number
         | { rowIndex: number; sortValues: (string | number | null)[] }
@@ -2522,9 +2278,7 @@ export const rowRouter = createTRPCRouter({
       return { items, totalCount, nextCursor };
     }),
 
-  // =========================================================================
   // searchMatchCount — count total substring occurrences across rows (respects filters)
-  // =========================================================================
   searchMatchCount: protectedProcedure
     .input(
       z.object({
@@ -2573,21 +2327,8 @@ export const rowRouter = createTRPCRouter({
       return { count: result[0]?.count ?? 0 };
     }),
 
-  // =========================================================================
-  // findEdgeMatch — fast O(log N) first/last match for wrap-around navigation
-  // =========================================================================
-  //
-  // Replaces the slow searchMatchAt for wrap-around (prev-from-first,
-  // next-from-last).  Instead of materializing ALL matches with window
-  // functions, this uses a simple LIMIT 1 query with the appropriate
-  // ORDER BY to find the edge match directly.
-  //
-  // Position computation strategy (avoids O(N) ROW_NUMBER):
-  //   - Unsorted: COUNT(rowIndex < target) — bounded B-tree scan
-  //   - Sorted + ViewRowRank fresh: rank lookup — O(1)
-  //   - Sorted + "first" edge: COUNT(before target) — O(position), small
-  //   - Sorted + "last" edge:  totalCount - 1 - COUNT(after target) — O(small)
-  // =========================================================================
+  // findEdgeMatch — fast O(log N) first/last match for wrap-around navigation.
+  // Uses LIMIT 1 + COUNT-based position instead of ROW_NUMBER.
   findEdgeMatch: protectedProcedure
     .input(
       z.object({
@@ -2655,9 +2396,6 @@ export const rowRouter = createTRPCRouter({
       let absolutePosition = 0;
 
       if (sorts.length === 0) {
-        // Unsorted: position = COUNT(rowIndex < target) — fast B-tree scan.
-        // For "last" edge, use totalCount - 1 - COUNT(rowIndex > target)
-        // so the COUNT is small (few rows after the last match).
         if (input.edge === "first") {
           const q2Params: SqlParam[] = [input.tableId, Number(hit.rowIndex)];
           let q2Where = `WHERE "Row"."tableId" = $1 AND "Row"."rowIndex" < $2`;
@@ -2686,7 +2424,6 @@ export const rowRouter = createTRPCRouter({
           );
           const countAfter = countAfterResult[0]?.pos ?? 0;
 
-          // Resolve totalCount
           let total = input.totalCount;
           if (total == null) {
             if (!useTree && filters.length === 0) {
@@ -2709,7 +2446,6 @@ export const rowRouter = createTRPCRouter({
           absolutePosition = Math.max(0, total - 1 - countAfter);
         }
       } else {
-        // ── Sorted case ─────────────────────────────────────────────────
         let usedViewRowRank = false;
 
         // Try ViewRowRank (only sort-only, no filters/search — search
@@ -2773,7 +2509,6 @@ export const rowRouter = createTRPCRouter({
             );
             const countAfter = countAfterResult[0]?.pos ?? 0;
 
-            // Resolve totalCount
             let total = input.totalCount;
             if (total == null) {
               if (!useTree && filters.length === 0) {
@@ -2801,15 +2536,8 @@ export const rowRouter = createTRPCRouter({
       return { rowId: hit.id, absolutePosition };
     }),
 
-  // =========================================================================
-  // searchMatchAt — get row id, absolute position, and occurrence info for
-  // the match at a global index.  Used by wrap-around find navigation
-  // ("prev from first" → jump to last, "next from last" → jump to first).
-  //
-  // When `sorts` are provided the match ordering and absolute position
-  // respect the view's sort order (uses existing composite B-tree indexes).
-  // When omitted, ordering falls back to rowIndex ASC.
-  // =========================================================================
+  // searchMatchAt — get row id and absolute position for the match at a
+  // global index. Respects view sort order when sorts are provided.
   searchMatchAt: protectedProcedure
     .input(
       z.object({

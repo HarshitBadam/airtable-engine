@@ -31,6 +31,7 @@ A full-stack Airtable clone that handles **100K–1M+ rows** with sub-second int
   - [Optimistic Mutations](#optimistic-mutations)
   - [Smart Cache Preservation](#smart-cache-preservation)
   - [Drag-and-Drop Reorder](#drag-and-drop-reorder)
+- [Indexing & Query Optimizations](#indexing--query-optimizations)
 - [Performance Summary](#performance-summary)
 - [Development](#development)
 
@@ -349,6 +350,32 @@ Row reordering uses **server-side float midpoint placement**:
 
 ---
 
+## Indexing & Query Optimizations
+
+Custom indexes are managed in `src/server/db/ensureColumnIndexes.ts`. Strategy: **one index per column** that serves sorts, filters, and keyset cursors — built proactively, expression-matched in every query, and cleaned up on deletion.
+
+**1. Single Direction-Agnostic B-tree Index** — Replaced 5–6 indexes per column (ASC, DESC, filter, trigram) with one composite index: `(NULLIF(cells->>'col','') ASC NULLS FIRST, rowIndex ASC) INCLUDE(id) WHERE tableId = '...'`. Postgres scans it forward for ASC, backward for DESC. Partial (per-table) keeps it small; covering (`INCLUDE id`) enables Index-Only Scans for deferred joins.
+
+**2. NULLIF Expression Matching** — Every filter, sort, and cursor predicate uses `NULLIF(cells->>'col','')` to exactly match the index expression. Without this, Postgres falls back to Seq Scan. Filter logic simplified: `is_empty` → `NULLIF(...) IS NULL`, `is_not_empty` → `NULLIF(...) IS NOT NULL`.
+
+**3. NULL Ordering Convention** — Follows Airtable's NULL = -infinity: `ASC NULLS FIRST` / `DESC NULLS LAST`. The single `ASC NULLS FIRST` index scanned backwards gives `DESC NULLS LAST` — both directions served without re-sort.
+
+**4. Tiebreaker Direction Matching** — The `rowIndex` tiebreaker now matches the first sort's direction (e.g., `DESC NULLS LAST, rowIndex DESC`), enabling a full backward index scan instead of requiring materialization.
+
+**5. Index Cond Hint for Keyset Cursors** — OR-of-AND cursor predicates can't be pushed as B-tree Index Conds. A simple range bound on the first sort key (`expr >= cursorVal` for ASC) is prepended so Postgres seeks directly to the cursor position. Deep-offset jumps: ~53s → ~2-3s.
+
+**6. Proactive Index Building** — Indexes are built at base/table/column creation time (outside the transaction, via `Promise.all`), not lazily on first sort. Race-safe via `CREATE INDEX IF NOT EXISTS` + error code `23505` detection. First sort is always instant.
+
+**7. UNION ALL Index Matching** — OR-of-equals filter branches (e.g., `status = 'Done' OR status = 'Todo'`) use `NULLIF` expressions matching the index, with `SET LOCAL enable_bitmapscan = off` forcing Index Scan per branch. Merge Append stops lazily once enough rows are emitted.
+
+**8. Index Cleanup on Deletion** — `dropColumnIndexesForTable()` drops all `ri_<tableId>_*` indexes before cascade-deleting rows, preventing per-row index maintenance (1M rows × N indexes).
+
+**9. Duplicate Column Sort Redirect** — `validateAndResolveSorts()` transparently redirects sorts on unbackfilled duplicate columns to the source column, following chains if needed. Ensures sort indexes exist for resolved columns.
+
+**10. Pool & Batch Tuning** — Connection pool bumped to 25 (concurrent index builds + queries). Bulk insert batches: 50K rows. Backfill batches: 50K with deadlock retry. Column delete: single `UPDATE ... WHERE cells ? 'col'` (no batching).
+
+---
+
 ## Performance Summary
 
 | Operation | Complexity | Strategy |
@@ -360,7 +387,7 @@ Row reordering uses **server-side float midpoint placement**:
 | Insert above/below | O(log N) | Float midpoint + B-tree insert |
 | Delete | O(1) | Idempotent deleteMany |
 | Reorder (drag) | O(log N) | Float midpoint placement |
-| Bulk insert (100K) | O(N) | generate_series + 25K batches |
+| Bulk insert (100K) | O(N) | generate_series + 50K batches |
 | Sort materialization | O(N) | ROW_NUMBER() → ViewRowRank |
 | Cell edit | O(1) | JSONB update |
 | Search | O(N) | ILIKE on searchText |

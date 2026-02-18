@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
+/* Inter Display font from rsms.me */
+@font-face {
+  font-family: 'Inter Display';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('https://rsms.me/inter/font-files/InterDisplay.var.woff2') format('woff2');
+}
+
 /* Lock scroll at top: prevent overscroll / bounce when at top */
 html,
 body {
