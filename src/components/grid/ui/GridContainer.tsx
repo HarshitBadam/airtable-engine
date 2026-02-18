@@ -93,7 +93,7 @@ interface GridContainerProps {
   wrapHeaders?: boolean;
 
   // Bulk add rows (100k)
-  onAddBulkRows?: () => void;
+  onAddBulkRows?: (populate?: boolean) => void;
   isBulkAdding?: boolean;
   baseColor?: string;
   baseTextColor?: string;
@@ -533,6 +533,7 @@ export function GridContainer({
 
   // === BULK ADD ROWS DIALOG ===
   const [showBulkAddDialog, setShowBulkAddDialog] = useState(false);
+  const [bulkPopulate, setBulkPopulate] = useState(true);
 
   const handleHeaderMenuToggle = useCallback((e: React.MouseEvent, colId: string) => {
     if (headerMenuColId === colId) {
@@ -1570,29 +1571,45 @@ export function GridContainer({
               >
                 100,000 rows
               </span>{" "}
-              of records populated with sample data in this table. This may take a moment depending on table size.
+              of records {bulkPopulate ? "populated with sample data" : "with blank fields"} in this table.
+              This may take a moment depending on table size.
             </p>
 
-            {/* Action buttons */}
+            {/* Action row: toggle on left, buttons on right */}
             <div className={styles.bulkAddActions}>
-              <button
-                type="button"
-                className={styles.bulkAddCancelBtn}
-                onClick={() => setShowBulkAddDialog(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={styles.bulkAddConfirmBtn}
-                style={{ backgroundColor: baseColor, color: baseTextColor }}
-                onClick={() => {
-                  setShowBulkAddDialog(false);
-                  onAddBulkRows?.();
-                }}
-              >
-                Add records
-              </button>
+              <label className={styles.bulkAddToggleRow}>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={bulkPopulate}
+                  className={`${styles.bulkAddToggle}${bulkPopulate ? ` ${styles.bulkAddToggleOn}` : ""}`}
+                  style={bulkPopulate ? { backgroundColor: baseColor } : undefined}
+                  onClick={() => setBulkPopulate((v) => !v)}
+                >
+                  <span className={styles.bulkAddToggleThumb} />
+                </button>
+                <span className={styles.bulkAddToggleLabel}>Sample data</span>
+              </label>
+              <div className={styles.bulkAddButtons}>
+                <button
+                  type="button"
+                  className={styles.bulkAddCancelBtn}
+                  onClick={() => setShowBulkAddDialog(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={styles.bulkAddConfirmBtn}
+                  style={{ backgroundColor: baseColor, color: baseTextColor }}
+                  onClick={() => {
+                    setShowBulkAddDialog(false);
+                    onAddBulkRows?.(bulkPopulate);
+                  }}
+                >
+                  Add records
+                </button>
+              </div>
             </div>
           </div>
         </div>,

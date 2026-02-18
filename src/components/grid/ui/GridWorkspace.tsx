@@ -2723,13 +2723,13 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // === BULK ADD 100k ROWS ===
   const [isBulkAdding, setIsBulkAdding] = useState(false);
 
-  const handleAddBulkRows = useCallback(() => {
+  const handleAddBulkRows = useCallback((populate = true) => {
     if (!isValidTable || isBulkAdding) return;
     setIsBulkAdding(true);
-    addRowMut.mutate({ tableId, count: 100_000 }, {
+    addRowMut.mutate({ tableId, count: 100_000, populate }, {
       onSuccess: (data) => {
-        clearJumpCache(); // bulk add changes everything — clear stale entries
-        refreshRows(data.count); // optimistically set totalCount += 100K
+        clearJumpCache();
+        refreshRows(data.count);
         setIsBulkAdding(false);
       },
       onError: () => {

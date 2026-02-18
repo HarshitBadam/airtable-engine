@@ -1416,6 +1416,7 @@ export const rowRouter = createTRPCRouter({
       z.object({
         tableId: z.string(),
         count: z.number().min(1).max(200000).default(100000),
+        populate: z.boolean().default(true),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -1425,12 +1426,14 @@ export const rowRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      // Fetch table columns so we can generate visible cell data
-      const columns = await ctx.db.column.findMany({
-        where: { tableId: input.tableId },
-        orderBy: { order: "asc" },
-        select: { id: true, type: true, name: true },
-      });
+      // Only fetch columns when populating with sample data
+      const columns = input.populate
+        ? await ctx.db.column.findMany({
+            where: { tableId: input.tableId },
+            orderBy: { order: "asc" },
+            select: { id: true, type: true, name: true },
+          })
+        : [];
 
       const count = input.count;
 
@@ -1471,161 +1474,166 @@ export const rowRouter = createTRPCRouter({
       // If any batch fails, we compensate by rolling back the counters
       // to match the number of rows actually inserted, preventing drift.
 
-      const INSERT_BATCH = 10_000;
+      const INSERT_BATCH = 50_000;
       let insertedCount = 0;
       try {
       for (let offset = 0; offset < count; offset += INSERT_BATCH) {
         const batchCount = Math.min(INSERT_BATCH, count - offset);
         const batchStart = startRowIndex + offset;
 
-        // Build jsonb_build_object per batch (batchStart changes each iteration).
-        // Use column names to pick realistic SQL array-cycling expressions.
-        // Each array has a prime-ish length so combinations don't repeat quickly.
-        const jsonbParts: string[] = [];
-        const searchParts: string[] = [];
-        const colNameLower = (n: string) => n.toLowerCase().trim();
+        let cellsExpr: string;
+        let searchExpr: string;
 
-        // ── Realistic data pools (used in SQL ARRAY[...][1 + (idx % N)] ) ──
-        const FIRST_NAMES = [
-          'James','Mary','Robert','Patricia','John','Jennifer','Michael','Linda',
-          'David','Elizabeth','William','Barbara','Richard','Susan','Joseph','Jessica',
-          'Thomas','Sarah','Christopher','Karen','Charles','Lisa','Daniel','Nancy',
-          'Matthew','Betty','Anthony','Margaret','Mark','Sandra','Donald','Ashley',
-          'Steven','Kimberly','Paul','Emily','Andrew','Donna','Joshua','Michelle',
-          'Kenneth','Carol','Kevin','Amanda','Brian','Dorothy','George','Melissa',
-          'Timothy','Deborah','Ronald','Stephanie','Edward','Rebecca','Jason','Sharon',
-          'Jeffrey','Laura','Ryan','Cynthia','Jacob','Kathleen','Gary','Amy',
-          'Nicholas','Angela','Eric','Shirley','Jonathan','Anna','Stephen','Brenda',
-          'Larry','Pamela','Justin','Emma','Scott','Nicole','Brandon','Helen',
-          'Benjamin','Samantha','Samuel','Katherine','Raymond','Christine','Gregory','Debra',
-          'Frank','Rachel','Alexander','Carolyn','Patrick','Janet','Jack','Catherine',
-          'Dennis','Maria','Jerry','Heather','Tyler','Diane',
-        ]; // 100
+        if (input.populate && columns.length > 0) {
+          // Build jsonb_build_object per batch (batchStart changes each iteration).
+          // Use column names to pick realistic SQL array-cycling expressions.
+          // Each array has a prime-ish length so combinations don't repeat quickly.
+          const jsonbParts: string[] = [];
+          const searchParts: string[] = [];
+          const colNameLower = (n: string) => n.toLowerCase().trim();
 
-        const LAST_NAMES = [
-          'Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis',
-          'Rodriguez','Martinez','Hernandez','Lopez','Gonzalez','Wilson','Anderson',
-          'Thomas','Taylor','Moore','Jackson','Martin','Lee','Perez','Thompson',
-          'White','Harris','Sanchez','Clark','Ramirez','Lewis','Robinson','Walker',
-          'Young','Allen','King','Wright','Scott','Torres','Nguyen','Hill',
-          'Flores','Green','Adams','Nelson','Baker','Hall','Rivera','Campbell',
-          'Mitchell','Carter','Roberts','Gomez','Phillips','Evans','Turner','Diaz',
-          'Parker','Cruz','Edwards','Collins','Reyes','Stewart','Morris','Morales',
-          'Murphy','Cook','Rogers','Gutierrez','Ortiz','Morgan','Cooper','Peterson',
-          'Bailey','Reed','Kelly','Howard','Ramos','Kim','Cox','Ward',
-          'Richardson','Watson','Brooks','Chavez','Wood','James','Bennett','Gray',
-          'Mendoza','Ruiz','Hughes','Price','Alvarez','Castillo','Sanders','Patel',
-          'Myers','Long','Ross','Foster','Jimenez',
-        ]; // 97
+          // ── faker.js-sourced data pools (generated via faker.seed(42)) ──
+          // Pre-computed from @faker-js/faker to avoid runtime overhead.
+          // Pools are cycled with prime-modulo indexing in SQL ARRAY[...][1 + (idx % N)].
+          const FIRST_NAMES = [
+            'Garnet','Valentine','Moses','Lavinia','Carley','Anderson','Sammie','Lea',
+            'Melissa','Akeem','Waino','Riley','Coy','Cheyenne','Christelle','Elliott',
+            'Judson','Hollie','Einar','Leopoldo','Brody','Eladio','Frederic','Jacky',
+            'Ozella','Cody','Jordane','Larry','Alyce','Lenora','Cecile','Aniyah',
+            'Uriel','Virgil','Rahsaan','Ellis','Axel','Marlee','Ignacio','Bonita',
+            'Jerome','Alexzander','Sylvia','Destinee','Makayla','Elvie','Josie','Kasandra',
+            'Christine','Wade','Ophelia','Trinity','Soledad','Laverne','Theodora','Ashlynn',
+            'Cletus','Alvera','Eriberto','Gilda','Donavon','Rhoda','Fletcher','Earl',
+            'Kari','Brooks','Princess','Araceli','Wyman','Olin','Cloyd','Abner',
+            'Raven','Melany','Montana','Olen','April','Florida','Betty','Sally',
+            'Linda','Erwin','Anibal','Elva','Monty','Louvenia','Sherwood','Jaquan',
+            'Blake','Mia','Noemie','Kelli','Ole','Jeremy','Juana','Hettie',
+            'Alda','Bernadette','Alexandrea','Louie',
+          ]; // 100
 
-        const CATCH_PHRASES = [
-          'Adaptive bandwidth-monitored hub','Ameliorated cohesive framework',
-          'Business-focused zero-defect architecture','Centralized empowering methodology',
-          'Compatible multimedia intranet','Cross-platform scalable data-warehouse',
-          'Customizable real-time paradigm','De-engineered multimedia toolset',
-          'Digitized content-based matrix','Distributed hybrid benchmark',
-          'Enhanced systemic forecast','Enterprise-wide responsive capacity',
-          'Ergonomic human-resource migration','Expanded asymmetric circuit',
-          'Face-to-face heuristic instruction set','Front-line demand-driven service-desk',
-          'Fully-configurable background leverage','Function-based homogeneous model',
-          'Fundamental composite application','Future-proofed tertiary strategy',
-          'Horizontal secondary monitoring','Implemented zero-tolerance definition',
-          'Innovative upward-trending matrix','Integrated reciprocal core',
-          'Intuitive background archive','Managed logistical analyzer',
-          'Multi-lateral holistic groupware','Networked directional forecast',
-          'Object-based interactive portal','Open-architected optimal protocol',
-          'Operative executive info-mediaries','Optimized executive algorithm',
-          'Organic coherent database','Persevering motivating projection',
-          'Phased foreground benchmark','Polarized demand-driven analyzer',
-          'Pre-emptive full-range neural-net','Proactive multi-state migration',
-          'Profound zero-administration time-frame','Programmable incremental core',
-          'Progressive value-added infrastructure','Quality-focused directional capacity',
-          'Reactive asymmetric encryption','Realigned neutral architecture',
-          'Reduced hybrid interface','Re-engineered transitional policy',
-          'Reverse-engineered composite groupware','Right-sized intermediate structure',
-          'Robust exuding product','Seamless interactive success',
-          'Secured eco-centric paradigm','Self-enabling cohesive contingency',
-          'Sharable contextually-based hierarchy','Streamlined stable model',
-          'Switchable clear-thinking monitoring','Synergized zero-tolerance middleware',
-          'Team-oriented 24-hour leverage','Total multi-tasking concept',
-          'Triple-buffered global service-desk','Universal coherent adapter',
-          'Up-sized systemic complexity','User-friendly demand-driven knowledge-base',
-          'Versatile bi-directional throughput','Virtual motivating algorithm',
-          'Visionary multimedia framework','Vision-oriented incremental task-force',
-          'Automated modular circuit','Balanced systematic orchestration',
-          'Cloned global standardization','Configurable bifurcated hierarchy',
-          'Decentralized cohesive middleware','Devolved didactic protocol',
-          'Diverse exuding utilization','Dynamic full-range superstructure',
-          'Exclusive uniform adapter','Extended grid-enabled projection',
-          'Focused logistical initiative','Grass-roots value-added groupware',
-        ]; // 79
+          const LAST_NAMES = [
+            'Lang','Franey','Roob','Blick','Crooks','Schowalter','Swaniawski','Dibbert',
+            'Lindgren','Tremblay','Brown','Keebler','Stoltenberg','Langosh','Fadel','Hauck',
+            'Hand','Prosacco','Witting','Graham','Monahan','Bechtelar','Upton','Considine',
+            'Yost','Osinski','Ferry','Hilll','Nader','Borer','Hammes','Bauch',
+            'Pagac','Langworth','Pollich','Wehner','Heaney','Walsh','Gerlach','Schumm',
+            'Lehner','Botsford','Tromp','Hayes','Reinger','Torphy','Nitzsche','Moen',
+            'Bradtke','Abshire','Lowe','Rath','Hane','Oberbrunner','Gleason','Wiza',
+            'Toy','Schimmel','Mayer','Dietrich','Goyette','Weimann','Ward','Wisoky',
+            'Stark','Weber','Marks','Morar','Robel','Greenholt','Schroeder','Veum',
+            'Kuvalis','Schinner','Bashirian','Littel','McLaughlin','Hessel','Ledner',
+            'Emmerich','Bogan','Lemke','Nienow','Wolf','Goldner','Block','Windler',
+            'Predovic','Dach','Barton','Runte','Jakubowski','Hartmann','Beier','Hoeger',
+            'Hermann',
+          ]; // 97
 
-        const EMAIL_PROVIDERS = [
-          'gmail.com','yahoo.com','hotmail.com','outlook.com','icloud.com',
-          'protonmail.com','aol.com','mail.com','zoho.com','fastmail.com',
-          'yandex.com','tutanota.com','gmx.com',
-        ]; // 13
+          const CATCH_PHRASES = [
+            'Decentralized demand-driven knowledge base','Reactive national database',
+            'User-friendly real-time knowledge user','Polarised heuristic core',
+            'Grass-roots regional access','Cross-platform analyzing algorithm',
+            'Sustainable optimal infrastructure','Compatible immersive infrastructure',
+            'Digitized high-level functionalities','Polarised modular alliance',
+            'Immersive mobile instruction set','Sustainable national capability',
+            'Business-focused motivating adapter','Persistent value-added local area network',
+            'Implemented motivating hub','Organic value-added framework',
+            'User-friendly transitional collaboration','Business-focused bifurcated access',
+            'Compatible neutral application','Fully-configurable system-worthy adapter',
+            'Sharable disintermediate artificial intelligence','Quality-focused mobile strategy',
+            'Reduced secondary database','Digitized reciprocal projection',
+            'Visionary global frame','Seamless executive task-force',
+            'Sustainable high-level portal','Robust bottom-line support',
+            'Open-source static encryption','Total fresh-thinking access',
+            'Triple-buffered bifurcated encryption','User-centric well-modulated local area network',
+            'Profit-focused holistic definition','Fundamental needs-based portal',
+            'Self-enabling scalable architecture','Open-source asymmetric knowledge base',
+            'Managed tertiary focus group','Cross-platform client-server pricing structure',
+            'Proactive bifurcated architecture','Quality-focused asynchronous protocol',
+            'Reactive attitude-oriented architecture','Virtual fault-tolerant frame',
+            'Sharable well-modulated website','Robust fault-tolerant architecture',
+            'Seamless leading edge hardware','Triple-buffered bottom-line installation',
+            'AI-driven human-resource analyzer','Cross-platform clear-thinking model',
+            'Reverse-engineered logistical toolset','Immersive disintermediate strategy',
+            'Ergonomic zero administration access','Versatile actuating success',
+            'Optimized zero trust approach','Organic zero defect internet solution',
+            'Proactive next generation hub','Proactive maximized support',
+            'Automated disintermediate time-frame','Total homogeneous microservice',
+            'Face to face composite implementation','Grass-roots logistical approach',
+            'Versatile zero tolerance open architecture','Optional eco-centric projection',
+            'Public-key coherent synergy','Smart well-modulated parallelism',
+            'Polarised heuristic task-force','Synchronised analyzing adapter',
+            'Immersive stable website','Decentralized maximized framework',
+            'Versatile sustainable software','Multi-tiered global data-warehouse',
+            'Balanced systematic projection','Visionary zero trust knowledge user',
+            'Seamless well-modulated solution','Expanded homogeneous attitude',
+            'User-friendly methodical conglomeration','Progressive mobile forecast',
+            'Cross-platform needs-based interface','Seamless intangible solution',
+            'Organic leading edge strategy',
+          ]; // 79
 
-        const FILE_EXTS = ['pdf','docx','xlsx','png','jpg','csv','txt','pptx','zip','svg']; // 10
-        const FILE_PREFIXES = [
-          'report','invoice','presentation','document','spreadsheet','summary',
-          'analysis','proposal','contract','memo','brief','overview','review',
-          'draft','plan','notes','agenda','schedule','budget','forecast',
-        ]; // 20
+          // faker.js free_email domains (faker.definitions.internet.free_email)
+          const EMAIL_PROVIDERS = [
+            'gmail.com','yahoo.com','hotmail.com','outlook.com','icloud.com',
+            'protonmail.com','aol.com','mail.com','zoho.com','fastmail.com',
+            'yandex.com','tutanota.com','gmx.com',
+          ]; // 13
 
-        // SQL helper: builds ARRAY[...][1 + ((idx) % len)]
-        const sqlArrayPick = (arr: string[], idxExpr: string) => {
-          const escaped = arr.map(s => `'${s.replace(/'/g, "''")}'`).join(',');
-          return `(ARRAY[${escaped}])[1 + ((${idxExpr}) % ${arr.length})]`;
-        };
+          const FILE_EXTS = ['pdf','docx','xlsx','png','jpg','csv','txt','pptx','zip','svg']; // 10
+          const FILE_PREFIXES = [
+            'report','invoice','presentation','document','spreadsheet','summary',
+            'analysis','proposal','contract','memo','brief','overview','review',
+            'draft','plan','notes','agenda','schedule','budget','forecast',
+          ]; // 20
 
-        // Use different prime multipliers per field so combinations don't align.
-        // idx is the absolute row index: batchStart + gs
-        const idx = `(${batchStart} + gs)`;
+          // SQL helper: builds ARRAY[...][1 + ((idx) % len)]
+          const sqlArrayPick = (arr: string[], idxExpr: string) => {
+            const escaped = arr.map(s => `'${s.replace(/'/g, "''")}'`).join(',');
+            return `(ARRAY[${escaped}])[1 + ((${idxExpr}) % ${arr.length})]`;
+          };
 
-        for (const col of columns) {
-          const colId = escapeLiteral(col.id);
-          const name = colNameLower(col.name);
+          // Use different prime multipliers per field so combinations don't align.
+          // idx is the absolute row index: batchStart + gs
+          const idx = `(${batchStart} + gs)`;
 
-          if (col.type === "NUMBER") {
-            jsonbParts.push(`'${colId}', (${batchStart} + gs)`);
-            searchParts.push(`(${batchStart} + gs)::text`);
-          } else if (name === "name") {
-            // "FirstName LastName" — prime multipliers stagger the cycling
-            const expr = `${sqlArrayPick(FIRST_NAMES, idx)} || ' ' || ${sqlArrayPick(LAST_NAMES, `${idx} * 7 + 3`)}`;
-            jsonbParts.push(`'${colId}', ${expr}`);
-            searchParts.push(expr);
-          } else if (name === "notes") {
-            const expr = sqlArrayPick(CATCH_PHRASES, `${idx} * 3 + 1`);
-            jsonbParts.push(`'${colId}', ${expr}`);
-            searchParts.push(expr);
-          } else if (name === "assignee") {
-            // "firstname.lastname@provider" — different multipliers than the Name column
-            const expr = `lower(${sqlArrayPick(FIRST_NAMES, `${idx} * 11 + 5`)}) || '.' || lower(${sqlArrayPick(LAST_NAMES, `${idx} * 13 + 7`)}) || '@' || ${sqlArrayPick(EMAIL_PROVIDERS, `${idx} * 17 + 2`)}`;
-            jsonbParts.push(`'${colId}', ${expr}`);
-            searchParts.push(expr);
-          } else if (name === "status") {
-            const expr = sqlArrayPick(['Todo','In progress','In review','Done','Blocked'], idx);
-            jsonbParts.push(`'${colId}', ${expr}`);
-            searchParts.push(expr);
-          } else if (name === "attachments") {
-            const expr = `'https://storage.example.com/' || ${sqlArrayPick(FILE_PREFIXES, `${idx} * 3`)} || '-' || ${idx} || '.' || ${sqlArrayPick(FILE_EXTS, `${idx} * 7`)}`;
-            jsonbParts.push(`'${colId}', ${expr}`);
-            searchParts.push(expr);
-          } else {
-            // Generic fallback for any other TEXT column — still use realistic names
-            const expr = `${sqlArrayPick(FIRST_NAMES, `${idx} * 3`)} || ' ' || ${sqlArrayPick(LAST_NAMES, `${idx} * 5 + 1`)}`;
-            jsonbParts.push(`'${colId}', ${expr}`);
-            searchParts.push(expr);
+          for (const col of columns) {
+            const colId = escapeLiteral(col.id);
+            const name = colNameLower(col.name);
+
+            if (col.type === "NUMBER") {
+              jsonbParts.push(`'${colId}', (${batchStart} + gs)`);
+              searchParts.push(`(${batchStart} + gs)::text`);
+            } else if (name === "name") {
+              const expr = `${sqlArrayPick(FIRST_NAMES, idx)} || ' ' || ${sqlArrayPick(LAST_NAMES, `${idx} * 7 + 3`)}`;
+              jsonbParts.push(`'${colId}', ${expr}`);
+              searchParts.push(expr);
+            } else if (name === "notes") {
+              const expr = sqlArrayPick(CATCH_PHRASES, `${idx} * 3 + 1`);
+              jsonbParts.push(`'${colId}', ${expr}`);
+              searchParts.push(expr);
+            } else if (name === "assignee") {
+              const expr = `lower(${sqlArrayPick(FIRST_NAMES, `${idx} * 11 + 5`)}) || '.' || lower(${sqlArrayPick(LAST_NAMES, `${idx} * 13 + 7`)}) || '@' || ${sqlArrayPick(EMAIL_PROVIDERS, `${idx} * 17 + 2`)}`;
+              jsonbParts.push(`'${colId}', ${expr}`);
+              searchParts.push(expr);
+            } else if (name === "status") {
+              const expr = sqlArrayPick(['Todo','In progress','In review','Done','Blocked'], idx);
+              jsonbParts.push(`'${colId}', ${expr}`);
+              searchParts.push(expr);
+            } else if (name === "attachments") {
+              const expr = `'https://storage.example.com/' || ${sqlArrayPick(FILE_PREFIXES, `${idx} * 3`)} || '-' || ${idx} || '.' || ${sqlArrayPick(FILE_EXTS, `${idx} * 7`)}`;
+              jsonbParts.push(`'${colId}', ${expr}`);
+              searchParts.push(expr);
+            } else {
+              const expr = `${sqlArrayPick(FIRST_NAMES, `${idx} * 3`)} || ' ' || ${sqlArrayPick(LAST_NAMES, `${idx} * 5 + 1`)}`;
+              jsonbParts.push(`'${colId}', ${expr}`);
+              searchParts.push(expr);
+            }
           }
-        }
 
-        const cellsExpr = jsonbParts.length > 0
-          ? `jsonb_build_object(${jsonbParts.join(", ")})`
-          : `'{}'::jsonb`;
-        const searchExpr = searchParts.length > 0
-          ? searchParts.join(` || chr(31) || `)
-          : `''::text`;
+          cellsExpr = `jsonb_build_object(${jsonbParts.join(", ")})`;
+          searchExpr = searchParts.join(` || chr(31) || `);
+        } else {
+          cellsExpr = `'{}'::jsonb`;
+          searchExpr = `''::text`;
+        }
 
         await ctx.db.$executeRawUnsafe(`
           INSERT INTO "Row" ("tableId", "rowIndex", "cells", "searchText", "createdAt", "updatedAt")
