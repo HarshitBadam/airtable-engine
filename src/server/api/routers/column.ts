@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { ensureSortIndex } from "~/server/db/ensureColumnIndexes";
 
-/* Remove a deleted column from a filter tree */
+/* ── Helper: remove a deleted column from a filterTree ────────────── */
 type FilterTreeNode = { kind?: string; columnId?: string; items?: FilterTreeNode[]; [key: string]: unknown };
 
 /**
@@ -59,6 +59,7 @@ export const columnRouter = createTRPCRouter({
         name: z.string().min(1).max(80),
         type: z.enum(["TEXT", "NUMBER"]),
         defaultValue: z.string().optional(),
+        /** Number format config (decimal places, separators, abbreviation, allow negative) */
         numberConfig: z
           .object({
             decimalPlaces: z.number().int().min(0).max(8),
@@ -69,8 +70,10 @@ export const columnRouter = createTRPCRouter({
           })
           .optional(),
         viewId: z.string().optional(),
+        /** When inserting left/right, the anchor column and side */
         anchorColumnId: z.string().optional(),
         insertSide: z.enum(["left", "right"]).optional(),
+        /** When duplicating a field, the source column whose cell data should be copied */
         sourceColumnId: z.string().optional(),
       }),
     )
@@ -81,6 +84,7 @@ export const columnRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
+      // ── Step 1: Create column + update views (fast, in a transaction) ──
       const col = await ctx.db.$transaction(async (tx) => {
         const updated = await tx.table.update({
           where: { id: input.tableId },
@@ -103,6 +107,7 @@ export const columnRouter = createTRPCRouter({
           select: { id: true, name: true, type: true, order: true, defaultValue: true, config: true, sourceColumnId: true },
         });
 
+        // Column creation is table-level: the new column must appear in ALL views.
         const allViews = await tx.view.findMany({
           where: { tableId: input.tableId },
           select: { id: true, config: true },
@@ -146,21 +151,47 @@ export const columnRouter = createTRPCRouter({
         return col;
       });
 
-      // Backfill runs as a separate mutation after column creation
+      // Backfill is NOT done here — the client fires column.backfill
+      // as a separate mutation after receiving the column.  This makes
+      // column creation sub-200ms instead of 10-30s.
+
+      // Index creation is NOT done here either.  Building a B-tree on
+      // all-NULL rows is wasted work.  The on-demand ensureSortIndex in
+      // infinite/windowFetch builds the index if/when the user actually
+      // sorts on this column.
 
       return col;
     }),
 
   /**
    * Backfill cell values for a newly created column.
-   * Copies cell data from sourceColumnId when duplicating a field.
-   * Batched in 50K-row chunks with deadlock retries.
+   *
+   * ── Default values ──
+   * NOT backfilled.  The default is stored on the Column record and
+   * getCellValue() resolves it at render time.  For sort, all rows
+   * have NULL in the new column → they sort equally (rowIndex
+   * tiebreaker), which is correct when every value is the same.
+   * This makes field-with-default creation O(0) regardless of row count.
+   *
+   * ── Duplication ──
+   * The cells JSONB copy IS needed so the new column becomes independent
+   * of the source column.  To keep it fast:
+   *   • searchText is NOT updated — the source column's contribution
+   *     is already in searchText, so search still finds the values.
+   *   • Batched in 50K-row chunks to limit lock duration and WAL
+   *     pressure.  Each batch auto-commits independently.
+   *   • Deadlocks (40P01) are retried per-batch (up to 3 times).
+   *
+   * While the backfill runs, sort queries redirect to the source
+   * column via validateAndResolveSorts() in row.ts.  Once complete,
+   * sourceColumnId is cleared and sorts use the new column directly.
    */
   backfill: protectedProcedure
     .input(
       z.object({
         tableId: z.string(),
         columnId: z.string(),
+        /** Source column to copy values from (field duplication) */
         sourceColumnId: z.string().optional(),
       }),
     )
@@ -271,6 +302,7 @@ export const columnRouter = createTRPCRouter({
 
   /**
    * Delete a column by ID. Cannot delete the last column in a table.
+   * Also strips the column's key from every row's cells JSONB.
    */
   delete: protectedProcedure
     .input(
@@ -286,7 +318,9 @@ export const columnRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
-      // Delete column + clean up views in a transaction
+      // ── Step 1: Fast transaction — delete column + clean up views ──
+      // Includes the last-column check inside the transaction to prevent
+      // a race where two concurrent deletes both pass the count check.
       await ctx.db.$transaction(async (tx) => {
         const colCount = await tx.column.count({
           where: { tableId: input.tableId },
@@ -405,6 +439,7 @@ export const columnRouter = createTRPCRouter({
 
       const config = (view.config as Record<string, unknown>) ?? {};
 
+      // Remove from columnOrderIds
       const columnOrderIds = Array.isArray(config.columnOrderIds)
         ? (config.columnOrderIds as string[]).filter((id) => id !== input.columnId)
         : [];
@@ -413,22 +448,26 @@ export const columnRouter = createTRPCRouter({
         throw new Error("Cannot remove the last column from the view");
       }
 
+      // Remove from hiddenColumnIds
       const hiddenColumnIds = Array.isArray(config.hiddenColumnIds)
         ? (config.hiddenColumnIds as string[]).filter((id) => id !== input.columnId)
         : [];
 
+      // Remove sorts referencing this column
       const sorts = Array.isArray(config.sorts)
         ? (config.sorts as Record<string, unknown>[]).filter(
             (s) => s.columnId !== input.columnId,
           )
         : [];
 
+      // Remove filters referencing this column
       const filters = Array.isArray(config.filters)
         ? (config.filters as Record<string, unknown>[]).filter(
             (f) => f.columnId !== input.columnId,
           )
         : [];
 
+      // Clean filterTree referencing this column (condition groups)
       let filterTree = config.filterTree;
       if (filterTree && typeof filterTree === "object") {
         const tree = filterTree as Record<string, unknown>;
@@ -490,6 +529,7 @@ export const columnRouter = createTRPCRouter({
       });
       if (!col) throw new Error("Column not found");
 
+      // Uniqueness check: no two columns in the same table can share a name
       if (input.name) {
         const duplicate = await ctx.db.column.findFirst({
           where: { tableId: input.tableId, name: input.name, NOT: { id: input.columnId } },
@@ -524,7 +564,9 @@ export const columnRouter = createTRPCRouter({
       });
       if (!col) throw new Error("Column not found");
 
-      // Ensures sort index exists for this column
+      // Delegates to the shared ensureSortIndex which builds a single
+      // ASC NULLS FIRST index (serving both ASC and DESC via backward scan).
+      // Fast path (<1ms) when the index already exists.
       await ensureSortIndex(
         ctx.db,
         input.tableId,

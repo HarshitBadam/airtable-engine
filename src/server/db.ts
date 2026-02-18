@@ -2,7 +2,10 @@ import { env } from "~/env";
 import { PrismaClient } from "../../generated/prisma";
 
 const createPrismaClient = () => {
-  // Bump pool size for concurrent operations
+  // Prisma defaults to a small connection pool (num_cpus * 2 + 1).
+  // With concurrent heavy operations (rank materialization, column backfill,
+  // page refetches, user edits) the pool gets exhausted, causing cascading
+  // timeouts.  Bump the pool size and wait-timeout for breathing room.
   const url = env.DATABASE_URL;
   const sep = url.includes("?") ? "&" : "?";
   const pooledUrl = `${url}${sep}connection_limit=25&pool_timeout=30`;

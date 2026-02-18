@@ -5,7 +5,15 @@ import { useIsMutating } from "@tanstack/react-query";
 
 export type SaveStatus = "idle" | "saving" | "saved";
 
-// Tracks in-flight mutations and shows save status (saving → saved → idle)
+/**
+ * Tracks in-flight tRPC mutations and derives a save status:
+ *   - "saving"  → at least one mutation is in-flight (cell edit, row insert, etc.)
+ *   - "saved"   → all mutations just settled (shown for 1 second)
+ *   - "idle"    → nothing happening
+ *
+ * Uses React Query's useIsMutating() so no individual mutation instrumentation
+ * is needed — every tRPC .mutate() call is automatically tracked.
+ */
 export function useSaveStatus(): SaveStatus {
   const mutatingCount = useIsMutating();
   const [status, setStatus] = useState<SaveStatus>("idle");
@@ -18,12 +26,14 @@ export function useSaveStatus(): SaveStatus {
     wasMutatingRef.current = isMutating;
 
     if (isMutating) {
+      // New mutation started — cancel any pending "saved → idle" timer
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
       setStatus("saving");
     } else if (wasMutating) {
+      // All mutations just settled → show "All changes saved" for 1s
       setStatus("saved");
       timerRef.current = setTimeout(() => {
         setStatus("idle");
@@ -32,6 +42,7 @@ export function useSaveStatus(): SaveStatus {
     }
   }, [mutatingCount]);
 
+  // Cleanup timer on unmount
   useEffect(() => () => {
     if (timerRef.current) clearTimeout(timerRef.current);
   }, []);

@@ -6,6 +6,9 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth";
 import { db } from "~/server/db";
 import { env } from "~/env";
 
+/**
+ * Module augmentation for `next-auth` types.
+ */
 declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
@@ -14,6 +17,9 @@ declare module "next-auth" {
   }
 }
 
+/**
+ * NextAuth configuration
+ */
 export const authConfig = {
   providers: [
     GoogleProvider({

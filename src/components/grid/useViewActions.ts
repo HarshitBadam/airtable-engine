@@ -28,6 +28,7 @@ export function useViewActions(tableId: string) {
 
   const utils = api.useUtils();
 
+  // Mutation to compute materialized ranks for saved sorted views
   const computeRanks = api.row.computeViewRanks.useMutation();
 
   const update = api.view.update.useMutation({
@@ -37,7 +38,8 @@ export function useViewActions(tableId: string) {
       markSaved();
       await utils.view.list.invalidate({ tableId });
 
-      // Compute materialized ranks for permanent sorts
+      // If the view has permanent sorts, compute materialized ranks
+      // so that windowFetch can use Tier 2 (rank BETWEEN) for instant jumps.
       if (activeViewId && permanentSorts.length > 0) {
         computeRanks.mutate({
           tableId,
@@ -52,7 +54,8 @@ export function useViewActions(tableId: string) {
     isDirty,
     save: () => {
       if (!activeViewId) return;
-      // Persist full view config
+      // Persist the full view config including permanentSorts, autoSort, and rowOrderIds.
+      // Omitting them would cause them to revert to defaults on save.
       update.mutate({
         viewId: activeViewId,
         config: {

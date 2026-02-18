@@ -6,7 +6,12 @@ import type { ViewConfig } from "~/shared/grid";
 import { useGridStore } from "./grid-store";
 import { useEffect } from "react";
 
-/** Keep columnOrderIds in sync with actual table columns (append new, remove stale). */
+/**
+ * Ensure columnOrderIds is populated and in sync with actual table columns.
+ * - If empty, use table column order.
+ * - Append any new columns not yet in the order list (columns are table-level).
+ * - Remove stale ids (columns that no longer exist).
+ */
 export function reconcileColumnOrder(
   config: ViewConfig,
   tableColumnIds: string[],
@@ -15,16 +20,21 @@ export function reconcileColumnOrder(
     ? config.columnOrderIds
     : tableColumnIds;
 
-  // Append new columns not yet in view order
+  // Append new table columns that aren't yet in the view's order.
+  // Column creation is table-level: new columns appear in ALL views.
+  // This handles the case where the server-side update to ALL views'
+  // columnOrderIds hasn't been fetched yet by the client.
   const existingSet = new Set(order);
   const newCols = tableColumnIds.filter((id) => !existingSet.has(id));
   if (newCols.length > 0) {
     order = [...order, ...newCols];
   }
 
+  // Remove stale column ids that no longer exist in the table
   const tableIdSet = new Set(tableColumnIds);
   order = order.filter((id) => tableIdSet.has(id));
 
+  // Also clean stale ids from hiddenColumnIds
   const hiddenColumnIds = config.hiddenColumnIds.filter((id) =>
     tableIdSet.has(id),
   );

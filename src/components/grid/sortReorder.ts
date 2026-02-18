@@ -1,13 +1,14 @@
-// Client-side sort comparison and cache reordering (mirrors server SQL ORDER BY)
-
 export type SortDef = { columnId: string; direction: "asc" | "desc" };
 export type SortReorderResult = "moved" | "evicted" | "skipped";
 
+/** Minimal row shape needed for sort comparison. */
 interface SortableRow {
   id: string;
   rowIndex: number;
   cells: unknown;
 }
+
+// Sort comparison (mirrors server SQL ORDER BY)
 
 /** Read a cell value as a comparable string (null for empty/missing). */
 function getSortValue(cells: Record<string, unknown>, columnId: string): string | null {
@@ -15,10 +16,20 @@ function getSortValue(cells: Record<string, unknown>, columnId: string): string 
   if (v == null) return null;
   if (typeof v === "string") return v === "" ? null : v;
   if (typeof v === "number" || typeof v === "boolean") return String(v);
+  // Fallback for object / unknown — stringify to avoid [object Object]
   return typeof v === "object" ? JSON.stringify(v) : String(v as string);
 }
 
-/** Compare two cell values (nulls first for ASC, text via localeCompare, numbers via parseFloat). */
+/**
+ * Compare two cell values for sorting.
+ *
+ * NULL = -infinity (Airtable convention, matches server SQL):
+ *   ASC  NULLS FIRST → null before non-null (smallest)
+ *   DESC NULLS LAST  → null after non-null  (smallest sinks to end)
+ *
+ * TEXT  → case-sensitive lexicographic (localeCompare)
+ * NUMBER → numeric comparison via parseFloat
+ */
 function compareSortValues(
   aRaw: string | null,
   bRaw: string | null,
@@ -44,12 +55,16 @@ function compareSortValues(
   return direction === "desc" ? -cmp : cmp;
 }
 
+/** Safe cast of the opaque `cells` blob to a record. */
 export function asCellRecord(cells: unknown): Record<string, unknown> {
   if (!cells || typeof cells !== "object") return {};
   return cells as Record<string, unknown>;
 }
 
-/** Compare two rows by sort columns with rowIndex as stable tie-breaker. */
+/**
+ * Compare two rows by the active sort columns + stable tie-breaker.
+ * Returns < 0 if a comes before b, > 0 if after, 0 if equal.
+ */
 export function compareRows(
   aCells: Record<string, unknown>,
   bCells: Record<string, unknown>,
@@ -64,11 +79,24 @@ export function compareRows(
     const cmp = compareSortValues(aVal, bVal, sort.direction, colTypes.get(sort.columnId) ?? "TEXT");
     if (cmp !== 0) return cmp;
   }
-  return aRowIndex - bRowIndex;
+  return aRowIndex - bRowIndex; // stable tie-breaker
 }
 
-/** Reorder a single row within the jump cache after a cell edit.
- *  Binary-searches for the new position; returns "moved", "evicted", or "skipped". */
+// Jump-cache reordering (pure — operates on Map<position, Row>)
+
+/**
+ * Reorder a single row within the jump cache after a cell edit.
+ *
+ * The jump cache is a `Map<absoluteIndex, Row>` representing ~1000 rows
+ * the user is currently viewing (via windowFetch).  After a cell edit we
+ * binary-search for the row's new position *within that window* and
+ * reassign the same position keys to the new row order — instant, <1ms.
+ *
+ * Three outcomes (same as infinite-page reorder):
+ *  - **moved**:   row repositioned within the visible window.
+ *  - **evicted**: row sorts outside the window; removed from cache.
+ *  - **skipped**: row not found in the jump cache.
+ */
 export function reorderRowInJumpCache<T extends SortableRow>(
   cache: ReadonlyMap<number, T>,
   rowId: string,
@@ -85,12 +113,15 @@ export function reorderRowInJumpCache<T extends SortableRow>(
   const row = entries[rowEntryIdx]![1];
   const rowCells = asCellRecord(row.cells);
 
+  // Position keys stay fixed — we only reassign which row sits at which key
   const keys = entries.map(([k]) => k);
   const firstKey = keys[0]!;
   const lastKey = keys[keys.length - 1]!;
 
+  // Remaining rows (preserving order) after removing the edited row
   const others = entries.filter(([, r]) => r.id !== rowId).map(([, r]) => r);
 
+  // Binary search for the correct insertion point
   let lo = 0;
   let hi = others.length;
   while (lo < hi) {
@@ -108,14 +139,18 @@ export function reorderRowInJumpCache<T extends SortableRow>(
     else lo = mid + 1;
   }
 
-  // Boundary checks (skip if row was the only entry)
+  // Boundary checks only apply when there are neighbours to compare against.
+  // With zero neighbours (row was the only entry) we can't determine whether
+  // it sorts inside or outside the window — keep it and let the server confirm.
   if (others.length > 0) {
+    // Boundary: row sorts beyond the end of the window
     if (lo >= others.length && lastKey < totalInDb - 1) {
       const newCache = new Map<number, T>();
       others.forEach((r, i) => newCache.set(keys[i]!, r));
       return { cache: newCache, result: "evicted" };
     }
 
+    // Boundary: row sorts before the start of the window
     if (lo === 0 && firstKey > 0) {
       const newCache = new Map<number, T>();
       others.forEach((r, i) => newCache.set(keys[i]!, r));
@@ -123,14 +158,18 @@ export function reorderRowInJumpCache<T extends SortableRow>(
     }
   }
 
+  // Position unchanged — nothing to do
   if (lo === rowEntryIdx) return { cache: new Map(cache), result: "moved" };
 
+  // Insert at the new position and rebuild the map with same keys
   others.splice(lo, 0, row);
   const newCache = new Map<number, T>();
   others.forEach((r, i) => newCache.set(keys[i]!, r));
 
   return { cache: newCache, result: "moved" };
 }
+
+// Infinite-page cache reordering (pure — operates on data, returns new data)
 
 interface PageShape<T> {
   items: T[];
@@ -143,8 +182,17 @@ interface InfiniteShape<T> {
   pageParams: unknown[];
 }
 
-/** Reorder a single row within the infinite query cache after a cell edit.
- *  Returns "moved", "evicted", or "skipped". */
+/**
+ * Reorder a single row within the infinite query cache after a cell edit.
+ *
+ * Three possible outcomes:
+ *  - **moved**:   row found a valid position within loaded pages.
+ *  - **evicted**: row sorts beyond all loaded items; removed from pages
+ *                 (it now lives in the unloaded region of the dataset).
+ *  - **skipped**: row not found in loaded pages (e.g. jump-cache only).
+ *
+ * @returns The (possibly modified) data and the outcome.
+ */
 export function reorderRowInCache<T extends SortableRow>(
   data: InfiniteShape<T>,
   rowId: string,
@@ -162,8 +210,10 @@ export function reorderRowInCache<T extends SortableRow>(
   const row = allItems[idx]!;
   const rowCells = asCellRecord(row.cells);
 
+  // Remove from current position
   allItems.splice(idx, 1);
 
+  // Binary-search for the correct insertion point
   let lo = 0;
   let hi = allItems.length;
   while (lo < hi) {
@@ -181,7 +231,10 @@ export function reorderRowInCache<T extends SortableRow>(
     else lo = mid + 1;
   }
 
-  // Evict if row sorts beyond loaded items and more exist in DB
+  // ── Boundary check ──
+  // If the row sorts beyond all loaded items AND there are more unloaded
+  // rows in the DB, we can't determine the exact position.  Evict the row
+  // from the pages — it belongs somewhere in the unloaded region.
   if (lo >= allItems.length && allItems.length < totalInDb - 1) {
     let offset = 0;
     return {
@@ -199,10 +252,13 @@ export function reorderRowInCache<T extends SortableRow>(
     };
   }
 
+  // Position unchanged — return original data
   if (lo === idx) return { data, result: "moved" };
 
+  // Insert at the new position
   allItems.splice(lo, 0, row);
 
+  // Re-chunk into the original page structure
   let offset = 0;
   return {
     data: {

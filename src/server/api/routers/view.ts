@@ -48,6 +48,7 @@ export const viewRouter = createTRPCRouter({
       });
       if (!table) throw new Error("Table not found");
 
+      // Uniqueness check: no two views in the same table can share a name
       const duplicate = await ctx.db.view.findFirst({
         where: { tableId: input.tableId, name: input.name },
         select: { id: true },
@@ -69,12 +70,14 @@ export const viewRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // ownership check via view->table->base
       const view = await ctx.db.view.findFirst({
         where: { id: input.viewId, table: { base: { ownerId: ctx.session.user.id } } },
         select: { id: true, tableId: true },
       });
       if (!view) throw new Error("View not found");
 
+      // Uniqueness check: no two views in the same table can share a name
       if (input.name) {
         const duplicate = await ctx.db.view.findFirst({
           where: { tableId: view.tableId, name: input.name, NOT: { id: input.viewId } },
@@ -96,13 +99,15 @@ export const viewRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(z.object({ viewId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // ownership check + get tableId for sibling count
       const view = await ctx.db.view.findFirst({
         where: { id: input.viewId, table: { base: { ownerId: ctx.session.user.id } } },
         select: { id: true, tableId: true },
       });
       if (!view) throw new Error("View not found");
 
-      // Prevent deleting the last view (atomic check + delete)
+      // Prevent deleting the last view — check + delete in one transaction
+      // to avoid a race where two concurrent deletes both pass the count check.
       await ctx.db.$transaction(async (tx) => {
         const siblingCount = await tx.view.count({
           where: { tableId: view.tableId },

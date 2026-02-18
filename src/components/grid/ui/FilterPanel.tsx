@@ -1305,8 +1305,8 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
         <div className={styles.filterRowLeft}>
           {isFirst ? (
             <div className={styles.filterRowWhereText}>Where</div>
-          ) : rootIdx !== null ? (
-            /* Root item → clickable dropdown to toggle ROOT conjunction */
+          ) : rootIdx === 1 ? (
+            /* Only 2nd root item → clickable dropdown to toggle ROOT conjunction */
             <div
               ref={(el) => {
                 if (el) conjunctionRefs.current.set(cond.id, el);
@@ -1323,6 +1323,11 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
                 {parentConjunction}
               </span>
               <ChevronDownIcon className={styles.filterRowConjunctionChevron} />
+            </div>
+          ) : rootIdx !== null ? (
+            /* 3rd+ root items — plain non-interactive label */
+            <div className={styles.filterRowWhereText}>
+              {parentConjunction}
             </div>
           ) : parentGroupId != null && idx === 1 ? (
             /* Second item inside a group → clickable dropdown to toggle GROUP conjunction */
@@ -1645,8 +1650,8 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
                 <div className={styles.filterRowLeft}>
                   {idx === 0 ? (
                     <div className={styles.filterRowWhereText}>Where</div>
-                  ) : (
-                    /* Root item → clickable dropdown to toggle ROOT conjunction */
+                  ) : idx === 1 ? (
+                    /* Only 2nd root item → clickable dropdown to toggle ROOT conjunction */
                     <div
                       ref={(el) => {
                         if (el) conjunctionRefs.current.set(item.id, el);
@@ -1665,6 +1670,11 @@ export function FilterPanel({ baseColor, columns = [] }: FilterPanelProps) {
                       <ChevronDownIcon
                         className={styles.filterRowConjunctionChevron}
                       />
+                    </div>
+                  ) : (
+                    /* 3rd+ root items — plain non-interactive label */
+                    <div className={styles.filterRowWhereText}>
+                      {rootConjunction}
                     </div>
                   )}
                 </div>

@@ -1,7 +1,28 @@
 /**
  * Guarantee that a sort B-tree index exists for a column.
- * Uses a single direction-agnostic index (ASC NULLS FIRST) that serves both
- * forward and backward scans. Race-safe with fast path when index exists.
+ *
+ * INDEX STRATEGY — 1 index per column (down from 3):
+ *
+ *   Index:  (expr ASC NULLS FIRST, "rowIndex" ASC) WHERE "tableId" = '...'
+ *
+ *   Forward scan  → ORDER BY expr ASC  NULLS FIRST, "rowIndex" ASC  (ASC sort)
+ *   Backward scan → ORDER BY expr DESC NULLS LAST,  "rowIndex" DESC (DESC sort)
+ *
+ *   This works because ASC NULLS FIRST and DESC NULLS LAST are exact
+ *   reverses — null = -infinity: smallest in ASC (first), largest gap
+ *   from the top in DESC (last).
+ *
+ * Called from:
+ *   - row.infinite        → ensureSortIndex (on-demand before sorted query)
+ *   - row.windowFetch     → ensureSortIndex (on-demand before sorted jump)
+ *   - column.ensureIndexes → ensureSortIndex (explicit index build)
+ *
+ * Fast path when index already exists (pg_indexes sentinel check).
+ * Slow path creates the index on first call (time depends on table size).
+ *
+ * Race-safe: concurrent callers that both enter the slow path will not
+ * crash — Postgres 23505 (duplicate key on pg_catalog) is caught and
+ * ignored since it means another connection already created the index.
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,7 +45,10 @@ async function safeCreateIndex(db: PrismaClient, sql: string): Promise<void> {
   }
 }
 
-// Drop all per-column indexes for a table
+/**
+ * Drop all per-column indexes for a table.
+ * Used during table/base deletion to prevent orphan indexes.
+ */
 export async function dropColumnIndexesForTable(
   db: PrismaClient,
   tableId: string,
@@ -42,7 +66,10 @@ export async function dropColumnIndexesForTable(
 
 /**
  * Build the single B-tree sort index for a column.
- * Direction-agnostic: one ASC NULLS FIRST index serves both ASC and DESC queries.
+ * Direction-agnostic: one ASC NULLS FIRST index serves both ASC
+ * (forward scan) and DESC (backward scan) queries.
+ *
+ * Called from the sort safety net in infinite/windowFetch queries.
  */
 export async function ensureSortIndex(
   db: PrismaClient,
@@ -57,14 +84,14 @@ export async function ensureSortIndex(
   const suffix = columnType === "TEXT" ? "_s" : "_ns";
   const indexName = `${baseName}${suffix}`;
 
-  // Fast path
+  // Fast path: check if this specific index already exists (~0.5ms)
   const existing = (await db.$queryRawUnsafe(
     `SELECT COUNT(*)::int AS cnt FROM pg_indexes WHERE indexname = $1`,
     indexName,
   )) as { cnt: number }[];
   if ((existing[0]?.cnt ?? 0) > 0) return;
 
-  // Slow path
+  // Slow path: build the single index
   if (columnType === "TEXT") {
     await safeCreateIndex(
       db,
@@ -84,7 +111,10 @@ export async function ensureSortIndex(
   }
 }
 
-// Alias for ensureSortIndex
+/**
+ * Alias for ensureSortIndex — builds the single sort index for a column.
+ * Used during column creation.
+ */
 export async function ensureColumnIndexes(
   db: PrismaClient,
   tableId: string,

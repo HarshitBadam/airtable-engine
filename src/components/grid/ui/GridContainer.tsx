@@ -11,6 +11,7 @@ import type { NumberFormatConfig } from "~/shared/numberUtils";
 import type { RowItem } from "~/components/grid/useGridRows";
 
 interface GridContainerProps {
+  // Refs passed from parent
   gridFooterRef: React.RefObject<HTMLDivElement | null>;
   gridBodyRef: React.RefObject<HTMLDivElement | null>;
   scrollableHeaderRef: React.RefObject<HTMLDivElement | null>;
@@ -23,14 +24,17 @@ interface GridContainerProps {
   freezeTooltipRef: React.RefObject<HTMLDivElement | null>;
   selectionOverlayRef: React.RefObject<HTMLDivElement | null>;
 
+  // Grid dimensions
   freezeWidth: number;
   rowHeight: number;
   scrollableColumnsWidth: number;
 
+  // Column data
   frozenColumns: GridColumnDef[];
   scrollableColumns: GridColumnDef[];
   getColWidth: (colId: string) => number;
 
+  // Row data
   rows: { id: string; cells: unknown }[];
   virtualItems: VirtualItem[];
   totalSize: number;
@@ -40,42 +44,55 @@ interface GridContainerProps {
   mapToActualIndex: (virtualIndex: number) => number;
   getRowAtIndex: (index: number) => RowItem | null;
 
+  // Cell editing
   getCellValue: (cells: unknown, colId: string) => string;
   stableCommit: (args: { rowId: string; columnId: string; columnType: "TEXT" | "NUMBER"; numberConfig?: unknown }) => void;
   stableCancel: () => void;
 
+  // Resize handlers
   handleRowHeightResizeStart: (e: React.MouseEvent) => void;
   handleResizeStart: (e: React.MouseEvent, colId: string) => void;
 
+  // Freeze handlers
   handleFreezeDragStart: (e: React.MouseEvent) => void;
   handleFreezeLineMouseMove: (e: React.MouseEvent) => void;
 
+  // Add row
   onAddRow?: () => void;
 
+  // Record actions (context menu)
   onInsertRecordAbove?: (rowId: string) => void;
   onInsertRecordBelow?: (rowId: string) => void;
   onDuplicateRecord?: (rowId: string) => void;
   onDeleteRecord?: (rowId: string) => void;
 
+  // Column actions (header menu)
   onDeleteField?: (columnId: string) => void;
   onHideField?: (columnId: string) => void;
   onSortByField?: (columnId: string, direction: "asc" | "desc") => void;
   onFilterByField?: (columnId: string) => void;
   onDuplicateField?: (columnId: string, duplicateCells: boolean) => void;
 
+  // Field creation callback (from CreateFieldPanel → FieldConfigPanel)
   onCreateField?: (name: string, type: string, defaultValue: string, numberConfig?: NumberFormatConfig, insertPosition?: { anchorColId: string; side: "left" | "right" }) => void;
 
+  // Field edit callback (rename / update config)
   onEditFieldSave?: (columnId: string, name: string, numberConfig?: NumberFormatConfig) => void;
 
+  // Row IDs currently animating out (slide-up delete)
   deletingRowIds?: Set<string>;
 
+  // Search highlighting — debounced, trimmed search term (empty = no search)
   searchTerm?: string;
 
+  // Row drag-to-reorder
   onReorderRow?: (rowId: string, fromIndex: number, toIndex: number) => void;
   canDragRows?: boolean;
 
+  // Wrap headers toggle — when true, header cell text wraps instead of truncating
   wrapHeaders?: boolean;
 
+  // Bulk add rows (100k)
   onAddBulkRows?: () => void;
   isBulkAdding?: boolean;
   baseColor?: string;
@@ -139,10 +156,14 @@ export function GridContainer({
   baseTextColor = "#FFFFFF",
   backfillingColumnIds,
 }: GridContainerProps) {
+  // Sorted column IDs — for tinting sorted column headers orange.
+  // ONLY for autoSort=true (temporary/reversible sorts). autoSort=false = no orange ever.
+  // useShallow prevents infinite re-render loop from .map() creating new array refs.
   const sortedColumnIds = useGridStore(
     useShallow((s) => s.autoSort ? s.sorts.map((sort) => sort.columnId) : []),
   );
 
+  // Filtered column IDs — for tinting filtered column headers green
   const filteredColumnIds = useGridStore(
     useShallow((s) => {
       if (s.filters.length === 0) return [];
@@ -155,9 +176,12 @@ export function GridContainer({
     (s) => (s.findCurrentMatch?.rowId === "__header__" ? s.findCurrentMatch.columnId : null),
   );
 
+  // Pre-compute lowercase search term for header highlighting
   const searchTermLower = searchTerm ? searchTerm.toLowerCase() : "";
 
-  // Measure both header panes and use the taller one for scroller positioning
+  // === WRAP HEADERS: measure actual header height for scroller positioning ===
+  // We measure BOTH frozen and scrollable headers and take the max,
+  // because the longest column name may live in either pane.
   const frozenHeaderMeasureRef = useRef<HTMLDivElement>(null);
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState(rowHeight);
   useEffect(() => {
@@ -177,23 +201,26 @@ export function GridContainer({
     const ro = new ResizeObserver(measure);
     if (frozenEl) ro.observe(frozenEl);
     if (scrollEl) ro.observe(scrollEl);
+    // Initial measurement
     measure();
     return () => ro.disconnect();
   }, [wrapHeaders, rowHeight]);
   const effectiveHeaderHeight = wrapHeaders ? measuredHeaderHeight : rowHeight;
 
+  // === CUSTOM VERTICAL SCROLLBAR (overlay, no layout space) ===
   const vThumbRef = useRef<HTMLDivElement>(null);
   const isDraggingV = useRef(false);
   const dragStartY = useRef(0);
   const dragStartScrollTop = useRef(0);
   const fadeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // Sync thumb position & size with scroller
   useEffect(() => {
     const scroller = gridScrollerRef.current;
     const thumb = vThumbRef.current;
     if (!scroller || !thumb) return;
 
-    const TRACK_PADDING = 3;
+    const TRACK_PADDING = 3; // top + bottom cushion, matches horizontal scrollbar's border
 
     const update = () => {
       const { clientHeight, scrollHeight, scrollTop } = scroller;
@@ -232,6 +259,7 @@ export function GridContainer({
     };
   }, [gridScrollerRef]);
 
+  // Thumb drag interaction
   useEffect(() => {
     const thumb = vThumbRef.current;
     const scroller = gridScrollerRef.current;
@@ -282,6 +310,7 @@ export function GridContainer({
     };
   }, [gridScrollerRef]);
 
+  // === RECORD CELL CONTEXT MENU ===
   const [recordMenuRowId, setRecordMenuRowId] = useState<string | null>(null);
   const [recordMenuColId, setRecordMenuColId] = useState<string | null>(null);
   const [recordMenuPosition, setRecordMenuPosition] = useState<{ top: number; left: number } | null>(null);
@@ -296,22 +325,29 @@ export function GridContainer({
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
+    // Horizontal: default rightward (+8px gap), flip leftward if not enough space
     const left = (clickX + 8 + menuW <= vw)
       ? clickX + 8
       : clickX - 8 - menuW;
 
+    // Vertical: default downward (+1px gap), flip upward if not enough space,
+    // fallback to bottom-aligned with 8px from viewport bottom if neither fits
     let top: number;
     if (clickY + 1 + menuH <= vh) {
+      // Fits downward
       top = clickY + 1;
     } else if (clickY - 1 - menuH >= 0) {
+      // Fits upward
       top = clickY - 1 - menuH;
     } else {
+      // Neither fits — pin to bottom with 8px gap
       top = vh - menuH - 8;
     }
 
     setRecordMenuPosition({ top, left });
     setRecordMenuRowId(rowId);
     setRecordMenuColId(colId);
+    // Close column header menu if open
     setHeaderMenuColId(null);
     setHeaderMenuPosition(null);
   }, []);
@@ -339,6 +375,7 @@ export function GridContainer({
     };
   }, [recordMenuRowId]);
 
+  // Escape key to close record context menu
   useEffect(() => {
     if (!recordMenuRowId) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -358,6 +395,7 @@ export function GridContainer({
     setRecordMenuPosition(null);
   }, []);
 
+  // === ROW DRAG-TO-REORDER ===
   const [dragState, setDragState] = useState<{
     rowId: string;
     fromIndex: number;
@@ -374,13 +412,14 @@ export function GridContainer({
       const scroller = gridScrollerRef.current;
       if (!scroller) return;
 
+      // Find the .gridRow DOM element from the event target (the drag handle SVG)
       const rowEl = (e.target as HTMLElement).closest(`.${styles.gridRow}`);
       if (!rowEl) return;
 
-      // Ghost clone follows the cursor during drag
+      // --- Create a ghost clone that follows the cursor ---
       const ghost = rowEl.cloneNode(true) as HTMLElement;
       const rowRect = rowEl.getBoundingClientRect();
-      const offsetY = e.clientY - rowRect.top;
+      const offsetY = e.clientY - rowRect.top; // mouse offset within the row
       ghost.style.position = "fixed";
       ghost.style.left = `${rowRect.left}px`;
       ghost.style.top = `${e.clientY - offsetY}px`;
@@ -394,8 +433,10 @@ export function GridContainer({
       ghost.style.background = "#FFFFFF";
       document.body.appendChild(ghost);
 
+      // Dim the original row while dragging
       (rowEl as HTMLElement).style.opacity = "0.35";
 
+      // Track drop index via a local mutable variable (avoids async React state issues)
       let currentDropIdx = rowIndex;
       setDragState({ rowId, fromIndex: rowIndex, currentDropIndex: rowIndex });
       document.body.style.cursor = "grabbing";
@@ -403,10 +444,14 @@ export function GridContainer({
       document.body.style.webkitUserSelect = "none";
 
       const handleMove = (ev: MouseEvent) => {
+        // Move ghost to follow cursor (horizontal position stays fixed)
         ghost.style.top = `${ev.clientY - offsetY}px`;
 
         const rect = scroller.getBoundingClientRect();
         const relY = ev.clientY - rect.top + scroller.scrollTop;
+        // Use totalCount (not rows.length) — rows only has the infinite-query
+        // slice (~1K rows), but the user may be scrolled to position 99K via
+        // the jump cache. Without this fix, dropIdx is always clamped to ~999.
         const dropIdx = Math.max(0, Math.min(totalCount - 1, Math.floor(relY / DATA_ROW_HEIGHT)));
 
         if (dropIdx !== currentDropIdx) {
@@ -414,6 +459,7 @@ export function GridContainer({
           setDragState({ rowId, fromIndex: rowIndex, currentDropIndex: dropIdx });
         }
 
+        // Auto-scroll when mouse is near top/bottom edges
         const EDGE = 40;
         const SPEED = 8;
         cancelAnimationFrame(autoScrollRafRef.current);
@@ -441,9 +487,11 @@ export function GridContainer({
         document.body.style.userSelect = "";
         document.body.style.webkitUserSelect = "";
 
+        // Hide the drop indicator immediately
         setDragState(null);
 
         if (currentDropIdx !== rowIndex) {
+          // --- Smooth animation: slide ghost to the target row position ---
           const scrollerRect = scroller.getBoundingClientRect();
           const targetViewportY =
             currentDropIdx * DATA_ROW_HEIGHT - scroller.scrollTop + scrollerRect.top;
@@ -459,6 +507,7 @@ export function GridContainer({
             onReorderRow?.(rowId, rowIndex, finalDropIdx);
           }, 150);
         } else {
+          // No movement — just clean up
           ghost.remove();
           if (rowEl.parentElement) (rowEl as HTMLElement).style.opacity = "";
         }
@@ -470,16 +519,19 @@ export function GridContainer({
     [canDragRows, gridScrollerRef, totalCount, DATA_ROW_HEIGHT, onReorderRow],
   );
 
+  // === COLUMN HEADER DROPDOWN MENU ===
   const [headerMenuColId, setHeaderMenuColId] = useState<string | null>(null);
   const [headerMenuPosition, setHeaderMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const headerMenuRef = useRef<HTMLDivElement>(null);
   const totalColumnCount = frozenColumns.length + scrollableColumns.length;
   const canModifyField = totalColumnCount > 1;
 
+  // === DUPLICATE FIELD DIALOG ===
   const [dupFieldDialog, setDupFieldDialog] = useState<{ colId: string; colName: string } | null>(null);
   const [dupCells, setDupCells] = useState(true);
   const allColumns = [...frozenColumns, ...scrollableColumns];
 
+  // === BULK ADD ROWS DIALOG ===
   const [showBulkAddDialog, setShowBulkAddDialog] = useState(false);
 
   const handleHeaderMenuToggle = useCallback((e: React.MouseEvent, colId: string) => {
@@ -492,6 +544,7 @@ export function GridContainer({
     if (!cell) return;
     const rect = cell.getBoundingClientRect();
     let left = rect.left;
+    // If menu would overflow the right edge, align right edges instead
     if (left + 320 > window.innerWidth - 6) {
       left = rect.right - 320;
     }
@@ -521,6 +574,7 @@ export function GridContainer({
     };
   }, [headerMenuColId]);
 
+  // Escape key to close header menu
   useEffect(() => {
     if (!headerMenuColId) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -533,10 +587,12 @@ export function GridContainer({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [headerMenuColId]);
 
+  // Compute max-height for header menu (96px from bottom of viewport)
   const headerMenuMaxHeight = headerMenuPosition
     ? Math.max(200, window.innerHeight - headerMenuPosition.top - 24)
     : undefined;
 
+  // Helper to find column definition by ID from frozen + scrollable columns
   const allVisibleColumns = [...frozenColumns, ...scrollableColumns];
   const getColumnById = useCallback(
     (colId: string) => allVisibleColumns.find((c) => c.id === colId),
@@ -544,24 +600,29 @@ export function GridContainer({
     [frozenColumns, scrollableColumns],
   );
 
+  // === INSERT FIELD ANCHOR (for Insert left / Insert right) ===
   const insertFieldAnchorRef = useRef<{ anchorColId: string; side: "left" | "right" } | null>(null);
 
+  // === CREATE FIELD PANEL (+ button dropdown) ===
   const [createFieldPosition, setCreateFieldPosition] = useState<{ top: number; left: number } | null>(null);
   const addColButtonRef = useRef<HTMLDivElement>(null);
 
+  // === EDIT FIELD STATE (when "Edit field" is chosen from header menu) ===
   const [editFieldInfo, setEditFieldInfo] = useState<{ columnId: string; fieldName: string; fieldType: string; numberConfig?: NumberFormatConfig } | null>(null);
 
   const handleAddColClick = useCallback(() => {
     const btn = addColButtonRef.current;
     if (!btn) return;
     const rect = btn.getBoundingClientRect();
-    let left = rect.left + 4;
+    // Align top of panel with bottom of header row, left-aligned to + cell
+    let left = rect.left + 4; // 4px inward (right)
+    // If panel (400px) would overflow right edge, right-align with + cell
     if (left + 400 > window.innerWidth) {
-      left = rect.right - 400 - 4;
+      left = rect.right - 400 - 4; // 4px inward (left)
     }
-    insertFieldAnchorRef.current = null;
-    setEditFieldInfo(null);
-    setCreateFieldPosition({ top: rect.bottom + 2, left });
+    insertFieldAnchorRef.current = null; // Reset anchor when opening from + button
+    setEditFieldInfo(null); // Ensure not in edit mode
+    setCreateFieldPosition({ top: rect.bottom + 2, left }); // 2px down
   }, []);
 
   const handleCloseCreateField = useCallback(() => {
@@ -580,8 +641,10 @@ export function GridContainer({
     [onCreateField],
   );
 
+  // Handler for Insert left / Insert right from header menu
   const handleInsertField = useCallback((side: "left" | "right") => {
     if (!headerMenuColId) return;
+    // Find the header cell DOM element for positioning
     const headerCell = document.querySelector(`[data-col-header-id="${headerMenuColId}"]`);
     if (headerCell) {
       const rect = headerCell.getBoundingClientRect();
@@ -590,21 +653,26 @@ export function GridContainer({
         left = rect.right - 400;
       }
       insertFieldAnchorRef.current = { anchorColId: headerMenuColId, side };
-      setEditFieldInfo(null);
+      setEditFieldInfo(null); // Ensure not in edit mode
       setCreateFieldPosition({ top: rect.bottom + 2, left });
     }
+    // Close the header menu
     setHeaderMenuColId(null);
     setHeaderMenuPosition(null);
   }, [headerMenuColId]);
 
+  // Handler for Edit field from header menu
   const handleEditField = useCallback(() => {
     if (!headerMenuColId) return;
     const col = allColumns.find((c) => c.id === headerMenuColId);
     if (!col) return;
+    // Map DB type to UI label
     const uiType = col.type === "NUMBER" ? "Number" : "Single line text";
+    // Build number config if applicable
     const numCfg = col.type === "NUMBER" && col.config
       ? (col.config as NumberFormatConfig)
       : undefined;
+    // Position the panel below the header cell
     const headerCell = document.querySelector(`[data-col-header-id="${headerMenuColId}"]`);
     if (headerCell) {
       const rect = headerCell.getBoundingClientRect();
@@ -615,31 +683,38 @@ export function GridContainer({
       setEditFieldInfo({ columnId: headerMenuColId, fieldName: col.name, fieldType: uiType, numberConfig: numCfg });
       setCreateFieldPosition({ top: rect.bottom + 2, left });
     }
+    // Close the header menu
     setHeaderMenuColId(null);
     setHeaderMenuPosition(null);
   }, [headerMenuColId, allColumns]);
 
   return (
     <div className={styles.gridContainer} ref={gridFooterRef}>
+      {/* Grid body: header + content panes */}
       <div className={styles.gridBody} ref={gridBodyRef}>
+        {/* Frozen header (top-left) */}
         <div
           ref={frozenHeaderMeasureRef}
           className={`${styles.gridHeaderFrozen}${wrapHeaders ? ` ${styles.gridHeaderFrozenWrap}` : ''}`}
           style={{ width: freezeWidth, ...(wrapHeaders ? { minHeight: effectiveHeaderHeight, height: 'auto', overflow: 'visible' } : { height: rowHeight }) }}
         >
+          {/* Serial number / checkbox header */}
           <div className={styles.gridHeaderRowNum} style={wrapHeaders ? { minHeight: rowHeight, height: 'auto' } : { height: rowHeight }}>
             <div className={styles.gridHeaderRowNumInner}>
               <div className={styles.gridHeaderCheckbox} />
             </div>
+            {/* Bottom resize handle (row height) */}
             <div
               className={styles.gridHeaderBottomResizeHandle}
               onMouseDown={handleRowHeightResizeStart}
             />
           </div>
+          {/* Frozen column headers */}
           {frozenColumns.map((col) => {
             const headerHasMatch = searchTermLower.length > 0 && col.name.toLowerCase().includes(searchTermLower);
             const isHeaderCurrent = headerHasMatch && findHeaderMatchColId === col.id;
             const isHeaderFiltered = filteredColumnIds.includes(col.id);
+            // Background priority: search highlight > filter green > default
             const headerBg = headerHasMatch
               ? (isHeaderCurrent ? "#FFD66B" : "#FFF3D3")
               : isHeaderFiltered ? "#F9FEF9" : undefined;
@@ -698,6 +773,7 @@ export function GridContainer({
           })}
         </div>
 
+        {/* Scrollable header (top-right) — scrolls horizontally in sync with content */}
         <div
           ref={scrollableHeaderRef}
           className={`${styles.gridHeaderScrollable}${wrapHeaders ? ` ${styles.gridHeaderScrollableWrap}` : ''}`}
@@ -765,6 +841,7 @@ export function GridContainer({
                 </div>
               );
             })}
+            {/* Add column button */}
             <div
               ref={addColButtonRef}
               className={styles.gridHeaderAddCol}
@@ -774,15 +851,18 @@ export function GridContainer({
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path fillRule="nonzero" d="M8 2C7.86739 2 7.74021 2.05268 7.64645 2.14645C7.55268 2.24021 7.5 2.36739 7.5 2.5V7.5H2.5C2.36739 7.5 2.24021 7.55268 2.14645 7.64645C2.05268 7.74021 2 7.86739 2 8C2 8.13261 2.05268 8.25979 2.14645 8.35355C2.24021 8.44732 2.36739 8.5 2.5 8.5H7.5V13.5C7.5 13.6326 7.55268 13.7598 7.64645 13.8536C7.74021 13.9473 7.86739 14 8 14C8.13261 14 8.25979 13.9473 8.35355 13.8536C8.44732 13.7598 8.5 13.6326 8.5 13.5V8.5H13.5C13.6326 8.5 13.7598 8.44732 13.8536 8.35355C13.9473 8.25979 14 8.13261 14 8C14 7.86739 13.9473 7.74021 13.8536 7.64645C13.7598 7.55268 13.6326 7.5 13.5 7.5H8.5V2.5C8.5 2.36739 8.44732 2.24021 8.35355 2.14645C8.25979 2.05268 8.13261 2 8 2Z" />
               </svg>
+              {/* Bottom resize handle (row height) */}
               <div
                 className={styles.gridHeaderBottomResizeHandle}
                 onMouseDown={handleRowHeightResizeStart}
               />
             </div>
+            {/* Right spacer */}
             <div className={styles.gridHeaderSpacer} />
           </div>
         </div>
 
+        {/* Unified content scroller — single container, zero-lag vertical scroll */}
         <div
           ref={gridScrollerRef}
           className={styles.gridContentScroller}
@@ -796,6 +876,7 @@ export function GridContainer({
               position: "relative",
             }}
           >
+            {/* TanStack Virtual rows — absolutely positioned for true 1M row virtualization */}
             {virtualItems.map((vi) => {
               const actualIndex = mapToActualIndex(vi.index);
               const row = getRowAtIndex(actualIndex);
@@ -835,6 +916,7 @@ export function GridContainer({
                       backfillingColumnIds={backfillingColumnIds}
                     />
                   ) : (
+                    /* Skeleton row — shown while data is being fetched */
                     <div className={styles.gridRow}>
                       <div className={styles.gridRowFrozenGroup} style={{ width: freezeWidth }}>
                         <div className={styles.gridRowNumCell} style={{ height: DATA_ROW_HEIGHT }}>
@@ -887,6 +969,7 @@ export function GridContainer({
               );
             })}
 
+            {/* Drop indicator line (visible during row drag) — highlights the grid line where the top of the row will go */}
             {dragState && dragState.currentDropIndex !== dragState.fromIndex && (
               <div
                 className={styles.gridDropIndicator}
@@ -900,6 +983,9 @@ export function GridContainer({
               />
             )}
 
+            {/* Selection overlay — inside the scroll content for zero-lag vertical
+                scrolling.  Promoted to its own GPU layer via will-change + contain
+                so it doesn't pollute the large scroll-content compositing layer. */}
             <div
               ref={selectionOverlayRef}
               className={styles.gridSelectionOverlay}
@@ -907,6 +993,7 @@ export function GridContainer({
               <div className={styles.gridSelectionHandle} />
             </div>
 
+            {/* Add row (unified: sticky frozen + button + scrollable slab) */}
             <div
               className={styles.gridRow}
               style={{
@@ -924,6 +1011,7 @@ export function GridContainer({
                   </svg>
                 </div>
               </div>
+              {/* Scrollable slab next to + button */}
               <div className={styles.gridAddRowScrollable} style={{ width: scrollableColumnsWidth + 1, ...(frozenColumns.length === 0 ? { borderLeftColor: 'transparent' } : {}) }} />
             </div>
           </div>
@@ -931,6 +1019,7 @@ export function GridContainer({
 
       </div>
 
+      {/* Horizontal scrollbar (between content and footer) */}
       <div ref={hScrollRef} className={styles.gridHorizontalScrollbar}>
         <div
           className={styles.gridHorizontalScrollbarInner}
@@ -938,7 +1027,9 @@ export function GridContainer({
         />
       </div>
 
+      {/* Footer bar (always at the very bottom) */}
       <div className={styles.gridFooter}>
+        {/* Frozen left pane */}
         <div
           className={styles.gridFooterFrozen}
           style={{ width: freezeWidth }}
@@ -948,21 +1039,28 @@ export function GridContainer({
           </span>
         </div>
 
-        <div className={styles.gridFooterScrollable} />
-      
+        {/* Scrollable right pane */}
+        <div className={styles.gridFooterScrollable}>
+          {/* Future: field summaries, aggregations */}
+        </div>
       </div>
 
+      {/* --- Overlays spanning full container height (header + content + footer) --- */}
+
+      {/* Scroll shadow strip at freeze line */}
       <div
         ref={scrollShadowRef}
         className={styles.freezeScrollShadow}
         style={{ left: freezeWidth }}
       />
 
+      {/* Blue snap preview line (shown during freeze drag) */}
       <div
         ref={freezeSnapPreviewRef}
         className={styles.gridFreezeSnapPreview}
       />
 
+      {/* Freeze divider line (draggable, spans full height incl. footer) */}
       <div
         ref={freezeLineRef}
         className={styles.gridFreezeLine}
@@ -982,10 +1080,12 @@ export function GridContainer({
         </div>
       </div>
 
+      {/* Custom vertical scrollbar — overlays content, no layout space reserved */}
       <div className={styles.customVScrollTrack} style={{ top: effectiveHeaderHeight, bottom: 34 }}>
         <div ref={vThumbRef} className={styles.customVScrollThumb} />
       </div>
 
+      {/* === Record Cell Context Menu (portal) === */}
       {recordMenuRowId && recordMenuPosition && createPortal(
         <div
           ref={recordMenuRef}
@@ -1005,6 +1105,7 @@ export function GridContainer({
           }}
         >
           <ul className={styles.recordContextMenu}>
+            {/* Ask Omni */}
             <li className={styles.recordContextMenuItem} onClick={closeRecordMenu}>
               <svg className={styles.recordContextMenuOmniIcon} width="16" height="16" viewBox="0 0 1974 2048" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <path transform="translate(1613,1514)" d="m0 0h18l10 4 21 16 9 6 13 10 12 11 13 13 9 13 6 14 4 18-1 13-5 10-8 11-7 10-12 16-9 11-21 21-10 7-10 5-15 4-16 2-14-6-10-6-16-10-10-8-12-11-17-17-9-11-6-9-6-12-1-4v-18l3-13 13-22 10-15 9-10 15-15 8-7 8-8 11-7 16-5z" />
@@ -1033,8 +1134,10 @@ export function GridContainer({
               <span className={styles.recordContextMenuItemText}>Ask Omni</span>
             </li>
 
+            {/* --- Separator --- */}
             <li className={styles.recordContextMenuSeparator} />
 
+            {/* Insert record above */}
             <li className={styles.recordContextMenuItem} onClick={() => { if (recordMenuRowId) onInsertRecordAbove?.(recordMenuRowId); closeRecordMenu(); }}>
               <svg className={styles.recordContextMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
                 <path fillRule="nonzero" d="M7.99999 2C7.86739 2.00002 7.74022 2.05271 7.64647 2.14648L3.14647 6.64648C3.05272 6.74025 3.00006 6.86741 3.00006 7C3.00006 7.13259 3.05272 7.25975 3.14647 7.35352C3.24023 7.44726 3.3674 7.49992 3.49999 7.49992C3.63258 7.49992 3.75974 7.44726 3.8535 7.35352L7.49999 3.70703V13.5C7.49999 13.6326 7.55266 13.7598 7.64643 13.8536C7.7402 13.9473 7.86738 14 7.99999 14C8.13259 14 8.25977 13.9473 8.35354 13.8536C8.44731 13.7598 8.49999 13.6326 8.49999 13.5V3.70703L12.1465 7.35352C12.2402 7.44726 12.3674 7.49992 12.5 7.49992C12.6326 7.49992 12.7597 7.44726 12.8535 7.35352C12.9472 7.25975 12.9999 7.13259 12.9999 7C12.9999 6.86741 12.9472 6.74025 12.8535 6.64648L8.3535 2.14648C8.34865 2.14437 8.34377 2.14234 8.33885 2.14038C8.24776 2.05235 8.12665 2.00218 7.99999 2Z" />
@@ -1042,6 +1145,7 @@ export function GridContainer({
               <span className={styles.recordContextMenuItemText}>Insert record above</span>
             </li>
 
+            {/* Insert record below */}
             <li className={styles.recordContextMenuItem} onClick={() => { if (recordMenuRowId) onInsertRecordBelow?.(recordMenuRowId); closeRecordMenu(); }}>
               <svg className={styles.recordContextMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
                 <path fillRule="nonzero" d="M7.99999 2C7.86738 2 7.7402 2.05268 7.64643 2.14645C7.55266 2.24021 7.49999 2.36739 7.49999 2.5V12.293L3.8535 8.64648C3.75974 8.55274 3.63258 8.50008 3.49999 8.50008C3.3674 8.50008 3.24023 8.55274 3.14647 8.64648C3.05272 8.74025 3.00006 8.86741 3.00006 9C3.00006 9.13259 3.05272 9.25975 3.14647 9.35352L7.64647 13.8535C7.74022 13.9473 7.86739 14 7.99999 14C8.13259 14 8.25975 13.9473 8.3535 13.8535L12.8535 9.35352C12.9472 9.25975 12.9999 9.13259 12.9999 9C12.9999 8.86741 12.9472 8.74025 12.8535 8.64648C12.7597 8.55274 12.6326 8.50008 12.5 8.50008C12.3674 8.50008 12.2402 8.55274 12.1465 8.64648L8.49999 12.293V2.5C8.49999 2.36739 8.44731 2.24021 8.35354 2.14645C8.25977 2.05268 8.13259 2 7.99999 2Z" />
@@ -1049,8 +1153,10 @@ export function GridContainer({
               <span className={styles.recordContextMenuItemText}>Insert record below</span>
             </li>
 
+            {/* --- Separator --- */}
             <li className={styles.recordContextMenuSeparator} />
 
+            {/* Duplicate record */}
             <li className={styles.recordContextMenuItem} onClick={() => { if (recordMenuRowId) onDuplicateRecord?.(recordMenuRowId); closeRecordMenu(); }}>
               <svg className={styles.recordContextMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
                 <path fillRule="nonzero" d="M2.5 5C2.3674 5.00001 2.24023 5.0527 2.14646 5.14646C2.0527 5.24023 2.00001 5.3674 2 5.5V13.5C2.00001 13.6326 2.0527 13.7598 2.14646 13.8535C2.24023 13.9473 2.3674 14 2.5 14H10.5C10.6326 14 10.7598 13.9473 10.8535 13.8535C10.9473 13.7598 11 13.6326 11 13.5V5.5C11 5.3674 10.9473 5.24023 10.8535 5.14646C10.7598 5.0527 10.6326 5.00001 10.5 5H2.5ZM3 6H10V13H3V6Z M5.5 2C5.3674 2.00001 5.24023 2.0527 5.14646 2.14646C5.0527 2.24023 5.00001 2.3674 5 2.5V5.5C5 5.63261 5.05268 5.75979 5.14645 5.85355C5.24021 5.94732 5.36739 6 5.5 6C5.63261 6 5.75979 5.94732 5.85355 5.85355C5.94732 5.75979 6 5.63261 6 5.5V3H13V10H10.5C10.3674 10 10.2402 10.0527 10.1464 10.1464C10.0527 10.2402 10 10.3674 10 10.5C10 10.6326 10.0527 10.7598 10.1464 10.8536C10.2402 10.9473 10.3674 11 10.5 11H13.5C13.6326 11 13.7598 10.9473 13.8535 10.8535C13.9473 10.7598 14 10.6326 14 10.5V2.5C14 2.3674 13.9473 2.24023 13.8535 2.14646C13.7598 2.0527 13.6326 2.00001 13.5 2H5.5Z" />
@@ -1058,6 +1164,7 @@ export function GridContainer({
               <span className={styles.recordContextMenuItemText}>Duplicate record</span>
             </li>
 
+            {/* Apply template */}
             <li className={styles.recordContextMenuItem} onClick={closeRecordMenu}>
               <svg className={styles.recordContextMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
                 <path fillRule="nonzero" d="M2.36878 1.36865C2.30311 1.36863 2.23808 1.38154 2.17741 1.40666C2.11673 1.43177 2.06159 1.46859 2.01515 1.51501C1.96871 1.56144 1.93187 1.61657 1.90674 1.67723C1.88161 1.7379 1.86868 1.80292 1.86868 1.86859C1.86868 1.93426 1.88161 1.99928 1.90674 2.05995C1.93187 2.12062 1.96871 2.17574 2.01515 2.22217L6.21803 6.42505C6.08351 6.67237 6.00001 6.95077 6.00001 7.25C6.00001 8.21058 6.78943 9 7.75001 9C8.71059 9 9.50001 8.21058 9.50001 7.25C9.50001 6.28942 8.71059 5.5 7.75001 5.5C7.45086 5.5 7.17258 5.58356 6.9253 5.71802L2.7223 1.51501C2.62853 1.42129 2.50137 1.36864 2.36878 1.36865ZM7.75001 6.5C8.17018 6.5 8.50001 6.82983 8.50001 7.25C8.50001 7.67017 8.17018 8 7.75001 8C7.32984 8 7.00001 7.67017 7.00001 7.25C7.00001 7.04405 7.08091 6.86114 7.21119 6.72681C7.21491 6.72531 7.21862 6.72376 7.2223 6.72217C7.22618 6.71703 7.22997 6.71183 7.23365 6.70654C7.36745 6.57966 7.54709 6.5 7.75001 6.5Z M14.25 9.75C14.1174 9.75003 13.9902 9.80272 13.8965 9.89648C13.8965 9.89648 13.5499 10.2425 13.209 10.7539C12.868 11.2653 12.5 11.9583 12.5 12.75C12.5 13.7106 13.2894 14.5 14.25 14.5C15.2106 14.5 16 13.7106 16 12.75C16 11.9583 15.632 11.2653 15.291 10.7539C14.9501 10.2425 14.6035 9.89648 14.6035 9.89648C14.5098 9.80272 14.3826 9.75003 14.25 9.75ZM14.25 11.0325C14.3204 11.1233 14.3825 11.1938 14.459 11.3086C14.743 11.7347 15 12.2917 15 12.75C15 13.1701 14.6701 13.5 14.25 13.5C13.8299 13.5 13.5 13.1701 13.5 12.75C13.5 12.2917 13.757 11.7347 14.041 11.3086C14.1176 11.1938 14.1796 11.1233 14.25 11.0325Z M7.21876 0.5C7.08616 0.500026 6.959 0.552716 6.86524 0.646484L0.852671 6.65894C0.851813 6.65979 0.850959 6.66064 0.850108 6.6615C0.276242 7.24384 0.276242 8.19366 0.850108 8.776C0.850959 8.77686 0.851813 8.77771 0.852671 8.77856L6.15895 14.0848C6.15984 14.0857 6.16073 14.0865 6.16163 14.0874C6.74398 14.6612 7.69354 14.6612 8.27589 14.0874C8.27679 14.0865 8.27768 14.0857 8.27858 14.0848L14.291 8.07226C14.3848 7.97849 14.4374 7.85133 14.4374 7.71875C14.4374 7.58616 14.3848 7.459 14.291 7.36523L7.57228 0.646483C7.47852 0.552715 7.35136 0.500025 7.21876 0.5ZM7.21876 1.70703L13.2305 7.71875L7.57374 13.3754C7.37274 13.5731 7.06478 13.5731 6.86378 13.3754L1.56239 8.0741C1.36466 7.87311 1.36441 7.56475 1.56214 7.36376C1.56203 7.36388 1.56225 7.36364 1.56214 7.36376L7.21876 1.70703Z" />
@@ -1065,6 +1172,7 @@ export function GridContainer({
               <span className={styles.recordContextMenuItemText}>Apply template</span>
             </li>
 
+            {/* Expand record */}
             <li className={styles.recordContextMenuItem} onClick={closeRecordMenu}>
               <svg className={styles.recordContextMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
                 <path fillRule="nonzero" d="M10 2.5C9.86739 2.5 9.74021 2.55268 9.64645 2.64645C9.55268 2.74021 9.5 2.86739 9.5 3C9.5 3.13261 9.55268 3.25979 9.64645 3.35355C9.74021 3.44732 9.86739 3.5 10 3.5H11.793L9.14648 6.14648C9.05274 6.24025 9.00008 6.36741 9.00008 6.5C9.00008 6.63259 9.05274 6.75975 9.14648 6.85352C9.24025 6.94726 9.36741 6.99992 9.5 6.99992C9.63259 6.99992 9.75975 6.94726 9.85352 6.85352L12.5 4.20703V6C12.5 6.13261 12.5527 6.25979 12.6464 6.35355C12.7402 6.44732 12.8674 6.5 13 6.5C13.1326 6.5 13.2598 6.44732 13.3536 6.35355C13.4473 6.25979 13.5 6.13261 13.5 6V3C13.498 2.99504 13.496 2.99012 13.4939 2.98523C13.4917 2.85861 13.4415 2.73755 13.3535 2.64648C13.2598 2.55272 13.1326 2.50003 13 2.5H10Z M6.5 9C6.3674 9.00002 6.24024 9.05271 6.14648 9.14648L3.5 11.793V10C3.5 9.86739 3.44732 9.74021 3.35355 9.64645C3.25979 9.55268 3.13261 9.5 3 9.5C2.86739 9.5 2.74021 9.55268 2.64645 9.64645C2.55268 9.74021 2.5 9.86739 2.5 10V13C2.50002 13.1326 2.55271 13.2598 2.64648 13.3535C2.74024 13.4473 2.8674 13.5 3 13.5H6C6.13261 13.5 6.25979 13.4473 6.35355 13.3536C6.44732 13.2598 6.5 13.1326 6.5 13C6.5 12.8674 6.44732 12.7402 6.35355 12.6464C6.25979 12.5527 6.13261 12.5 6 12.5H4.20703L6.85352 9.85352C6.94726 9.75975 6.99992 9.63259 6.99992 9.5C6.99992 9.36741 6.94726 9.24025 6.85352 9.14648C6.75976 9.05271 6.6326 9.00002 6.5 9Z" />
@@ -1072,8 +1180,10 @@ export function GridContainer({
               <span className={styles.recordContextMenuItemText}>Expand record</span>
             </li>
 
+            {/* --- Separator --- */}
             <li className={styles.recordContextMenuSeparator} />
 
+            {/* Add comment */}
             <li className={styles.recordContextMenuItem} onClick={closeRecordMenu}>
               <svg className={styles.recordContextMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
                 <path fillRule="nonzero" d="M2.5 3C1.95364 3 1.5 3.45364 1.5 4V13.925C1.5 13.9264 1.5 13.9278 1.5 13.9292C1.50321 14.3138 1.72911 14.665 2.07776 14.8275C2.42665 14.9901 2.84111 14.9369 3.13758 14.6914C3.13819 14.6909 3.1388 14.6903 3.13941 14.6898L5.15821 13.0023C5.15911 13.0015 5.16 13.0008 5.16089 13H13.5C14.0464 13 14.5 12.5464 14.5 12V4C14.5 3.45364 14.0464 3 13.5 3H2.5ZM2.5 4H13.5V12H5.15625C5.15629 12 5.15621 12 5.15625 12C4.91921 12 4.68966 12.0855 4.51038 12.2406L2.5 13.9209V4Z" />
@@ -1081,6 +1191,7 @@ export function GridContainer({
               <span className={styles.recordContextMenuItemText}>Add comment</span>
             </li>
 
+            {/* Copy cell url */}
             <li className={styles.recordContextMenuItem} onClick={closeRecordMenu}>
               <svg className={styles.recordContextMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
                 <path fillRule="nonzero" d="M6.93749 5.81154C6.07524 5.8115 5.24801 6.15511 4.63952 6.76601L2.87206 8.52712C2.86639 8.53281 2.86085 8.53863 2.85546 8.54458C2.29141 9.16344 1.98729 9.97626 2.0067 10.8134C2.03651 12.0876 2.80961 13.23 3.98144 13.7313C5.15327 14.2327 6.51333 14.003 7.45556 13.1447C7.4613 13.1395 7.46691 13.1341 7.4724 13.1287L8.70983 11.8911C8.75627 11.8447 8.7931 11.7896 8.81823 11.7289C8.84336 11.6683 8.8563 11.6032 8.8563 11.5376C8.8563 11.4719 8.84336 11.4069 8.81823 11.3462C8.7931 11.2855 8.75627 11.2304 8.70983 11.184C8.61606 11.0902 8.4889 11.0376 8.35631 11.0376C8.22372 11.0376 8.09656 11.0902 8.0028 11.184L6.77868 12.4081C6.12438 13.0019 5.18732 13.1596 4.37475 12.8119C3.56087 12.4637 3.02721 11.6752 3.00646 10.7902C2.99307 10.2112 3.20288 9.64994 3.59215 9.22133L5.34667 7.47304C5.34712 7.47259 5.34757 7.47215 5.34801 7.4717C5.76912 7.04892 6.34077 6.81151 6.93749 6.81155C7.53422 6.81155 8.10583 7.04894 8.52697 7.4717C8.57331 7.51823 8.62836 7.55517 8.68898 7.58041C8.7496 7.60566 8.8146 7.61872 8.88027 7.61884C8.94593 7.61897 9.01098 7.60616 9.0717 7.58114C9.13241 7.55612 9.1876 7.51939 9.23412 7.47305C9.32804 7.37946 9.38095 7.2524 9.3812 7.11981C9.38145 6.98722 9.32903 6.85996 9.23547 6.76601C8.62695 6.15516 7.79971 5.81155 6.93749 5.81154Z M10.8133 2.00905C10.0028 1.99035 9.18543 2.27105 8.54442 2.85549C8.53873 2.86069 8.53315 2.86602 8.5277 2.87148L7.29015 4.10891C7.24372 4.15534 7.20688 4.21046 7.18175 4.27113C7.15662 4.33179 7.14368 4.39682 7.14368 4.46248C7.14368 4.52815 7.15662 4.59317 7.18175 4.65384C7.20688 4.71451 7.24372 4.76963 7.29015 4.81606C7.33658 4.8625 7.3917 4.89933 7.45237 4.92446C7.51304 4.9496 7.57806 4.96253 7.64373 4.96253C7.70939 4.96253 7.77442 4.9496 7.83508 4.92446C7.89575 4.89933 7.95087 4.8625 7.9973 4.81606L9.22155 3.59194C10.1163 2.77921 11.4786 2.81129 12.3337 3.6664C13.1889 4.5216 13.2208 5.88409 12.4078 6.77883L10.6533 8.52712C10.6529 8.52757 10.6524 8.52802 10.652 8.52846C10.0089 9.17407 9.04352 9.36659 8.20202 9.01699C8.20206 9.01699 8.20197 9.01699 8.20202 9.01699C7.92924 8.90373 7.68135 8.7377 7.47289 8.52846C7.3793 8.43454 7.25224 8.38164 7.11965 8.38138C6.98706 8.38113 6.8598 8.43355 6.76586 8.52712C6.71933 8.57346 6.68239 8.62851 6.65714 8.68913C6.6319 8.74975 6.61884 8.81475 6.61871 8.88042C6.61859 8.94609 6.6314 9.01113 6.65642 9.07185C6.68143 9.13256 6.71816 9.18776 6.76451 9.23427C7.06587 9.53674 7.42403 9.77671 7.81835 9.94045C9.03169 10.4445 10.4332 10.165 11.3605 9.23415L13.1279 7.47304C13.1336 7.4674 13.1391 7.46162 13.1445 7.45571C14.3134 6.17372 14.2675 4.18601 13.0408 2.95925C12.4274 2.34587 11.6239 2.02776 10.8133 2.00905Z" />
@@ -1088,6 +1199,7 @@ export function GridContainer({
               <span className={styles.recordContextMenuItemText}>Copy cell url</span>
             </li>
 
+            {/* Send record */}
             <li className={styles.recordContextMenuItem} onClick={closeRecordMenu}>
               <svg className={styles.recordContextMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
                 <path fillRule="nonzero" d="M2.5 4H13.5V12H2.50012L2.5 4Z M2 3C1.8674 3.00001 1.74023 3.0527 1.64646 3.14646C1.5527 3.24023 1.50001 3.3674 1.5 3.5V12C1.50007 12.5463 1.95357 12.9999 2.49988 13C2.49984 13 2.49992 13 2.49988 13H13.5C14.0464 13 14.5 12.5464 14.5 12V3.5C14.5 3.3674 14.4473 3.24023 14.3535 3.14646C14.2598 3.0527 14.1326 3.00001 14 3H2ZM1.97827 3.00049C1.84581 3.00625 1.72107 3.06439 1.63147 3.16211C1.54186 3.25985 1.49475 3.38919 1.50049 3.52167C1.50624 3.65414 1.56437 3.77891 1.66211 3.86853L7.66211 9.36853C7.75433 9.45307 7.87489 9.49996 8 9.49996C8.12511 9.49996 8.24567 9.45307 8.33789 9.36853L14.3379 3.86853C14.4356 3.77891 14.4938 3.65414 14.4995 3.52167C14.5053 3.38919 14.4581 3.25985 14.3685 3.16211C14.2789 3.06437 14.1541 3.00624 14.0217 3.00049C13.8892 2.99475 13.7599 3.04186 13.6621 3.13147L8 8.32166L2.33789 3.13147C2.28949 3.08709 2.23281 3.05268 2.17111 3.03021C2.10941 3.00773 2.04388 2.99764 1.97827 3.00049Z" />
@@ -1095,8 +1207,10 @@ export function GridContainer({
               <span className={styles.recordContextMenuItemText}>Send record</span>
             </li>
 
+            {/* --- Separator --- */}
             <li className={styles.recordContextMenuSeparator} />
 
+            {/* Delete record */}
             <li className={styles.recordContextMenuItem} onClick={() => { if (recordMenuRowId) onDeleteRecord?.(recordMenuRowId); closeRecordMenu(); }}>
               <svg className={styles.recordContextMenuDeleteIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
                 <path fillRule="nonzero" d="M6.5 6C6.36739 6 6.24021 6.05268 6.14645 6.14645C6.05268 6.24021 6 6.36739 6 6.5V10.5C6 10.6326 6.05268 10.7598 6.14645 10.8536C6.24021 10.9473 6.36739 11 6.5 11C6.63261 11 6.75979 10.9473 6.85355 10.8536C6.94732 10.7598 7 10.6326 7 10.5V6.5C7 6.36739 6.94732 6.24021 6.85355 6.14645C6.75979 6.05268 6.63261 6 6.5 6Z M9.5 6C9.36739 6 9.24021 6.05268 9.14645 6.14645C9.05268 6.24021 9 6.36739 9 6.5V10.5C9 10.6326 9.05268 10.7598 9.14645 10.8536C9.24021 10.9473 9.36739 11 9.5 11C9.63261 11 9.75979 10.9473 9.85355 10.8536C9.94732 10.7598 10 10.6326 10 10.5V6.5C10 6.36739 9.94732 6.24021 9.85355 6.14645C9.75979 6.05268 9.63261 6 9.5 6Z M6.5 1C5.6775 1 5 1.6775 5 2.5V3H2.5C2.36739 3 2.24021 3.05268 2.14645 3.14645C2.05268 3.24021 2 3.36739 2 3.5C2 3.63261 2.05268 3.75979 2.14645 3.85355C2.24021 3.94732 2.36739 4 2.5 4H3V13C3.00007 13.5463 3.45357 13.9999 3.99988 14H12C12.5464 14 13 13.5464 13 13V4H13.5C13.6326 4 13.7598 3.94732 13.8536 3.85355C13.9473 3.75979 14 3.63261 14 3.5C14 3.36739 13.9473 3.24021 13.8536 3.14645C13.7598 3.05268 13.6326 3 13.5 3H11V2.5C10.9999 1.67757 10.3226 1.0001 9.50012 1H6.5ZM6.5 2H9.5C9.78202 2.0001 9.99996 2.21808 10 2.50012V3H6V2.5C6 2.21794 6.21794 2 6.5 2ZM4 4H12V13H4.00012L4 4Z" />
@@ -1108,6 +1222,7 @@ export function GridContainer({
         document.body,
       )}
 
+      {/* === Column Header Dropdown Menu (portal) === */}
       {headerMenuColId && headerMenuPosition && createPortal(
         <div
           ref={headerMenuRef}
@@ -1129,6 +1244,7 @@ export function GridContainer({
           }}
         >
         <ul className={styles.colHeaderMenu}>
+          {/* Edit field */}
           <li className={styles.colHeaderMenuItem} onClick={handleEditField}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M10.5 1.71045C10.2406 1.71045 9.9813 1.80867 9.7876 2.00525L2.29017 9.50269L2.28931 9.50354C2.10332 9.69048 1.9991 9.94419 2.00001 10.2079V12.9999C2.00007 13.5462 2.45358 13.9998 2.99988 13.9999H5.79212C6.05578 14.0008 6.30942 13.8966 6.49635 13.7107L6.49732 13.7097L13.9948 6.21228C14.3878 5.82489 14.3878 5.17499 13.9948 4.7876L11.2124 2.00525C11.0187 1.80867 10.7594 1.71045 10.5 1.71045ZM10.4999 2.70715C10.4955 2.70269 10.5043 2.70269 10.4999 2.70715L10.5027 2.70972L13.2902 5.49719L13.2927 5.49976C13.2972 5.49534 13.2972 5.50418 13.2927 5.49976L13.2902 5.50269L12 6.79297L9.20704 4L10.4973 2.70972L10.4999 2.70715ZM8.50001 4.70703L11.293 7.5L5.79297 12.9999H3.00013L3.00001 10.207L8.50001 4.70703Z" />
@@ -1136,8 +1252,10 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>Edit field</span>
           </li>
 
+          {/* --- Separator --- */}
           <li className={styles.colHeaderMenuSeparator} />
 
+          {/* Duplicate field */}
           <li className={styles.colHeaderMenuItem} onClick={() => {
             if (headerMenuColId) {
               const col = allColumns.find((c) => c.id === headerMenuColId);
@@ -1153,6 +1271,7 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>Duplicate field</span>
           </li>
 
+          {/* Insert left */}
           <li className={styles.colHeaderMenuItem} onClick={() => handleInsertField("left")}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M7 3C6.8674 3.00002 6.74024 3.05271 6.64648 3.14648L2.14648 7.64648C2.05271 7.74024 2.00002 7.8674 2 8C2.00002 8.1326 2.05271 8.25976 2.14648 8.35352L6.64648 12.8535C6.74025 12.9473 6.86741 12.9999 7 12.9999C7.13259 12.9999 7.25975 12.9473 7.35352 12.8535C7.44726 12.7598 7.49992 12.6326 7.49992 12.5C7.49992 12.3674 7.44726 12.2402 7.35352 12.1465L3.70703 8.5H13.5C13.6326 8.5 13.7598 8.44732 13.8536 8.35355C13.9473 8.25979 14 8.13261 14 8C14 7.86739 13.9473 7.74021 13.8536 7.64645C13.7598 7.55268 13.6326 7.5 13.5 7.5H3.70703L7.35352 3.85352C7.44726 3.75975 7.49992 3.63259 7.49992 3.5C7.49992 3.36741 7.44726 3.24025 7.35352 3.14648C7.25976 3.05271 7.1326 3.00002 7 3Z" />
@@ -1160,6 +1279,7 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>Insert left</span>
           </li>
 
+          {/* Insert right */}
           <li className={styles.colHeaderMenuItem} onClick={() => handleInsertField("right")}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M9 3C8.8674 3.00002 8.74024 3.05271 8.64648 3.14648C8.55274 3.24025 8.50008 3.36741 8.50008 3.5C8.50008 3.63259 8.55274 3.75975 8.64648 3.85352L12.293 7.5H2.5C2.36739 7.5 2.24021 7.55268 2.14645 7.64645C2.05268 7.74021 2 7.86739 2 8C2 8.13261 2.05268 8.25979 2.14645 8.35355C2.24021 8.44732 2.36739 8.5 2.5 8.5H12.293L8.64648 12.1465C8.55274 12.2402 8.50008 12.3674 8.50008 12.5C8.50008 12.6326 8.55274 12.7598 8.64648 12.8535C8.74025 12.9473 8.86741 12.9999 9 12.9999C9.13259 12.9999 9.25975 12.9473 9.35352 12.8535L13.8535 8.35352C13.9414 8.26249 13.9915 8.14153 13.9938 8.01501C13.9959 8.01004 13.998 8.00504 14 8C13.9985 7.98678 13.9964 7.97363 13.9938 7.96057C13.9917 7.93512 13.9877 7.90985 13.9818 7.88501C13.9757 7.85934 13.9675 7.8342 13.9574 7.80981C13.9476 7.78622 13.936 7.7634 13.9227 7.74158C13.9089 7.7191 13.8934 7.69776 13.8762 7.67773C13.8691 7.66703 13.8615 7.6566 13.8535 7.64648L9.35352 3.14648C9.25976 3.05271 9.1326 3.00002 9 3Z" />
@@ -1167,8 +1287,10 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>Insert right</span>
           </li>
 
+          {/* --- Separator --- */}
           <li className={styles.colHeaderMenuSeparator} />
 
+          {/* Summarize field */}
           <li className={styles.colHeaderMenuItem}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="evenodd" d="M6.04 7c.336 0 .505 0 .633.065a.6.6 0 0 1 .262.262C7 7.455 7 7.624 7 7.96v.08c0 .336 0 .505-.065.633a.6.6 0 0 1-.262.262C6.545 9 6.376 9 6.04 9h-.08c-.336 0-.505 0-.633-.065a.6.6 0 0 1-.262-.262C5 8.545 5 8.376 5 8.04v-.08c0-.336 0-.505.065-.633a.6.6 0 0 1 .262-.262C5.455 7 5.624 7 5.96 7zm4 0c.336 0 .505 0 .633.065a.6.6 0 0 1 .262.262c.065.128.065.297.065.633v.08c0 .336 0 .505-.065.633a.6.6 0 0 1-.262.262C10.545 9 10.376 9 10.04 9h-.08c-.336 0-.505 0-.633-.065a.6.6 0 0 1-.262-.262C9 8.545 9 8.376 9 8.04v-.08c0-.336 0-.505.065-.633a.6.6 0 0 1 .262-.262C9.455 7 9.624 7 9.96 7z" />
@@ -1177,6 +1299,7 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>Summarize field</span>
           </li>
 
+          {/* Write headline for field */}
           <li className={styles.colHeaderMenuItem}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="evenodd" d="M6.04 7c.336 0 .505 0 .633.065a.6.6 0 0 1 .262.262C7 7.455 7 7.624 7 7.96v.08c0 .336 0 .505-.065.633a.6.6 0 0 1-.262.262C6.545 9 6.376 9 6.04 9h-.08c-.336 0-.505 0-.633-.065a.6.6 0 0 1-.262-.262C5 8.545 5 8.376 5 8.04v-.08c0-.336 0-.505.065-.633a.6.6 0 0 1 .262-.262C5.455 7 5.624 7 5.96 7zm4 0c.336 0 .505 0 .633.065a.6.6 0 0 1 .262.262c.065.128.065.297.065.633v.08c0 .336 0 .505-.065.633a.6.6 0 0 1-.262.262C10.545 9 10.376 9 10.04 9h-.08c-.336 0-.505 0-.633-.065a.6.6 0 0 1-.262-.262C9 8.545 9 8.376 9 8.04v-.08c0-.336 0-.505.065-.633a.6.6 0 0 1 .262-.262C9.455 7 9.624 7 9.96 7z" />
@@ -1185,8 +1308,10 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>Write headline for field</span>
           </li>
 
+          {/* --- Separator --- */}
           <li className={styles.colHeaderMenuSeparator} />
 
+          {/* Copy field URL */}
           <li className={styles.colHeaderMenuItem}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M6.93749 5.81154C6.07524 5.8115 5.24801 6.15511 4.63952 6.76601L2.87206 8.52712C2.86639 8.53281 2.86085 8.53863 2.85546 8.54458C2.29141 9.16344 1.98729 9.97626 2.0067 10.8134C2.03651 12.0876 2.80961 13.23 3.98144 13.7313C5.15327 14.2327 6.51333 14.003 7.45556 13.1447C7.4613 13.1395 7.46691 13.1341 7.4724 13.1287L8.70983 11.8911C8.75627 11.8447 8.7931 11.7896 8.81823 11.7289C8.84336 11.6683 8.8563 11.6032 8.8563 11.5376C8.8563 11.4719 8.84336 11.4069 8.81823 11.3462C8.7931 11.2855 8.75627 11.2304 8.70983 11.184C8.61606 11.0902 8.4889 11.0376 8.35631 11.0376C8.22372 11.0376 8.09656 11.0902 8.0028 11.184L6.77868 12.4081C6.12438 13.0019 5.18732 13.1596 4.37475 12.8119C3.56087 12.4637 3.02721 11.6752 3.00646 10.7902C2.99307 10.2112 3.20288 9.64994 3.59215 9.22133L5.34667 7.47304C5.34712 7.47259 5.34757 7.47215 5.34801 7.4717C5.76912 7.04892 6.34077 6.81151 6.93749 6.81155C7.53422 6.81155 8.10583 7.04894 8.52697 7.4717C8.57331 7.51823 8.62836 7.55517 8.68898 7.58041C8.7496 7.60566 8.8146 7.61872 8.88027 7.61884C8.94593 7.61897 9.01098 7.60616 9.0717 7.58114C9.13241 7.55612 9.1876 7.51939 9.23412 7.47305C9.32804 7.37946 9.38095 7.2524 9.3812 7.11981C9.38145 6.98722 9.32903 6.85996 9.23547 6.76601C8.62695 6.15516 7.79971 5.81155 6.93749 5.81154Z M10.8133 2.00905C10.0028 1.99035 9.18543 2.27105 8.54442 2.85549C8.53873 2.86069 8.53315 2.86602 8.5277 2.87148L7.29015 4.10891C7.24372 4.15534 7.20688 4.21046 7.18175 4.27113C7.15662 4.33179 7.14368 4.39682 7.14368 4.46248C7.14368 4.52815 7.15662 4.59317 7.18175 4.65384C7.20688 4.71451 7.24372 4.76963 7.29015 4.81606C7.33658 4.8625 7.3917 4.89933 7.45237 4.92446C7.51304 4.9496 7.57806 4.96253 7.64373 4.96253C7.70939 4.96253 7.77442 4.9496 7.83508 4.92446C7.89575 4.89933 7.95087 4.8625 7.9973 4.81606L9.22155 3.59194C10.1163 2.77921 11.4786 2.81129 12.3337 3.6664C13.1889 4.5216 13.2208 5.88409 12.4078 6.77883L10.6533 8.52712C10.6529 8.52757 10.6524 8.52802 10.652 8.52846C10.0089 9.17407 9.04352 9.36659 8.20202 9.01699C8.20206 9.01699 8.20197 9.01699 8.20202 9.01699C7.92924 8.90373 7.68135 8.7377 7.47289 8.52846C7.3793 8.43454 7.25224 8.38164 7.11965 8.38138C6.98706 8.38113 6.8598 8.43355 6.76586 8.52712C6.71933 8.57346 6.68239 8.62851 6.65714 8.68913C6.6319 8.74975 6.61884 8.81475 6.61871 8.88042C6.61859 8.94609 6.6314 9.01113 6.65642 9.07185C6.68143 9.13256 6.71816 9.18776 6.76451 9.23427C7.06587 9.53674 7.42403 9.77671 7.81835 9.94045C9.03169 10.4445 10.4332 10.165 11.3605 9.23415L13.1279 7.47304C13.1336 7.4674 13.1391 7.46162 13.1445 7.45571C14.3134 6.17372 14.2675 4.18601 13.0408 2.95925C12.4274 2.34587 11.6239 2.02776 10.8133 2.00905Z" />
@@ -1194,6 +1319,7 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>Copy field URL</span>
           </li>
 
+          {/* Edit field description */}
           <li className={styles.colHeaderMenuItem}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M7.875 6C8.28919 6 8.625 5.66419 8.625 5.25C8.625 4.83581 8.28919 4.5 7.875 4.5C7.46081 4.5 7.125 4.83581 7.125 5.25C7.125 5.66419 7.46081 6 7.875 6Z M7.5 7C7.36739 7 7.24021 7.05268 7.14645 7.14645C7.05268 7.24021 7 7.36739 7 7.5C7 7.63261 7.05268 7.75979 7.14645 7.85355C7.24021 7.94732 7.36739 8 7.5 8V11C7.50001 11.1326 7.5527 11.2598 7.64646 11.3535C7.74023 11.4473 7.8674 11.5 8 11.5H8.5C8.63261 11.5 8.75979 11.4473 8.85355 11.3536C8.94732 11.2598 9 11.1326 9 11C9 10.8674 8.94732 10.7402 8.85355 10.6464C8.75979 10.5527 8.63261 10.5 8.5 10.5V7.5C8.49999 7.3674 8.4473 7.24023 8.35354 7.14646C8.25977 7.0527 8.1326 7.00001 8 7H7.5Z M8 1.5C4.41604 1.5 1.5 4.41604 1.5 8C1.5 11.5839 4.41603 14.5 8 14.5C11.5839 14.5 14.5 11.5839 14.5 8C14.5 4.41603 11.5839 1.5 8 1.5ZM8 2.5C11.0435 2.5 13.5 4.95647 13.5 8C13.5 11.0435 11.0435 13.5 8 13.5C4.95647 13.5 2.5 11.0435 2.5 8C2.5 4.95647 4.95647 2.5 8 2.5Z" />
@@ -1201,6 +1327,7 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>Edit field description</span>
           </li>
 
+          {/* Edit field permissions (with Team badge) */}
           <li className={styles.colHeaderMenuItem}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M8 10.25C8.41419 10.25 8.75 9.91419 8.75 9.5C8.75 9.08581 8.41419 8.75 8 8.75C7.58581 8.75 7.25 9.08581 7.25 9.5C7.25 9.91419 7.58581 10.25 8 10.25Z M8 0.5C6.48714 0.5 5.25 1.73714 5.25 3.25V5H3C2.45364 5 2 5.45364 2 6V13C2 13.5464 2.45364 14 3 14H13C13.5464 14 14 13.5464 14 13V6C14 5.45364 13.5464 5 13 5H10.75V3.25C10.75 1.73714 9.51286 0.5 8 0.5ZM8 1.5C8.97242 1.5 9.75 2.27758 9.75 3.25V5H6.25V3.25C6.25 2.27758 7.02758 1.5 8 1.5ZM3 6H13V13H3V6Z" />
@@ -1216,8 +1343,10 @@ export function GridContainer({
             </div>
           </li>
 
+          {/* --- Separator --- */}
           <li className={styles.colHeaderMenuSeparator} />
 
+          {/* Sort A → Z (or 1 → 9 for NUMBER columns) */}
           <li className={styles.colHeaderMenuItem} onClick={() => {
             if (headerMenuColId) {
               onSortByField?.(headerMenuColId, "asc");
@@ -1231,6 +1360,7 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>{headerMenuColId && getColumnById(headerMenuColId)?.type === "NUMBER" ? "1 → 9" : "A → Z"}</span>
           </li>
 
+          {/* Sort Z → A (or 9 → 1 for NUMBER columns) */}
           <li className={styles.colHeaderMenuItem} onClick={() => {
             if (headerMenuColId) {
               onSortByField?.(headerMenuColId, "desc");
@@ -1244,8 +1374,10 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>{headerMenuColId && getColumnById(headerMenuColId)?.type === "NUMBER" ? "9 → 1" : "Z → A"}</span>
           </li>
 
+          {/* --- Separator --- */}
           <li className={styles.colHeaderMenuSeparator} />
 
+          {/* Filter by this field */}
           <li className={styles.colHeaderMenuItem} onClick={() => {
             if (headerMenuColId) {
               onFilterByField?.(headerMenuColId);
@@ -1259,6 +1391,7 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>Filter by this field</span>
           </li>
 
+          {/* Group by this field */}
           <li className={styles.colHeaderMenuItem}>
             <svg className={styles.colHeaderMenuItemIcon} viewBox="0 0 16 16" fill="currentColor" style={{ shapeRendering: "geometricPrecision" }}>
               <path fillRule="nonzero" d="M6 6.5C6 6.91421 5.66421 7.25 5.25 7.25C4.83579 7.25 4.5 6.91421 4.5 6.5C4.5 6.08579 4.83579 5.75 5.25 5.75C5.66421 5.75 6 6.08579 6 6.5Z M7 6.5C7 6.22386 7.22386 6 7.5 6H11C11.2761 6 11.5 6.22386 11.5 6.5C11.5 6.77614 11.2761 7 11 7H7.5C7.22386 7 7 6.77614 7 6.5Z M7.5 9C7.22386 9 7 9.22386 7 9.5C7 9.77614 7.22386 10 7.5 10H11C11.2761 10 11.5 9.77614 11.5 9.5C11.5 9.22386 11.2761 9 11 9H7.5Z M6 9.5C6 9.91421 5.66421 10.25 5.25 10.25C4.83579 10.25 4.5 9.91421 4.5 9.5C4.5 9.08579 4.83579 8.75 5.25 8.75C5.66421 8.75 6 9.08579 6 9.5Z M2.54545 2.5C2.0573 2.5 1.5 2.84588 1.5 3.45455V12.5455C1.5 13.1541 2.0573 13.5 2.54545 13.5H13.4545C13.9427 13.5 14.5 13.1541 14.5 12.5455V3.45455C14.5 2.84588 13.9427 2.5 13.4545 2.5H2.54545ZM2.5 12.4929V3.50706C2.51085 3.50329 2.52597 3.5 2.54545 3.5H13.4545C13.474 3.5 13.4891 3.50329 13.5 3.50706V12.4929C13.4891 12.4967 13.474 12.5 13.4545 12.5H2.54545C2.52597 12.5 2.51085 12.4967 2.5 12.4929Z" />
@@ -1266,8 +1399,10 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>Group by this field</span>
           </li>
 
+          {/* --- Separator --- */}
           <li className={styles.colHeaderMenuSeparator} />
 
+          {/* Hide field (disabled when single field) */}
           <li
             className={`${styles.colHeaderMenuItem}${!canModifyField ? ` ${styles.colHeaderMenuItemDisabled}` : ''}`}
             style={canModifyField ? { cursor: 'pointer' } : { opacity: 0.5, cursor: 'default' }}
@@ -1285,6 +1420,7 @@ export function GridContainer({
             <span className={styles.colHeaderMenuItemText}>Hide field</span>
           </li>
 
+          {/* Delete field (red, disabled when single field) */}
           <li
             className={`${styles.colHeaderMenuItem}${!canModifyField ? ` ${styles.colHeaderMenuItemDisabled}` : ''}`}
             style={canModifyField ? { cursor: 'pointer' } : { opacity: 0.5, cursor: 'default' }}
@@ -1306,6 +1442,7 @@ export function GridContainer({
         document.body,
       )}
 
+      {/* === Create Field Panel (+ button dropdown) / Edit Field === */}
       {createFieldPosition && (
         <CreateFieldPanel
           position={createFieldPosition}
@@ -1320,6 +1457,7 @@ export function GridContainer({
         />
       )}
 
+      {/* === Duplicate Field Dialog (portal overlay) === */}
       {dupFieldDialog && createPortal(
         <div
           className={styles.dupFieldOverlay}
@@ -1371,6 +1509,7 @@ export function GridContainer({
         document.body,
       )}
 
+      {/* === BULK ADD ROWS — Floating Footer Pill === */}
       <div
         className={`${styles.bulkAddPill}${isBulkAdding ? ` ${styles.bulkAddPillLoading}` : ""}`}
         style={{ '--pill-base-color': baseColor } as React.CSSProperties}
@@ -1386,17 +1525,20 @@ export function GridContainer({
           </>
         ) : (
           <>
+            {/* + icon — grey by default, base color on hover (via CSS) */}
             <svg className={styles.bulkAddPillIcon} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <line x1="8" y1="3" x2="8" y2="13" />
               <line x1="3" y1="8" x2="13" y2="8" />
             </svg>
             <span className={styles.bulkAddPillDivider} />
             <span>100,000 rows</span>
+            {/* Tooltip */}
             <span className={styles.bulkAddTooltip}>Generate 100,000 rows of sample data</span>
           </>
         )}
       </div>
 
+      {/* === BULK ADD ROWS — Confirmation Dialog (portal) === */}
       {showBulkAddDialog && createPortal(
         <div
           className={styles.bulkAddOverlay}
@@ -1405,6 +1547,7 @@ export function GridContainer({
           }}
         >
           <div className={styles.bulkAddDialog}>
+            {/* Close X */}
             <button
               type="button"
               className={styles.bulkAddCloseBtn}
@@ -1415,8 +1558,10 @@ export function GridContainer({
               </svg>
             </button>
 
+            {/* Title */}
             <h2 className={styles.bulkAddTitle}>Add 100,000 records</h2>
 
+            {/* Description */}
             <p className={styles.bulkAddDescription}>
               This will generate{" "}
               <span
@@ -1428,6 +1573,7 @@ export function GridContainer({
               of records populated with sample data in this table. This may take a moment depending on table size.
             </p>
 
+            {/* Action buttons */}
             <div className={styles.bulkAddActions}>
               <button
                 type="button"

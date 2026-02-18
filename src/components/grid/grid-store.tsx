@@ -6,12 +6,15 @@ import { useStore } from "zustand";
 import type { StoreApi } from "zustand/vanilla";
 import { configFingerprint, defaultViewConfig, type ViewConfig, type Filter, type Sort, type FilterTree, type RowHeightPreset } from "~/shared/grid";
 
+// re-export for convenience
 export type { Sort };
 
 type CellKey = { rowId: string; columnId: string };
 
+/** Find current match can include which occurrence within a cell is selected (0-based). */
 export type FindCurrentMatch = CellKey & { occurrenceIndex?: number };
 
+/** UI-only filter condition (richer than the backend Filter type). */
 export type FilterConditionUI = {
   id: string;
   columnId: string;
@@ -38,19 +41,35 @@ type GridState = {
   savedFilterConjunction: "and" | "or";
   savedFilterTree: FilterTree | undefined;
 
+  // ── Sort state ──────────────────────────────────────────────
+  // `sorts` = the entries currently shown in the sort panel.
+  //   - When autoSort=true these also drive the live query + orange indicators.
+  //   - When autoSort=false these are staged; they don't affect the query
+  //     until the user clicks the "Sort" button.
   sorts: Sort[];
+  // `savedSorts` = baseline copy used *only* for fingerprint stability so that
+  //   changing sorts (autoSort=true) doesn't mark the view as dirty.
   savedSorts: Sort[];
+  // `permanentSorts` = the sort params applied when autoSort=false. Stored in
+  //   the view config and used as the ORDER BY when autoSort is off.
   permanentSorts: Sort[];
+  // `autoSort` = toggle state (persisted in view config).
   autoSort: boolean;
+  // `ranksComputing` = true while computeViewRanks is in-flight.
+  //   Used as a UI indicator (e.g. "Sorting..." in the toolbar).
+  //   permanentSorts is NOT set until ranks are ready (onSuccess),
+  //   so the query stays on its current path during computation.
   ranksComputing: boolean;
 
   hiddenColumnIds: string[];
   columnOrderIds: string[];
   rowOrderIds: string[];
 
+  // Row height / wrap headers (per-view, auto-saved)
   rowHeightPreset: RowHeightPreset;
   wrapHeaders: boolean;
 
+  /** Frontend-only filter conditions for the FilterPanel UI. */
   filterConditions: FilterConditionUI[];
   setFilterConditions: (v: FilterConditionUI[]) => void;
 
@@ -58,7 +77,9 @@ type GridState = {
   editingCell: CellKey | null;
   editorValue: string;
 
+  /** The cell that is the "current" find match (highlighted with #FFD66B). */
   findCurrentMatch: FindCurrentMatch | null;
+  /** Client-side delta added to server match count when user edits cells (e.g. add/remove search string). */
   findCountDelta: number;
 
   initializeFromView: (viewId: string, config: ViewConfig) => void;
@@ -101,7 +122,7 @@ function fingerprintFromParts(
   s: Pick<GridState, "savedFilters" | "savedFilterConjunction" | "savedFilterTree" | "savedSorts" | "autoSort" | "permanentSorts" | "hiddenColumnIds" | "columnOrderIds" | "rowOrderIds">,
 ) {
   return configFingerprint({
-    search: "",
+    search: "",  // Search is ephemeral — excluded from dirty tracking
     filters: s.savedFilters,
     filterConjunction: s.savedFilterConjunction,
     filterTree: s.savedFilterTree,
@@ -110,6 +131,7 @@ function fingerprintFromParts(
     autoSort: s.autoSort,
     hiddenColumnIds: s.hiddenColumnIds,
     columnOrderIds: s.columnOrderIds,
+    // rowHeightPreset and wrapHeaders are auto-saved; excluded from dirty tracking
     rowHeightPreset: "short",
     wrapHeaders: false,
     rowOrderIds: s.rowOrderIds,
@@ -159,6 +181,7 @@ export function createGridStore(tableId: string) {
     initializeFromView: (viewId, cfg) => {
       const fp2 = configFingerprint(cfg);
 
+      // Convert saved Filter[] → FilterConditionUI[] so FilterPanel shows correct state
       const restoredConditions: FilterConditionUI[] = cfg.filters.map((f, idx) => ({
         id: `restored-${idx}-${Date.now()}`,
         columnId: f.columnId,
@@ -167,8 +190,13 @@ export function createGridStore(tableId: string) {
         conjunction: cfg.filterConjunction,
       }));
 
+      // Restore autoSort from config (persisted toggle state)
       const restoredAutoSort = cfg.autoSort;
 
+      // Restore sort panel entries:
+      // - If autoSort=true: use cfg.sorts (the auto-saved temp sorts)
+      // - If autoSort=false AND no saved temp sorts: seed from permanentSorts
+      //   so the panel shows what's currently applied
       const restoredSorts =
         cfg.sorts.length > 0
           ? cfg.sorts
@@ -182,7 +210,7 @@ export function createGridStore(tableId: string) {
         savedFingerprint: fp2,
         fingerprint: fp2,
 
-        search: "",
+        search: "",  // Search is ephemeral — never restored from saved config
         filters: cfg.filters,
         filterConjunction: cfg.filterConjunction,
         filterTree: cfg.filterTree,
@@ -213,8 +241,11 @@ export function createGridStore(tableId: string) {
       set((s) => ({
         ...s,
         search,
+        // Search is ephemeral — no fingerprint update (doesn't make view "dirty")
       })),
 
+    // Filters are always temporary (like autoSort for sorts).
+    // Changing them does NOT recalculate the fingerprint → no dirty flag.
     setFilters: (filters) => set((s) => ({ ...s, filters })),
 
     setFilterConjunction: (filterConjunction) =>
@@ -330,6 +361,7 @@ export function useGridStore<T>(selector: (s: GridState) => T): T {
   return useStore(store, selector);
 }
 
+/** Return the raw Zustand store API (for .getState() in event handlers). */
 export function useGridStoreApi(): StoreApi<GridState> {
   const store = useContext(Ctx);
   if (!store) throw new Error("useGridStoreApi must be used within GridStoreProvider");

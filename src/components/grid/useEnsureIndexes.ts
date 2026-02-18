@@ -4,8 +4,9 @@ import { useEffect, useRef } from "react";
 import { api } from "~/trpc/react";
 import { useGridStore } from "./grid-store";
 
-// Ensure DB indexes exist for sorted columns (deduplicated, fire-and-forget)
+
 export function useEnsureIndexes(tableId: string) {
+  // Only ensure indexes for sorts that are actually applied to the query
   const effectiveSorts = useGridStore((s) => s.autoSort ? s.sorts : s.savedSorts);
 
   const ensure = api.column.ensureIndexes.useMutation();
