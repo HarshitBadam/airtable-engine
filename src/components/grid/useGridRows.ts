@@ -190,6 +190,14 @@ export function useGridRows(tableId: string) {
   //    the infinite query pages (after a refetch).  Without this, a row
   //    added via "+" sits at position `totalCount` in the jump cache AND
   //    at its sorted position in `rows`, causing duplicate rendering.
+  //
+  //    IMPORTANT: We only remove the row from the jump cache here — we do
+  //    NOT clear its protected status.  Protection must be released
+  //    exclusively by handleCellMembershipChange when the user commits a
+  //    cell on a conditioned column (sort/filter field).  Clearing
+  //    protection here would defeat the grace period for insert-above/below
+  //    rows, because the optimistic splice into `rows` triggers this effect
+  //    immediately — before the user has edited anything.
   useEffect(() => {
     if (q.isPlaceholderData) return; // wait for fresh data
     const protIds = protectedRowIdsRef.current;
@@ -202,11 +210,7 @@ export function useGridRows(tableId: string) {
     }
     if (idsToRemove.length === 0) return;
 
-    // Unprotect and remove from jump cache
-    const nextProt = new Set(protIds);
-    for (const id of idsToRemove) nextProt.delete(id);
-    protectedRowIdsRef.current = nextProt;
-
+    // Only remove from jump cache (dedup) — do NOT clear protection.
     setJumpCache((prev) => {
       let changed = false;
       const next = new Map(prev);

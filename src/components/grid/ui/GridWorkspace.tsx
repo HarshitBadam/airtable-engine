@@ -1530,6 +1530,9 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
 
     // Clip the overlay at the freeze bar for non-frozen cells so it doesn't
     // paint over the frozen columns when scrolled partially behind them.
+    // Use negative insets for top/right/bottom so the fill handle (which
+    // extends ~5px outside the overlay via right:-5px; bottom:-5px) is not
+    // clipped.  Only the left edge is clamped at the freeze boundary.
     if (!isFrozen && frozenCount > 0) {
       const fw = freezeWidthRef.current;
       const freezeEdgeContent = scrollLeft + fw;
@@ -1537,7 +1540,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       if (clipLeft >= overlayWidth) {
         overlay.style.display = "none";
       } else if (clipLeft > 0) {
-        overlay.style.clipPath = `inset(0 0 0 ${clipLeft}px)`;
+        overlay.style.clipPath = `inset(-6px -6px -6px ${clipLeft}px)`;
       } else {
         overlay.style.clipPath = "";
       }
@@ -1681,6 +1684,37 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   useEffect(() => {
     updateSelectionOverlay();
   }, [activeCell, editingCell, columnWidths, frozenColCount, visibleColumns, rows, updateSelectionOverlay]);
+
+  // ── Stale active-cell recovery ──
+  // When the active cell's row disappears (e.g. filtered out after editing a
+  // filter column, or deleted by another tab), move the selection to the last
+  // visible row.  Without this the blue box sits on the empty "add row" slab.
+  useEffect(() => {
+    if (!activeCell) return;
+
+    // Check if the active cell row still exists in infinite pages
+    if (rows.some((r) => r.id === activeCell.rowId)) return;
+
+    // Check jump cache — but only entries at valid positions (< totalCount).
+    // After a filter-out, the row may still be in the jump cache at a stale
+    // position that is now >= totalCount.  Those entries are out-of-range and
+    // should NOT prevent recovery.
+    for (const [pos, item] of jumpCacheRef.current.entries()) {
+      if (item.id === activeCell.rowId && pos < totalCount) return;
+    }
+
+    // Row no longer exists or is out of range — move to the last visible row
+    if (totalCount > 0) {
+      const lastIdx = totalCount - 1;
+      const lastRow = getRowAtIndex(lastIdx);
+      if (lastRow) {
+        setActiveCell({ rowId: lastRow.id, columnId: activeCell.columnId });
+        return;
+      }
+    }
+    // No rows left — clear
+    clearSelection();
+  }, [activeCell, rows, totalCount, getRowAtIndex, setActiveCell, clearSelection]);
 
   // Compute freeze snap positions (one per column boundary, using actual widths)
   // Freeze bar can go from right edge of row-num col to the left edge of the
@@ -2598,26 +2632,40 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         //    so the virtualizer knows there's one more row to render.
         //    Without this, scrollHeight doesn't include the new row and it
         //    becomes a "ghost" (data in cache but outside the render range).
+        //    IMPORTANT: preserve all existing pages — truncating to page 0
+        //    throws away loaded data and causes skeleton flashes.
         utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
           if (!old?.pages?.length) return old;
           return {
-            pages: old.pages.slice(0, 1).map((page) => ({
-              ...page,
-              totalCount: page.totalCount + 1,
-            })),
-            pageParams: old.pageParams.slice(0, 1),
-          } as typeof old;
+            ...old,
+            pages: old.pages.map((page, i) =>
+              i === 0 ? { ...page, totalCount: page.totalCount + 1 } : page,
+            ),
+          };
         });
 
         // 3. Mark the row as protected BEFORE any background refetch so that
         //    the jump cache protection is in place when the server responds.
         addProtectedRowId(newRow.id);
 
-        // 4. Background invalidate to sync with the server's authoritative
-        //    totalCount. This is non-urgent — the optimistic count is correct.
-        //    The jump cache protection (set above) prevents the new row from
-        //    being overwritten by server-sorted data during the refetch.
-        void utils.row.infinite.invalidate();
+        // 4. Conditionally invalidate.
+        //    When sorts or filters are active, do NOT invalidate — same as
+        //    handleInsertAt.  The new empty row won't match most filters and
+        //    would sort to NULLS FIRST, so a refetch would either (a) drop
+        //    the row from the result (filter → row vanishes) or (b) place it
+        //    at the wrong position (sort → skeleton flash).  The row stays
+        //    protected in the jump cache at the end; handleCellMembershipChange
+        //    handles the deferred invalidation once the user commits a value
+        //    in a conditioned column.
+        //
+        //    When no sorts/filters are active, we CAN safely invalidate to
+        //    sync the server's authoritative totalCount.
+        const store = gridStoreApi.getState();
+        const hasActiveSorts = (store.autoSort && store.sorts.length > 0) || store.permanentSorts.length > 0;
+        const hasActiveFilters = store.filters.length > 0 || !!store.filterTree;
+        if (!hasActiveSorts && !hasActiveFilters) {
+          void utils.row.infinite.invalidate();
+        }
 
         // 5. Scroll to the bottom. The new row is already in the jump cache
         //    and totalCount is incremented, so the virtualizer renders it.
@@ -2640,7 +2688,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         console.error("[handleAddRow] insertAt failed:", err.message);
       },
     });
-  }, [isValidTable, tableId, insertAtMut, utils, rowQueryInput, totalCount, addToJumpCache, addProtectedRowId, setActiveCell, startEditing]);
+  }, [isValidTable, tableId, insertAtMut, utils, rowQueryInput, totalCount, addToJumpCache, addProtectedRowId, setActiveCell, startEditing, gridStoreApi]);
 
   // === BULK ADD 100k ROWS ===
   const [isBulkAdding, setIsBulkAdding] = useState(false);
