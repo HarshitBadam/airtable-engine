@@ -1435,12 +1435,16 @@ export const rowRouter = createTRPCRouter({
       const count = input.count;
 
       // ── Step 1: Reserve the rowIndex range (fast, in transaction) ──
+      // IMPORTANT: Only increment nextRowIndex here, NOT rowCount.
+      // rowCount is incremented after batches succeed (Step 3) so that a
+      // failed batch on Vercel (timeout / connection drop) can never leave
+      // rowCount higher than the actual number of rows — which would cause
+      // permanent ghost/skeleton rows at the end of the table.
       const updated = await ctx.db.$transaction(async (tx) => {
         const t = await tx.table.update({
           where: { id: input.tableId },
           data: {
             nextRowIndex: { increment: count },
-            rowCount: { increment: count },
           },
           select: { nextRowIndex: true },
         });
@@ -1637,19 +1641,58 @@ export const rowRouter = createTRPCRouter({
         insertedCount += batchCount;
       }
       } catch (err) {
-        // Compensate: roll back counters to match the rows actually inserted.
-        // This prevents counter drift when a batch fails partway through.
+        // Compensate: roll back nextRowIndex for the rows that weren't inserted.
+        // rowCount was NOT pre-incremented, so no rowCount drift is possible.
         const missed = count - insertedCount;
         if (missed > 0) {
-          await ctx.db.table.update({
-            where: { id: input.tableId },
-            data: {
-              nextRowIndex: { decrement: missed },
-              rowCount: { decrement: missed },
-            },
-          });
+          try {
+            await ctx.db.table.update({
+              where: { id: input.tableId },
+              data: {
+                nextRowIndex: { decrement: missed },
+              },
+            });
+          } catch {
+            // If even the compensation fails (connection dead), nextRowIndex
+            // is slightly too high — harmless (just a gap in row indices).
+            // rowCount is still correct because we haven't touched it yet.
+          }
         }
+
+        // Even on failure, reconcile rowCount with the actual row count so
+        // any partially inserted rows are reflected correctly.
+        try {
+          const [actual] = await ctx.db.$queryRawUnsafe<{ cnt: number }[]>(
+            `SELECT COUNT(*)::int AS cnt FROM "Row" WHERE "tableId" = $1`,
+            input.tableId,
+          );
+          if (actual) {
+            await ctx.db.table.update({
+              where: { id: input.tableId },
+              data: { rowCount: actual.cnt },
+            });
+          }
+        } catch {
+          // Best-effort reconciliation — if this fails too, the counter
+          // may be slightly off but at least it won't be wildly inflated.
+        }
+
         throw err;
+      }
+
+      // ── Step 3: Reconcile rowCount with the actual number of rows ──
+      // Using COUNT(*) is the source of truth — eliminates any possible
+      // drift from partial failures, race conditions, or prior bugs.
+      // Cost: ~10-30ms for 300K rows with the tableId index.
+      const [actual] = await ctx.db.$queryRawUnsafe<{ cnt: number }[]>(
+        `SELECT COUNT(*)::int AS cnt FROM "Row" WHERE "tableId" = $1`,
+        input.tableId,
+      );
+      if (actual) {
+        await ctx.db.table.update({
+          where: { id: input.tableId },
+          data: { rowCount: actual.cnt },
+        });
       }
 
       return { startRowIndex, count };
