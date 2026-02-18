@@ -533,15 +533,33 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
     // conditioned column and the reorder will place it at its correct position.
     removeProtectedRowId(rowId);
 
-    // ── Tier 1A: Client-side reorder within loaded infinite pages ──
-    utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
-      if (!old) return old;
-      const { data: reordered } = reorderRowInCache(old, rowId, sorts, colTypes);
-      return reordered as typeof old;
-    });
+    // Check whether the row lives in the loaded infinite pages or only in
+    // the jump cache.  This determines the reorder strategy below.
+    const isInInfinitePages = rowsRef.current.some(
+      (r) => (r as RowItem).id === rowId,
+    );
+
+    if (isInInfinitePages) {
+      // ── Tier 1A: Client-side reorder within loaded infinite pages ──
+      // Instant visual feedback — binary search + splice.
+      utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
+        if (!old) return old;
+        const { data: reordered } = reorderRowInCache(old, rowId, sorts, colTypes);
+        return reordered as typeof old;
+      });
+    }
 
     // ── Tier 1B: Client-side reorder within jump cache ──
-    const jumpResult = reorderJumpCacheRow(rowId, sorts, colTypes);
+    // Only attempt for rows in infinite pages (where it repositions within
+    // the loaded window).  For rows that live ONLY in the jump cache
+    // (e.g. added via "+"), the reorder would evict the row (it sorts
+    // outside the tiny window), leaving the position empty → skeleton flash.
+    // Better to keep the stale data visible and let the server refetch
+    // place the row correctly.
+    let jumpResult: "moved" | "evicted" | "skipped" = "skipped";
+    if (isInInfinitePages) {
+      jumpResult = reorderJumpCacheRow(rowId, sorts, colTypes);
+    }
 
     // ── Tier 2: Server confirmation — always for infinite pages ──
     void utils.row.infinite.invalidate(rowQueryInput);

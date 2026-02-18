@@ -123,10 +123,11 @@ export const baseRouter = createTRPCRouter({
         return { base, table, cols };
       }, { timeout: 30_000 });
 
-      // Build sort indexes for all 5 seed columns (outside transaction).
-      // On 25 rows this is <50ms total and means sorts are instant from
-      // the start — no cold-start index build on first sort.
-      await Promise.all(
+      // Build sort indexes for all 5 seed columns in the background.
+      // Fire-and-forget: don't block the response.  On-demand ensureSortIndex
+      // in row.infinite/windowFetch covers the user if they sort before this
+      // completes.  Eliminates ~1-1.5s from base creation latency.
+      void Promise.all(
         result.cols.map((c) =>
           ensureSortIndex(ctx.db, result.table.id, c.id, c.type as "TEXT" | "NUMBER"),
         ),

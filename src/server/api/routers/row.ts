@@ -1464,19 +1464,15 @@ export const rowRouter = createTRPCRouter({
       // grows.  The win: sorts are always instant afterwards — no
       // cold-start index build that scales linearly with table size.
       //
-      // If any batch fails, we retry up to MAX_RETRIES times with
-      // verification of how many rows actually landed.  If all retries
-      // are exhausted, we compensate by rolling back the counters to
-      // match the number of rows actually inserted, preventing drift.
+      // If any batch fails, we compensate by rolling back the counters
+      // to match the number of rows actually inserted, preventing drift.
 
-      const INSERT_BATCH = 100_000;
-      const MAX_RETRIES = 3;
-      const RETRY_BASE_MS = 500;
+      const INSERT_BATCH = 10_000;
       let insertedCount = 0;
       try {
       for (let offset = 0; offset < count; offset += INSERT_BATCH) {
-        let batchCount = Math.min(INSERT_BATCH, count - offset);
-        let batchStart = startRowIndex + offset;
+        const batchCount = Math.min(INSERT_BATCH, count - offset);
+        const batchStart = startRowIndex + offset;
 
         // Build jsonb_build_object per batch (batchStart changes each iteration).
         // Use column names to pick realistic SQL array-cycling expressions.
@@ -1627,56 +1623,18 @@ export const rowRouter = createTRPCRouter({
           ? searchParts.join(` || chr(31) || `)
           : `''::text`;
 
-        // ── Retry loop with verification ──
-        // If the INSERT fails (Neon timeout, cold start, network blip),
-        // check how many rows actually landed and retry the remainder.
-        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-          try {
-            await ctx.db.$executeRawUnsafe(`
-              INSERT INTO "Row" ("tableId", "rowIndex", "cells", "searchText", "createdAt", "updatedAt")
-              SELECT
-                '${tableIdEscaped}',
-                ${batchStart} + gs,
-                ${cellsExpr},
-                ${searchExpr},
-                now(),
-                now()
-              FROM generate_series(0, ${batchCount - 1}) AS gs
-            `);
-            insertedCount += batchCount;
-            break; // success — exit retry loop
-          } catch (err) {
-            // Check how many rows actually made it into the DB
-            const verifyRes = await ctx.db.$queryRawUnsafe<{ cnt: number }[]>(
-              `SELECT COUNT(*)::int AS cnt FROM "Row"
-               WHERE "tableId" = $1 AND "rowIndex" >= $2 AND "rowIndex" < $3`,
-              input.tableId,
-              batchStart,
-              batchStart + batchCount,
-            );
-            const landed = Number(verifyRes[0]?.cnt ?? 0);
-
-            if (landed === batchCount) {
-              // All rows landed despite the error (e.g. timeout after commit)
-              insertedCount += batchCount;
-              break;
-            }
-
-            if (attempt === MAX_RETRIES) {
-              // Exhausted retries — account for what landed and throw
-              insertedCount += landed;
-              throw err;
-            }
-
-            // Adjust batch to retry only the missing rows
-            insertedCount += landed;
-            batchStart += landed;
-            batchCount -= landed;
-
-            // Exponential backoff before retry
-            await new Promise((r) => setTimeout(r, RETRY_BASE_MS * (attempt + 1)));
-          }
-        }
+        await ctx.db.$executeRawUnsafe(`
+          INSERT INTO "Row" ("tableId", "rowIndex", "cells", "searchText", "createdAt", "updatedAt")
+          SELECT
+            '${tableIdEscaped}',
+            ${batchStart} + gs,
+            ${cellsExpr},
+            ${searchExpr},
+            now(),
+            now()
+          FROM generate_series(0, ${batchCount - 1}) AS gs
+        `);
+        insertedCount += batchCount;
       }
       } catch (err) {
         // Compensate: roll back counters to match the rows actually inserted.
