@@ -826,6 +826,75 @@ async function validateAndResolveSorts(
   return resolved;
 }
 
+/**
+ * Validate and resolve filter columns, mirroring validateAndResolveSorts.
+ *
+ * 1. Every filter column must belong to `tableId`.
+ * 2. If a column still has `sourceColumnId` set (backfill in progress),
+ *    the filter is redirected to the source column — values are identical,
+ *    and the source column has actual cell data.
+ *
+ * Mutates `filters` and `filterTree` IN-PLACE (columnId swaps) so the
+ * caller's buildFilterSql / buildFilterTreeSql calls use the resolved IDs.
+ *
+ * Returns true if any redirects were applied (caller may need this info).
+ */
+async function validateAndResolveFilters(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  filters: FilterInput[],
+  filterTree: FilterTree | undefined,
+  useTree: boolean,
+  tableId: string,
+): Promise<boolean> {
+  const colIdsToValidate: string[] = useTree && filterTree
+    ? extractColumnIds(filterTree)
+    : filters.map((f) => f.columnId);
+  const uniqueColIds = [...new Set(colIdsToValidate)];
+
+  if (uniqueColIds.length === 0) return false;
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+  const cols = await db.column.findMany({
+    where: { id: { in: uniqueColIds }, tableId },
+    select: { id: true, sourceColumnId: true },
+  }) as { id: string; sourceColumnId: string | null }[];
+
+  if (cols.length !== uniqueColIds.length) {
+    throw new Error("Invalid filter column");
+  }
+
+  const redirectMap = new Map<string, string>();
+  for (const c of cols) {
+    if (c.sourceColumnId) redirectMap.set(c.id, c.sourceColumnId);
+  }
+
+  if (redirectMap.size === 0) return false;
+
+  // Redirect flat filters
+  for (const f of filters) {
+    const redirect = redirectMap.get(f.columnId);
+    if (redirect) (f as { columnId: string }).columnId = redirect;
+  }
+
+  // Redirect filter tree conditions
+  if (useTree && filterTree) {
+    const walkAndRedirect = (items: FilterTreeItem[]) => {
+      for (const item of items) {
+        if (item.kind === "condition") {
+          const redirect = redirectMap.get(item.columnId);
+          if (redirect) (item as { columnId: string }).columnId = redirect;
+        } else {
+          walkAndRedirect(item.items);
+        }
+      }
+    };
+    walkAndRedirect(filterTree.items);
+  }
+
+  return true;
+}
+
 // ===========================================================================
 // Router
 // ===========================================================================
@@ -913,23 +982,9 @@ export const rowRouter = createTRPCRouter({
       // source column, and ensure sort indexes exist.
       sorts = await validateAndResolveSorts(ctx.db, sorts, input.tableId, true);
 
-      // Validate filter columnIds belong to this table (required before literal injection)
-      {
-        const colIdsToValidate: string[] = useTree
-          ? extractColumnIds(filterTree)
-          : filters.map((f) => f.columnId);
-        const uniqueColIds = [...new Set(colIdsToValidate)];
-
-        if (uniqueColIds.length > 0) {
-          const count = await ctx.db.column.count({
-            where: { tableId: input.tableId, id: { in: uniqueColIds } },
-          });
-
-          if (count !== uniqueColIds.length) {
-            throw new Error("Invalid filter column");
-          }
-        }
-      }
+      // Validate filter columns and redirect unbackfilled duplicates to
+      // their source column (mirrors sort redirect above).
+      await validateAndResolveFilters(ctx.db, filters, filterTree, !!useTree, input.tableId);
 
       const take = input.limit + 1;
       const isSorted = sorts.length > 0;
@@ -2284,19 +2339,8 @@ export const rowRouter = createTRPCRouter({
       // Validate sort columns, redirect unbackfilled duplicates, ensure indexes.
       sorts = await validateAndResolveSorts(ctx.db, sorts, input.tableId, true);
 
-      // Validate filter columns
-      {
-        const colIdsToValidate: string[] = useTree
-          ? extractColumnIds(filterTree)
-          : filters.map((f) => f.columnId);
-        const uniqueColIds = [...new Set(colIdsToValidate)];
-        if (uniqueColIds.length > 0) {
-          const count = await ctx.db.column.count({
-            where: { tableId: input.tableId, id: { in: uniqueColIds } },
-          });
-          if (count !== uniqueColIds.length) throw new Error("Invalid filter column");
-        }
-      }
+      // Validate filter columns and redirect unbackfilled duplicates.
+      await validateAndResolveFilters(ctx.db, filters, filterTree, !!useTree, input.tableId);
 
       // ── TIER 2: Saved view with fresh ViewRowRank → O(limit) fetch ──
       // Only for sort-only (no filters/search).  Sort+filter stays on Tier 3
@@ -2601,6 +2645,9 @@ export const rowRouter = createTRPCRouter({
       const filterTree = input.filterTree;
       const useTree = filterTree && filterTreeHasConditions(filterTree);
 
+      // Redirect unbackfilled duplicate filter columns to their source.
+      await validateAndResolveFilters(ctx.db, filters, filterTree, !!useTree, input.tableId);
+
       // $1 = searchLower, $2 = tableId, $3 = ILIKE pattern, $4+ = filter params.
       // searchLower MUST be in the params array so that buildFilterSql/buildFilterTreeSql
       // generate correct $N references (they use params.length after each push).
@@ -2671,6 +2718,9 @@ export const rowRouter = createTRPCRouter({
       const conjunction = input.conjunction;
       const filterTree = input.filterTree;
       const useTree = filterTree && filterTreeHasConditions(filterTree);
+
+      // Redirect unbackfilled duplicate filter columns to their source.
+      await validateAndResolveFilters(ctx.db, filters, filterTree, !!useTree, input.tableId);
 
       // ── Q1: Find the edge match row (LIMIT 1) ───────────────────────
       const q1Params: SqlParam[] = [input.tableId, `%${escaped}%`];
@@ -2891,6 +2941,9 @@ export const rowRouter = createTRPCRouter({
       const conjunction = input.conjunction;
       const filterTree = input.filterTree;
       const useTree = filterTree && filterTreeHasConditions(filterTree);
+
+      // Redirect unbackfilled duplicate filter columns to their source.
+      await validateAndResolveFilters(ctx.db, filters, filterTree, !!useTree, input.tableId);
 
       // ── Query 1: Find the target match row ────────────────────────
       // Only scans ILIKE-matching rows (much fewer than total), so it's fast.

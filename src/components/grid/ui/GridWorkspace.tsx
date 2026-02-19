@@ -1423,12 +1423,21 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       // Key doesn't exist at all — check if this column has a fallback:
       const col = orderedColumns.find((c) => c.id === columnId);
 
-      // 1. Duplication: show source column's value (sourceColumnId is stored in DB)
+      // 1. Duplication: follow the sourceColumnId chain (handles cascading
+      //    duplicates, e.g. C duplicated from B duplicated from A).
+      //    Cap at 10 to match the server-side chain resolution in column.backfill.
       if (col?.sourceColumnId) {
-        const srcVal = record[col.sourceColumnId];
-        if (srcVal !== null && srcVal !== undefined) {
-          if (typeof srcVal === "object") return JSON.stringify(srcVal);
-          return typeof srcVal === "string" ? srcVal : String(srcVal as number | boolean | bigint | symbol);
+        let srcId: string | null | undefined = col.sourceColumnId;
+        for (let depth = 0; depth < 10 && srcId; depth++) {
+          const srcVal = record[srcId];
+          if (srcVal !== null && srcVal !== undefined) {
+            if (typeof srcVal === "object") return JSON.stringify(srcVal);
+            return typeof srcVal === "string" ? srcVal : String(srcVal as number | boolean | bigint | symbol);
+          }
+          // Source cell also empty — follow ITS sourceColumnId if it's
+          // also an unbackfilled duplicate.
+          const srcCol = orderedColumns.find((c) => c.id === srcId);
+          srcId = srcCol?.sourceColumnId;
         }
       }
 
@@ -2409,27 +2418,56 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   // Background backfill — writes default/source values to row cells.
   // Runs AFTER column.create returns so the column appears instantly.
   // getCellValue resolves values at render time while this runs.
+  //
+  // Retry map: columnId → attempt count.  The backfill SQL is idempotent
+  // (existing-wins merge) so retries are safe.  Prevents zombie columns
+  // when Vercel serverless functions timeout mid-backfill.
+  const backfillRetries = useRef<Map<string, number>>(new Map());
+  const BACKFILL_MAX_RETRIES = 2;
+
   const backfillMut = api.column.backfill.useMutation({
     onSuccess: (_data, vars) => {
+      backfillRetries.current.delete(vars.columnId);
+
       // Backfill complete — remove from backfilling set
       setBackfillingColumnIds((prev) => {
         const next = new Set(prev);
         next.delete(vars.columnId);
         return next;
       });
-      // Refresh rows to pick up the persisted backfilled data.
-      // Do NOT invalidate column.list here — the column refetch is tiny
-      // and completes before the row refetch, clearing sourceColumnId
-      // while row data is still stale, causing a flash of empty cells.
-      // The stale sourceColumnId is harmless (getCellValue falls back to
-      // source, which has identical data) and gets cleared on the next
-      // natural column refetch (window focus, navigation, etc.).
+      // Refresh rows to pick up the persisted backfilled data,
+      // then clear the stale sourceColumnId in the column cache.
+      //
+      // Order matters: rows must arrive BEFORE sourceColumnId is cleared.
+      // Otherwise getCellValue finds no cell AND no fallback → flash of
+      // empty cells.  Chaining on the invalidate promise guarantees the
+      // row refetch has settled before we touch the column cache.
       refreshRows();
       void utils.view.list.invalidate({ tableId });
+
+      utils.row.infinite.invalidate().then(() => {
+        utils.column.list.setData({ tableId }, (old) => {
+          if (!old) return old;
+          return old.map((c) =>
+            c.id === vars.columnId ? { ...c, sourceColumnId: null } : c,
+          );
+        });
+      });
     },
     onError: (err, vars) => {
-      console.error("[backfill] failed for column", vars.columnId, err);
-      // Clear loading state so UI isn't stuck
+      const attempt = backfillRetries.current.get(vars.columnId) ?? 0;
+
+      if (attempt < BACKFILL_MAX_RETRIES) {
+        // Retry — the SQL is idempotent, picks up where it left off.
+        console.warn(`[backfill] attempt ${attempt + 1} failed for ${vars.columnId}, retrying...`, err);
+        backfillRetries.current.set(vars.columnId, attempt + 1);
+        backfillMut.mutate(vars);
+        return;
+      }
+
+      // Final failure after retries
+      console.error("[backfill] failed after retries for column", vars.columnId, err);
+      backfillRetries.current.delete(vars.columnId);
       setBackfillingColumnIds((prev) => {
         const next = new Set(prev);
         next.delete(vars.columnId);

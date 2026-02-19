@@ -266,28 +266,11 @@ export const columnRouter = createTRPCRouter({
         `[column.backfill] Duplication: ${total} rows (source resolved to ${resolvedSrcId}) for ${input.columnId}`,
       );
 
-      // Build the sort index proactively so the user's first sort on
-      // the new column is instant (<1ms) instead of a 3-8s cold build.
-      // While sourceColumnId was set, sorts redirected to the source
-      // column's index.  Now that cells are copied, build the real one.
-      const col = await ctx.db.column.findFirst({
-        where: { id: input.columnId },
-        select: { type: true },
-      });
-      if (col) {
-        try {
-          await ensureSortIndex(
-            ctx.db,
-            input.tableId,
-            input.columnId,
-            col.type as "TEXT" | "NUMBER",
-          );
-        } catch (e) {
-          // Non-critical: if index build fails, it'll be built lazily
-          // on the user's first sort via ensureSortIndex in row.ts.
-          console.error("[column.backfill] Proactive index build failed:", e);
-        }
-      }
+      // Sort index is built lazily on the user's first sort via
+      // ensureSortIndex in row.ts (3-8s one-time cost).  Deferring it
+      // here cuts backfill time roughly in half for large tables and
+      // avoids Vercel serverless function timeouts.  During the backfill
+      // window, sorts redirect to the source column's existing index.
 
       // Clear sourceColumnId — getCellValue and sort-redirect no longer
       // need the fallback.
