@@ -176,6 +176,15 @@ export function useCellEditing(
         onMembershipChange?.(vars.rowId, vars.columnId, vars.value);
       }
     },
+
+    onSettled: () => {
+      // Always invalidate after the mutation settles (success or error).
+      // This guarantees the cache reflects the server state even if a
+      // concurrent operation (e.g. backfill completion's refreshRows)
+      // triggered a refetch that returned data from before this edit
+      // was committed — overwriting the optimistic update.
+      void utils.row.infinite.invalidate(rowQueryInput);
+    },
   });
 
   return {

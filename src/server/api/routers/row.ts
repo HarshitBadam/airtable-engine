@@ -789,16 +789,45 @@ async function validateAndResolveSorts(
     if (col.type !== sort.type) throw new Error("Sort type mismatch");
   }
 
-  // Redirect unbackfilled duplicates to their source column
+  // Redirect unbackfilled duplicates to their source column.
+  // Chain-resolve: if A→B→C (cascading duplicates), follow the chain
+  // to the column that has actual cell data (up to 10 levels, matching
+  // the server-side chain resolution in column.backfill).
   const hasRedirects = cols.some((c) => c.sourceColumnId);
-  const resolved = hasRedirects
-    ? sorts.map((sort) => {
+  let resolved = sorts;
+  if (hasRedirects) {
+    // Cache for chain lookups — avoids repeated DB queries for the same column
+    const chainCache = new Map<string, string | null>(cols.map((c) => [c.id, c.sourceColumnId]));
+
+    const resolveChain = async (startId: string): Promise<string> => {
+      let id = startId;
+      for (let depth = 0; depth < 10; depth++) {
+        let srcId = chainCache.get(id);
+        if (srcId === undefined) {
+          // Not in cache — fetch from DB
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+          const row = await db.column.findFirst({
+            where: { id, tableId },
+            select: { sourceColumnId: true },
+          }) as { sourceColumnId: string | null } | null;
+          srcId = row?.sourceColumnId ?? null;
+          chainCache.set(id, srcId);
+        }
+        if (!srcId) return id;
+        id = srcId;
+      }
+      return id;
+    };
+
+    resolved = await Promise.all(
+      sorts.map(async (sort) => {
         const col = colMap.get(sort.columnId)!;
-        return col.sourceColumnId
-          ? { ...sort, columnId: col.sourceColumnId }
-          : sort;
-      })
-    : sorts;
+        if (!col.sourceColumnId) return sort;
+        const resolvedId = await resolveChain(sort.columnId);
+        return resolvedId !== sort.columnId ? { ...sort, columnId: resolvedId } : sort;
+      }),
+    );
+  }
 
   // Ensure sort indexes for resolved columns
   if (buildIndexes) {
@@ -864,12 +893,38 @@ async function validateAndResolveFilters(
     throw new Error("Invalid filter column");
   }
 
+  const hasRedirects = cols.some((c) => c.sourceColumnId);
+  if (!hasRedirects) return false;
+
+  // Chain-resolve: follow sourceColumnId chain (up to 10 levels) to the
+  // column that has actual cell data, matching sort redirect and backfill.
+  const chainCache = new Map<string, string | null>(cols.map((c) => [c.id, c.sourceColumnId]));
+
+  const resolveChain = async (startId: string): Promise<string> => {
+    let id = startId;
+    for (let depth = 0; depth < 10; depth++) {
+      let srcId = chainCache.get(id);
+      if (srcId === undefined) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        const row = await db.column.findFirst({
+          where: { id, tableId },
+          select: { sourceColumnId: true },
+        }) as { sourceColumnId: string | null } | null;
+        srcId = row?.sourceColumnId ?? null;
+        chainCache.set(id, srcId);
+      }
+      if (!srcId) return id;
+      id = srcId;
+    }
+    return id;
+  };
+
   const redirectMap = new Map<string, string>();
   for (const c of cols) {
-    if (c.sourceColumnId) redirectMap.set(c.id, c.sourceColumnId);
+    if (c.sourceColumnId) {
+      redirectMap.set(c.id, await resolveChain(c.id));
+    }
   }
-
-  if (redirectMap.size === 0) return false;
 
   // Redirect flat filters
   for (const f of filters) {

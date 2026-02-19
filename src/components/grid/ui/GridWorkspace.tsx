@@ -2435,24 +2435,14 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
         next.delete(vars.columnId);
         return next;
       });
-      // Refresh rows to pick up the persisted backfilled data,
-      // then clear the stale sourceColumnId in the column cache.
-      //
-      // Order matters: rows must arrive BEFORE sourceColumnId is cleared.
-      // Otherwise getCellValue finds no cell AND no fallback → flash of
-      // empty cells.  Chaining on the invalidate promise guarantees the
-      // row refetch has settled before we touch the column cache.
+      // Refresh rows to pick up the persisted backfilled data.
+      // Do NOT clear sourceColumnId in the column cache here — the stale
+      // value is harmless (getCellValue falls back to source, which has
+      // identical data) and clearing it prematurely races with sort/filter
+      // changes, causing a flash of empty cells.  It gets cleared on the
+      // next natural column refetch (window focus, navigation, etc.).
       refreshRows();
       void utils.view.list.invalidate({ tableId });
-
-      void utils.row.infinite.invalidate().then(() => {
-        utils.column.list.setData({ tableId }, (old) => {
-          if (!old) return old;
-          return old.map((c) =>
-            c.id === vars.columnId ? { ...c, sourceColumnId: null } : c,
-          );
-        });
-      });
     },
     onError: (err, vars) => {
       const attempt = backfillRetries.current.get(vars.columnId) ?? 0;
