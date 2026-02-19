@@ -162,28 +162,40 @@ export function useCellEditing(
     },
 
     onSuccess: (_data, vars) => {
-      // Detect whether the edit could change which rows are visible or
-      // where they appear.  We must check:
-      //   - search (client-side, but affects highlight counts)
-      //   - filters / filterTree (server-side row membership)
-      //   - live sorts (autoSort + sorts → row position changes)
-      //   - permanent sorts (autoSort=false + permanentSorts → row position)
-      const liveSortsActive = autoSort && sorts.length > 0;
-      const permSortsActive = !autoSort && permanentSorts.length > 0;
-      const hasFilters = filters.length > 0 || !!filterTree;
-      const affectsMembership = !!search.trim() || hasFilters || liveSortsActive || permSortsActive;
-      if (affectsMembership) {
+      // Only trigger membership revalidation if the edited column is a
+      // "conditioned" column — one that participates in the active sorts
+      // or filters.  Editing a non-conditioned column (e.g. a duplicated
+      // text field while sorts are on a different column) doesn't change
+      // row visibility or position.  Skipping the invalidation avoids a
+      // refetch that could race with the mutation and overwrite the
+      // optimistic update (causing the "edit reverts" bug).
+      const effectiveSorts = autoSort && sorts.length > 0
+        ? sorts
+        : permanentSorts;
+
+      const conditionedCols = new Set<string>();
+      for (const s of effectiveSorts) conditionedCols.add(s.columnId);
+      for (const f of filters) conditionedCols.add(f.columnId);
+      if (filterTree) {
+        const walkTree = (items: { kind?: string; columnId?: string; items?: unknown[] }[]) => {
+          for (const item of items) {
+            if (item.kind === "condition" && item.columnId) {
+              conditionedCols.add(item.columnId);
+            } else if (item.kind === "group" && Array.isArray(item.items)) {
+              walkTree(item.items as typeof items);
+            }
+          }
+        };
+        walkTree(filterTree.items as { kind?: string; columnId?: string; items?: unknown[] }[]);
+      }
+
+      // Search affects ALL columns, so any edit is a membership change.
+      const searchActive = !!search.trim();
+      const isConditioned = searchActive || conditionedCols.has(vars.columnId);
+
+      if (isConditioned) {
         onMembershipChange?.(vars.rowId, vars.columnId, vars.value);
       }
-    },
-
-    onSettled: () => {
-      // Always invalidate after the mutation settles (success or error).
-      // This guarantees the cache reflects the server state even if a
-      // concurrent operation (e.g. backfill completion's refreshRows)
-      // triggered a refetch that returned data from before this edit
-      // was committed — overwriting the optimistic update.
-      void utils.row.infinite.invalidate(rowQueryInput);
     },
   });
 
