@@ -6,7 +6,7 @@ import type { InfiniteData } from "@tanstack/react-query";
 import { api } from "~/trpc/react";
 import type { AppRouter } from "~/server/api/root";
 
-import { useGridStore } from "./grid-store";
+import { useGridStore, useGridStoreApi } from "./grid-store";
 import type { RowInfiniteInput, RowItem } from "./useGridRows";
 import { parseNumberInput } from "~/shared/numberUtils";
 import type { NumberFormatConfig } from "~/shared/numberUtils";
@@ -42,6 +42,7 @@ export function useCellEditing(
   const editingCell = useGridStore((s) => s.editingCell);
   const editorValue = useGridStore((s) => s.editorValue);
   const stopEditing = useGridStore((s) => s.stopEditing);
+  const storeApi = useGridStoreApi();
 
   const search = useGridStore((s) => s.search);
   const filters = useGridStore((s) => s.filters);
@@ -209,7 +210,7 @@ export function useCellEditing(
       /** Column's number format config (for allowNegative, etc.) — raw JSON from DB */
       numberConfig?: unknown;
     }) => {
-      if (!editingCell) return;
+      if (!storeApi.getState().editingCell) return;
 
       const raw = editorValue;
       let value: string | number | null = raw.trim() ? raw : null;

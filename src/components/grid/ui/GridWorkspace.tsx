@@ -1650,29 +1650,54 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!activeCell) return;
-      if (editingCell) return; // editing — let the input handle keys
+      if (editingCell && e.key !== "Tab") return;
 
       const { rowId, columnId } = activeCell;
 
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key)) {
         e.preventDefault();
+
+        if (editingCell && e.key === "Tab") {
+          const col = visibleColumns.find((c) => c.id === columnId);
+          if (col) {
+            commitRef.current({ rowId, columnId, columnType: col.type as "TEXT" | "NUMBER", numberConfig: col.config });
+          }
+        }
+
         const rowPos = findRowPosition(rowId);
         const colIdx = visibleColumns.findIndex((c) => c.id === columnId);
         if (rowPos === -1 || colIdx === -1) return;
 
         let newRowPos = rowPos;
         let newColIdx = colIdx;
+        const lastCol = visibleColumns.length - 1;
 
         switch (e.key) {
           case "ArrowUp": newRowPos = Math.max(0, rowPos - 1); break;
           case "ArrowDown": newRowPos = Math.min(totalCount - 1, rowPos + 1); break;
           case "ArrowLeft": newColIdx = Math.max(0, colIdx - 1); break;
-          case "ArrowRight": newColIdx = Math.min(visibleColumns.length - 1, colIdx + 1); break;
+          case "ArrowRight": newColIdx = Math.min(lastCol, colIdx + 1); break;
           case "Tab":
             if (e.shiftKey) {
-              newColIdx = Math.max(0, colIdx - 1);
+              if (colIdx > 0) {
+                newColIdx = colIdx - 1;
+              } else if (rowPos > 0) {
+                newColIdx = lastCol;
+                newRowPos = rowPos - 1;
+              } else {
+                newColIdx = lastCol;
+                newRowPos = totalCount - 1;
+              }
             } else {
-              newColIdx = Math.min(visibleColumns.length - 1, colIdx + 1);
+              if (colIdx < lastCol) {
+                newColIdx = colIdx + 1;
+              } else if (rowPos < totalCount - 1) {
+                newColIdx = 0;
+                newRowPos = rowPos + 1;
+              } else {
+                newColIdx = 0;
+                newRowPos = 0;
+              }
             }
             break;
         }
