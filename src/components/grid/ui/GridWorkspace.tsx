@@ -2445,7 +2445,7 @@ export function GridWorkspace({ baseId, tableId }: GridWorkspaceProps) {
       refreshRows();
       void utils.view.list.invalidate({ tableId });
 
-      utils.row.infinite.invalidate().then(() => {
+      void utils.row.infinite.invalidate().then(() => {
         utils.column.list.setData({ tableId }, (old) => {
           if (!old) return old;
           return old.map((c) =>
