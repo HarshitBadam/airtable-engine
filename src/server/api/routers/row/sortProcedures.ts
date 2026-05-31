@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
 import { sortSchema } from "~/shared/grid";
 import { escapeLiteral } from "~/server/sql/escape";
@@ -17,10 +18,9 @@ export const applyPermanentSort = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true, rowCount: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
-    // Validate + redirect unbackfilled duplicates (no index build needed
-    // for a full-table rewrite).
+    // No index build needed for a full-table rewrite.
     const resolvedSorts = await validateAndResolveSorts(ctx.db, input.sorts, input.tableId, false);
 
     if (table.rowCount === 0) return { ok: true };
@@ -73,13 +73,13 @@ export const computeViewRanks = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true, rowCount: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
     const view = await ctx.db.view.findFirst({
       where: { id: input.viewId, tableId: input.tableId },
       select: { id: true },
     });
-    if (!view) throw new Error("View not found");
+    if (!view) throw new TRPCError({ code: "NOT_FOUND", message: "View not found" });
 
     const resolvedSorts = await validateAndResolveSorts(ctx.db, input.sorts, input.tableId, false);
 

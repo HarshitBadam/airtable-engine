@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { viewConfigSchema } from "~/shared/grid";
 
@@ -10,7 +11,7 @@ export const viewRouter = createTRPCRouter({
         where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
         select: { id: true },
       });
-      if (!table) throw new Error("Table not found");
+      if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
       return ctx.db.view.findMany({
         where: { tableId: input.tableId },
@@ -32,13 +33,13 @@ export const viewRouter = createTRPCRouter({
         where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
         select: { id: true },
       });
-      if (!table) throw new Error("Table not found");
+      if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
       const duplicate = await ctx.db.view.findFirst({
         where: { tableId: input.tableId, name: input.name },
         select: { id: true },
       });
-      if (duplicate) throw new Error("A view with this name already exists in this table");
+      if (duplicate) throw new TRPCError({ code: "CONFLICT", message: "A view with this name already exists in this table" });
 
       return ctx.db.view.create({
         data: {
@@ -63,14 +64,14 @@ export const viewRouter = createTRPCRouter({
         where: { id: input.viewId, table: { base: { ownerId: ctx.session.user.id } } },
         select: { id: true, tableId: true },
       });
-      if (!view) throw new Error("View not found");
+      if (!view) throw new TRPCError({ code: "NOT_FOUND", message: "View not found" });
 
       if (input.name) {
         const duplicate = await ctx.db.view.findFirst({
           where: { tableId: view.tableId, name: input.name, NOT: { id: input.viewId } },
           select: { id: true },
         });
-        if (duplicate) throw new Error("A view with this name already exists in this table");
+        if (duplicate) throw new TRPCError({ code: "CONFLICT", message: "A view with this name already exists in this table" });
       }
 
       return ctx.db.view.update({
@@ -90,7 +91,7 @@ export const viewRouter = createTRPCRouter({
         where: { id: input.viewId, table: { base: { ownerId: ctx.session.user.id } } },
         select: { id: true, tableId: true },
       });
-      if (!view) throw new Error("View not found");
+      if (!view) throw new TRPCError({ code: "NOT_FOUND", message: "View not found" });
 
       // Last-view guard inside a transaction so two concurrent deletes can't
       // both pass the count check and leave the table view-less.
@@ -99,7 +100,7 @@ export const viewRouter = createTRPCRouter({
           where: { tableId: view.tableId },
         });
         if (siblingCount <= 1) {
-          throw new Error("Cannot delete the only view");
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot delete the only view" });
         }
 
         await tx.view.delete({ where: { id: input.viewId } });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
 
 export const backfill = protectedProcedure
@@ -18,7 +19,7 @@ export const backfill = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
     // Resolve sourceColumnId chain: if the source is itself an
     // unbackfilled duplicate, follow the chain to the column that

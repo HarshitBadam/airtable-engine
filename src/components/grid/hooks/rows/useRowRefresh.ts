@@ -3,9 +3,9 @@
 import { useCallback } from "react";
 import { api } from "~/trpc/react";
 import { useGridStore, useGridStoreApi } from "~/components/grid/GridStore";
-import { reorderRowInCache } from "../utils/sortReorder";
+import { reorderRowInCache } from "../../utils/sortReorder";
 import { countOccurrences } from "~/components/grid/utils/countOccurrences";
-import type { RowItem, RowInfiniteInput } from "./useGridRows";
+import type { RowItem, RowInfiniteInput } from "../useGridRows";
 
 interface ColumnDef {
   id: string;
@@ -177,8 +177,6 @@ export function useRowRefresh({
       // conditioned column and the reorder will place it at its correct position.
       removeProtectedRowId(rowId);
 
-      // Check whether the row lives in the loaded infinite pages or only in
-      // the jump cache.  This determines the reorder strategy below.
       const isInInfinitePages = rowsRef.current.some((r) => (r as RowItem).id === rowId);
 
       if (isInInfinitePages) {

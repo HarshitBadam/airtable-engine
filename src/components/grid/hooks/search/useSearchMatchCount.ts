@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { skipToken } from "@tanstack/react-query";
 import { api } from "~/trpc/react";
 import { useGridStore } from "~/components/grid/GridStore";
-import type { RowInfiniteInput } from "./useGridRows";
+import type { RowInfiniteInput } from "../useGridRows";
 
 interface UseSearchMatchCountArgs {
   tableId: string;

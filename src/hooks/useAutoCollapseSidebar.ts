@@ -14,7 +14,6 @@ export function useAutoCollapseSidebar(
       const wasNarrow = prevWidth <= SIDEBAR_AUTO_COLLAPSE_WIDTH;
       const isNarrow = width <= SIDEBAR_AUTO_COLLAPSE_WIDTH;
 
-      // Crossing from wide to narrow
       if (!wasNarrow && isNarrow) {
         setSidebarExpanded((prev) => {
           if (prev) {
@@ -25,7 +24,6 @@ export function useAutoCollapseSidebar(
         });
       }
 
-      // Crossing from narrow to wide
       if (wasNarrow && !isNarrow) {
         if (wasAutoCollapsedRef.current) {
           wasAutoCollapsedRef.current = false;

@@ -11,7 +11,6 @@ import {
 import { useGridStore } from "../GridStore";
 import type { RowItem } from "./useGridRows";
 
-/** Column info from the database */
 export interface DbColumn {
   id: string;
   name: string;

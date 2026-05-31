@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback } from "react";
 import type React from "react";
-import styles from "../ui/GridContainer.module.css";
+import styles from "../../ui/GridContainer.module.css";
 
 interface UseRowDragReorderParams {
   canDragRows: boolean;

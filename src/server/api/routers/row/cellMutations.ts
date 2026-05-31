@@ -5,6 +5,7 @@
  * procedures are too intertwined to split without duplicating shared helpers.
  */
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
 import { escapeLiteral } from "~/server/sql/escape";
 
@@ -21,9 +22,8 @@ export const addMany = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
-    // Only fetch columns when populating with sample data
     const columns = input.populate
       ? await ctx.db.column.findMany({
           where: { tableId: input.tableId },
@@ -315,22 +315,21 @@ export const updateCell = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
-    // Validate the column exists and coerce value to match its type.
-    // This prevents storing a string in a NUMBER column or vice versa,
-    // which would break sorting and filtering.
+    // Storing a string in a NUMBER column (or vice versa) would break sorting
+    // and filtering, so coerce the value to match the column type.
     const column = await ctx.db.column.findFirst({
       where: { id: input.columnId, tableId: input.tableId },
       select: { id: true, type: true, sourceColumnId: true },
     });
-    if (!column) throw new Error("Column not found");
+    if (!column) throw new TRPCError({ code: "NOT_FOUND", message: "Column not found" });
 
     const row = await ctx.db.row.findFirst({
       where: { id: input.rowId, tableId: input.tableId },
       select: { id: true, cells: true },
     });
-    if (!row) throw new Error("Row not found");
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Row not found" });
 
     const currentCells = (row.cells ?? {}) as Record<string, unknown>;
 
@@ -360,11 +359,9 @@ export const updateCell = protectedProcedure
         delete currentCells[input.columnId];
       }
     } else if (column.type === "NUMBER") {
-      // For NUMBER columns, coerce string inputs to numbers.
-      // If the value can't be parsed as a number, reject it.
       const num = typeof input.value === "number" ? input.value : Number(input.value);
       if (Number.isNaN(num)) {
-        throw new Error("Invalid number value");
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid number value" });
       }
       currentCells[input.columnId] = num;
     } else {

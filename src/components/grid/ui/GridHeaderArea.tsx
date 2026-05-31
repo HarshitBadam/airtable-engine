@@ -67,6 +67,8 @@ export function GridHeaderArea({
     <>
       <div
         ref={frozenHeaderMeasureRef}
+        role="row"
+        aria-rowindex={1}
         className={`${styles.gridHeaderFrozen}${wrapHeaders ? ` ${styles.gridHeaderFrozenWrap}` : ""}`}
         style={{
           width: freezeWidth,
@@ -95,10 +97,11 @@ export function GridHeaderArea({
             onMouseDown={handleRowHeightResizeStart}
           />
         </div>
-        {frozenColumns.map((col) => (
+        {frozenColumns.map((col, colIdx) => (
           <ColumnHeaderCell
             key={col.id}
             col={col}
+            colIndex={colIdx + 2}
             getColWidth={getColWidth}
             rowHeight={rowHeight}
             wrapHeaders={wrapHeaders}
@@ -145,6 +148,7 @@ export function GridHeaderArea({
             <ColumnHeaderCell
               key={col.id}
               col={col}
+              colIndex={frozenColumns.length + colIdx + 2}
               isFirstScrollable={frozenColumns.length === 0 && colIdx === 0}
               getColWidth={getColWidth}
               rowHeight={rowHeight}

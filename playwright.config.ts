@@ -28,7 +28,6 @@ export default defineConfig({
     baseURL: process.env.BASE_URL ?? "http://localhost:3000",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    // Auth state is set up by global-setup
     storageState: "./e2e/.auth/state.json",
   },
 

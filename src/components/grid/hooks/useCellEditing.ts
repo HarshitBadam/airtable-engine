@@ -55,7 +55,6 @@ export function useCellEditing(
 
       const prev = utils.row.infinite.getInfiniteData(rowQueryInput);
 
-      // Resolve old value for onCellValueChange (from infinite data or jump cache)
       let oldVal: string | number | null = null;
       let foundInPrev = false;
       for (const page of prev?.pages ?? []) {
@@ -129,7 +128,6 @@ export function useCellEditing(
         updateJumpCacheRow(vars.rowId, (row) => {
           const nextCells = { ...asCellRecord(row.cells) };
 
-          // Freeze pre-edit value into dependent columns (same as above)
           for (const depId of dependentColIds) {
             if (!Object.prototype.hasOwnProperty.call(nextCells, depId)) {
               nextCells[depId] = nextCells[vars.columnId] ?? null;
@@ -216,7 +214,7 @@ export function useCellEditing(
           const cfg = args.numberConfig as NumberFormatConfig | null | undefined;
           const allowNeg = cfg?.allowNegative ?? true;
           const parsed = parseNumberInput(raw, allowNeg);
-          value = parsed; // null clears the cell if input isn't numeric
+          value = parsed;
         }
       }
 

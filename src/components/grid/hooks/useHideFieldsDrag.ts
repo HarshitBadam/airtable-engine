@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import type React from "react";
+import { useState, useRef, useCallback } from "react";
 
 // Row height: content 18px + 3px top pad + 3px bottom pad + 2px margin
 export const HIDE_FIELDS_ITEM_HEIGHT = 26;
@@ -16,12 +17,6 @@ export interface UseHideFieldsDragReturn {
   getItemDragStyle: (index: number) => React.CSSProperties | undefined;
 }
 
-/**
- * Manages pointer-event drag-and-drop for the HideFieldsPanel field list.
- *
- * @param columnsLength - Length of the currently displayed (filtered) column list.
- * @param onReorder - Called with (fromIndex, toIndex) when the user drops a field.
- */
 export function useHideFieldsDrag(
   columnsLength: number,
   onReorder?: (fromIndex: number, toIndex: number) => void,
@@ -77,8 +72,7 @@ export function useHideFieldsDrag(
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("mouseup", handleMouseUp);
         document.body.style.userSelect = "";
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (document.body.style as any).webkitUserSelect = "";
+        document.body.style.setProperty("-webkit-user-select", "");
 
         // Read from refs (not state) to avoid calling onReorder inside a setState updater
         const fromIdx = dragIndexRef.current;
@@ -96,8 +90,7 @@ export function useHideFieldsDrag(
       };
 
       document.body.style.userSelect = "none";
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (document.body.style as any).webkitUserSelect = "none";
+      document.body.style.setProperty("-webkit-user-select", "none");
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
     },
@@ -109,7 +102,6 @@ export function useHideFieldsDrag(
       if (dragIndex === null || dragOverIndex === null) return undefined;
 
       if (index === dragIndex) {
-        // The dragged item's placeholder: translate from original position to drop position
         const delta = dragOverIndex - dragIndex;
         return {
           transform: `translateY(${delta * HIDE_FIELDS_ITEM_HEIGHT}px)`,
@@ -117,9 +109,7 @@ export function useHideFieldsDrag(
         };
       }
 
-      // Items between dragIndex and dragOverIndex shift to make room
       if (dragOverIndex > dragIndex) {
-        // Dragging down: items between (dragIndex, dragOverIndex] shift up by 1
         if (index > dragIndex && index <= dragOverIndex) {
           return {
             transform: `translateY(${-HIDE_FIELDS_ITEM_HEIGHT}px)`,
@@ -127,7 +117,6 @@ export function useHideFieldsDrag(
           };
         }
       } else if (dragOverIndex < dragIndex) {
-        // Dragging up: items between [dragOverIndex, dragIndex) shift down by 1
         if (index >= dragOverIndex && index < dragIndex) {
           return {
             transform: `translateY(${HIDE_FIELDS_ITEM_HEIGHT}px)`,

@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import styles from "~/components/home/HomeShell.module.css";
+import styles from "./DashboardSidebar.module.css";
 import basesStyles from "~/components/bases/bases.module.css";
 import {
   HomeIcon,
@@ -41,7 +41,6 @@ interface DashboardSidebarProps {
     recordOpen: (id: string) => void;
     toggleStar: (id: string) => void;
   };
-  /** Raw starred bases from the server (used for empty-state check). */
   bases: Array<{ id: string }>;
   onCreateClick: () => void;
 }

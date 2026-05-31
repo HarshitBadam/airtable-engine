@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useLatestRef } from "~/hooks/useLatestRef";
-import type { GridColumnDef } from "../ui/GridRow";
+import type { GridColumnDef } from "../../ui/GridRow";
 
 const ROW_NUM_WIDTH = 83;
 

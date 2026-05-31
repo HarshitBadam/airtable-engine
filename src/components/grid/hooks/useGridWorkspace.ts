@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useLatestRef } from "~/hooks/useLatestRef";
 import { useRouter } from "next/navigation";
 import { skipToken } from "@tanstack/react-query";
@@ -10,22 +10,22 @@ import type { RowItem } from "~/components/grid/hooks/useGridRows";
 import { useCellEditing } from "~/components/grid/hooks/useCellEditing";
 import { useGridStore } from "~/components/grid/GridStore";
 import { useGridTable } from "~/components/grid/hooks/useGridTable";
-import { useRowMutations } from "~/components/grid/hooks/useRowMutations";
-import { useColumnMutations } from "~/components/grid/hooks/useColumnMutations";
+import { useRowMutations } from "~/components/grid/hooks/rows/useRowMutations";
+import { useColumnMutations } from "~/components/grid/hooks/columns/useColumnMutations";
 import { useTableManagement } from "~/components/grid/hooks/useTableManagement";
-import { useViewManagement } from "~/components/grid/hooks/useViewManagement";
-import { useViewConfigSave } from "~/components/grid/hooks/useViewConfigSave";
-import { useFreezeDrag } from "~/components/grid/hooks/useFreezeDrag";
-import { useResizeHandlers } from "~/components/grid/hooks/useResizeHandlers";
-import { useRowRefresh } from "~/components/grid/hooks/useRowRefresh";
-import { useScrollSync } from "~/components/grid/hooks/useScrollSync";
-import { useInfiniteScroll } from "~/components/grid/hooks/useInfiniteScroll";
-import { useViewScrollPersistence } from "~/components/grid/hooks/useViewScrollPersistence";
-import { useSearchMatchCount } from "~/components/grid/hooks/useSearchMatchCount";
+import { useViewManagement } from "~/components/grid/hooks/views/useViewManagement";
+import { useViewConfigSave } from "~/components/grid/hooks/views/useViewConfigSave";
+import { useFreezeDrag } from "~/components/grid/hooks/layout/useFreezeDrag";
+import { useResizeHandlers } from "~/components/grid/hooks/layout/useResizeHandlers";
+import { useRowRefresh } from "~/components/grid/hooks/rows/useRowRefresh";
+import { useScrollSync } from "~/components/grid/hooks/layout/useScrollSync";
+import { useInfiniteScroll } from "~/components/grid/hooks/rows/useInfiniteScroll";
+import { useViewScrollPersistence } from "~/components/grid/hooks/views/useViewScrollPersistence";
+import { useSearchMatchCount } from "~/components/grid/hooks/search/useSearchMatchCount";
 import { getCellValue as getCellValueUtil } from "~/components/grid/utils/getCellValue";
-import { useColumnManagement } from "~/components/grid/hooks/useColumnManagement";
-import { useGridVirtualizer } from "~/components/grid/hooks/useGridVirtualizer";
-import { useFreezeLayout } from "~/components/grid/hooks/useFreezeLayout";
+import { useColumnManagement } from "~/components/grid/hooks/columns/useColumnManagement";
+import { useGridVirtualizer } from "~/components/grid/hooks/layout/useGridVirtualizer";
+import { useFreezeLayout } from "~/components/grid/hooks/layout/useFreezeLayout";
 import { useGridBaseInfo } from "~/components/grid/hooks/useGridBaseInfo";
 import { useGridCellInteraction } from "~/components/grid/hooks/useGridCellInteraction";
 
@@ -198,15 +198,12 @@ export function useGridWorkspace({
     });
 
   const { handleNextMatch, handlePrevMatch, currentMatchIdx } = useGridCellInteraction({
-    // refs
     selectionOverlayRef, hScrollRef, gridScrollerRef, visibleColumnsRef, rowsRef,
     frozenColumnCountRef, freezeWidthRef, columnWidthsRef, dataRowHeightRef,
     mapToVirtualIndexRef, jumpCacheRef,
-    // data
     tableId, activeSearchTerm, visibleColumns, rows, jumpCache,
     totalCount, displayMatchCount, rowQueryInput, getRowAtIndex,
     triggerJumpFetch, columnWidths, frozenColCount,
-    // callbacks
     commitRef, getCellValue,
   });
 

@@ -11,15 +11,9 @@ interface Options {
    * delay the same event would close it instantly.
    */
   delay?: boolean;
-  /** Additional refs whose subtree should be treated as inside. */
   ignoreRefs?: RefLike[];
 }
 
-/**
- * Closes a popover-style UI when the user clicks outside `ref`.
- * Pass any portal-mounted parts (e.g. dropdown lists) via `ignoreRefs` so
- * clicks inside them don't trigger close.
- */
 export function useClickOutside(
   ref: RefLike,
   isOpen: boolean,

@@ -1,11 +1,5 @@
 import type { ViewConfig } from "~/shared/grid";
 
-/**
- * Ensure columnOrderIds is populated and in sync with actual table columns.
- * - If empty, use table column order.
- * - Append any new columns not yet in the order list (columns are table-level).
- * - Remove stale ids (columns that no longer exist).
- */
 export function reconcileColumnOrder(
   config: ViewConfig,
   tableColumnIds: string[],

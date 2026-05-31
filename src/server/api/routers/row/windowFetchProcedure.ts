@@ -6,40 +6,32 @@
  * validation, filter/sort SQL builders, and count-skip optimisation.
  */
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
 import {
   filterSchema,
   sortSchema,
   filterTreeSchema,
 } from "~/shared/grid";
-import { escapeLikePattern, escapeLiteral, type SqlParam } from "~/server/sql/escape";
+import { escapeLiteral, type SqlParam } from "~/server/sql/escape";
 import {
-  buildFilterSql,
-  buildFilterTreeSql,
   detectOrEqualsPattern,
   filterTreeHasConditions,
 } from "~/server/sql/filterSql";
 import {
   buildMultiSortCursorSql,
   buildMultiSortOrderBy,
-  normalizeSortValuesFromCells,
   sortedCursorSchema,
 } from "~/server/sql/sortSql";
 import { queryNoBitmap, queryRawUnsafe } from "~/server/sql/queryHelpers";
 import {
-  validateAndResolveFilters,
-  validateAndResolveSorts,
-} from "./columnResolution";
-
-type RowSelect = {
-  id: string;
-  rowIndex: number;
-  cells: unknown;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type CountRow = { count: number };
+  buildBaseWhere,
+  buildCountSql,
+  buildNextCursor,
+  validateSortsAndFilters,
+  type CountRow,
+  type RowSelect,
+} from "./rowQueryHelpers";
 
 // windowFetch — positional window fetch for virtualized grid jumps.
 // Three-tier strategy:
@@ -98,9 +90,8 @@ export const windowFetch = protectedProcedure
         where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
         select: { id: true, rowCount: true },
       });
-      if (!table) throw new Error("Table not found");
+      if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
-      // Edge case: empty table or requesting beyond the end
       if (table.rowCount === 0 || input.offset >= table.rowCount) {
         return { items: [], totalCount: table.rowCount, nextCursor: null };
       }
@@ -115,7 +106,6 @@ export const windowFetch = protectedProcedure
       const minIdx = minMaxRes?.min_idx ?? 0;
       const maxIdx = minMaxRes?.max_idx ?? 0;
 
-      // Linear interpolation: estimate the rowIndex at the target position
       const estimatedRowIndex =
         table.rowCount <= 1
           ? minIdx
@@ -144,13 +134,9 @@ export const windowFetch = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true, rowCount: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
-    // Validate sort columns, redirect unbackfilled duplicates, ensure indexes.
-    sorts = await validateAndResolveSorts(ctx.db, sorts, input.tableId, true);
-
-    // Validate filter columns and redirect unbackfilled duplicates.
-    await validateAndResolveFilters(ctx.db, filters, filterTree, !!useTree, input.tableId);
+    sorts = await validateSortsAndFilters(ctx.db, sorts, filters, filterTree, !!useTree, input.tableId);
 
     // TIER 2: Saved view with fresh ViewRowRank → O(limit) fetch.
     // Only for sort-only (no filters/search).  Sort+filter stays on Tier 3
@@ -188,14 +174,8 @@ export const windowFetch = protectedProcedure
           `;
           const items = await queryRawUnsafe<RowSelect[]>(ctx.db, rankedSql, rp);
 
-          let nextCursor: number | { rowIndex: number; sortValues: (string | number | null)[] } | null = null;
-          if (items.length > 0) {
-            const last = items[items.length - 1]!;
-            nextCursor = {
-              rowIndex: last.rowIndex,
-              sortValues: normalizeSortValuesFromCells(sorts, last.cells),
-            };
-          }
+          const nextCursor: number | { rowIndex: number; sortValues: (string | number | null)[] } | null =
+            items.length > 0 ? buildNextCursor(sorts, items[items.length - 1]!) : null;
 
           // totalCount = table.rowCount always (rankCount + unrankedCount = rowCount)
           return { items, totalCount: table.rowCount, nextCursor };
@@ -220,22 +200,8 @@ export const windowFetch = protectedProcedure
     //    from the anchor to the target position.
     //    Example: jump to row 500 K with anchor at 480 K → OFFSET = 20 K.
     const params: SqlParam[] = [];
-    params.push(input.tableId);
-    let whereSql = `WHERE "Row"."tableId" = $${params.length}`;
+    let whereSql = buildBaseWhere(input.tableId, search, useTree, filterTree, filters, conjunction, params);
 
-    if (search && search.length > 0) {
-      const escaped = escapeLikePattern(search);
-      params.push(`%${escaped}%`);
-      whereSql += ` AND "Row"."searchText" ILIKE $${params.length} ESCAPE '\\'`;
-    }
-
-    if (useTree) {
-      whereSql += buildFilterTreeSql(filterTree, params);
-    } else {
-      whereSql += buildFilterSql(filters, params, conjunction);
-    }
-
-    // Apply cursor anchor (keyset skip) when available.
     // The anchor must be BEFORE the target offset.
     // Two modes:
     //   A) Sorted: use multi-sort keyset predicate (skip in sort order)
@@ -326,8 +292,8 @@ export const windowFetch = protectedProcedure
         ORDER BY r."rowIndex" ASC
       `;
     } else {
-      // Standard deferred join: lightweight inner query finds the IDs,
-      // outer query fetches full row data only for the final window.
+      // Standard deferred-join: the inner subquery selects only "id" to keep the sort
+      // buffer compact (no TOAST heap decompression until the final window).
       dataSql = `
         SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
         FROM (
@@ -342,59 +308,26 @@ export const windowFetch = protectedProcedure
       `;
     }
 
-    // Count query — needed for totalCount (scrollbar).
-    // Skipped when the client already knows the total (skipCount=true).
     let totalCount: number;
 
-    // Choose query runner: use queryNoBitmap for UNION ALL paths to force
-    // Index Scan (4-5× faster than Bitmap Heap Scan for large offsets).
+    // Use queryNoBitmap for UNION ALL paths to force Index Scan
+    // (4-5× faster than Bitmap Heap Scan for large offsets).
     const runDataQuery = orEqPattern
       ? () => queryNoBitmap<RowSelect[]>(ctx.db, dataSql, params)
       : () => queryRawUnsafe<RowSelect[]>(ctx.db, dataSql, params);
 
     if (input.skipCount && typeof input.knownTotal === "number") {
-      // Client already has the count from a previous fetch with this
-      // same filter/sort combo — no need to rescan.
       totalCount = input.knownTotal;
 
       const items = await runDataQuery();
 
-      let nextCursor:
-        | number
-        | { rowIndex: number; sortValues: (string | number | null)[] }
-        | null = null;
-      if (items.length > 0) {
-        const last = items[items.length - 1]!;
-        if (sorts.length === 0) {
-          nextCursor = last.rowIndex;
-        } else {
-          nextCursor = {
-            rowIndex: last.rowIndex,
-            sortValues: normalizeSortValuesFromCells(sorts, last.cells),
-          };
-        }
-      }
+      const nextCursor: number | { rowIndex: number; sortValues: (string | number | null)[] } | null =
+        items.length > 0 ? buildNextCursor(sorts, items[items.length - 1]!) : null;
 
       return { items, totalCount, nextCursor };
     }
 
-    const countParams: SqlParam[] = [];
-    countParams.push(input.tableId);
-    let countWhere = `WHERE "Row"."tableId" = $${countParams.length}`;
-
-    if (search && search.length > 0) {
-      const escaped = escapeLikePattern(search);
-      countParams.push(`%${escaped}%`);
-      countWhere += ` AND "Row"."searchText" ILIKE $${countParams.length} ESCAPE '\\'`;
-    }
-
-    if (useTree) {
-      countWhere += buildFilterTreeSql(filterTree, countParams);
-    } else {
-      countWhere += buildFilterSql(filters, countParams, conjunction);
-    }
-
-    const countSql = `SELECT COUNT(*)::int AS count FROM "Row" ${countWhere}`;
+    const { countSql, countParams } = buildCountSql(input.tableId, search, useTree, filterTree, filters, conjunction);
 
     const [items, countRes] = await Promise.all([
       runDataQuery(),
@@ -403,21 +336,8 @@ export const windowFetch = protectedProcedure
 
     totalCount = countRes[0]?.count ?? 0;
 
-    let nextCursor:
-      | number
-      | { rowIndex: number; sortValues: (string | number | null)[] }
-      | null = null;
-    if (items.length > 0) {
-      const last = items[items.length - 1]!;
-      if (sorts.length === 0) {
-        nextCursor = last.rowIndex;
-      } else {
-        nextCursor = {
-          rowIndex: last.rowIndex,
-          sortValues: normalizeSortValuesFromCells(sorts, last.cells),
-        };
-      }
-    }
+    const nextCursor: number | { rowIndex: number; sortValues: (string | number | null)[] } | null =
+      items.length > 0 ? buildNextCursor(sorts, items[items.length - 1]!) : null;
 
     return { items, totalCount, nextCursor };
   });

@@ -5,8 +5,8 @@ import { CreateFieldPanel } from "./CreateFieldPanel";
 import { RowContextMenu } from "./RowContextMenu";
 import { DupFieldDialog } from "./DupFieldDialog";
 import { useWorkspace } from "./GridWorkspaceContext";
-import { useGridContainerLayout } from "~/components/grid/hooks/useGridContainerLayout";
-import { useColumnFieldPanel } from "~/components/grid/hooks/useColumnFieldPanel";
+import { useGridContainerLayout } from "~/components/grid/hooks/layout/useGridContainerLayout";
+import { useColumnFieldPanel } from "~/components/grid/hooks/columns/useColumnFieldPanel";
 import { GridHeaderArea } from "./GridHeaderArea";
 import { GridContentArea } from "./GridContentArea";
 import { GridFreezeChrome } from "./GridFreezeChrome";
@@ -118,7 +118,7 @@ export function GridContainer() {
 
   return (
     <div className={styles.gridContainer} ref={gridFooterRef}>
-      <div className={styles.gridBody} ref={gridBodyRef}>
+      <div className={styles.gridBody} ref={gridBodyRef} role="grid">
         <GridHeaderArea
           frozenHeaderMeasureRef={frozenHeaderMeasureRef}
           effectiveHeaderHeight={effectiveHeaderHeight}

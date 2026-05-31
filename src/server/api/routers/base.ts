@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { dropColumnIndexesForTable } from "~/server/db/ensureColumnIndexes";
 import { ensureSeedColumnIndexes, seedDefaultTable } from "~/server/seed/defaultTableSeed";
@@ -18,7 +19,7 @@ export const baseRouter = createTRPCRouter({
         where: { id: input.id, ownerId: ctx.session.user.id },
       });
       if (!base) {
-        throw new Error("Base not found or access denied");
+        throw new TRPCError({ code: "NOT_FOUND", message: "Base not found or access denied" });
       }
       return base;
     }),
@@ -55,7 +56,7 @@ export const baseRouter = createTRPCRouter({
         where: { id: input.id, ownerId: ctx.session.user.id },
       });
       if (!base) {
-        throw new Error("Base not found or access denied");
+        throw new TRPCError({ code: "NOT_FOUND", message: "Base not found or access denied" });
       }
       return ctx.db.base.update({
         where: { id: input.id },
@@ -138,7 +139,7 @@ export const baseRouter = createTRPCRouter({
         where: { id: input.id, ownerId: ctx.session.user.id },
       });
       if (!base) {
-        throw new Error("Base not found or access denied");
+        throw new TRPCError({ code: "NOT_FOUND", message: "Base not found or access denied" });
       }
       return ctx.db.base.update({
         where: { id: input.id },
@@ -160,7 +161,7 @@ export const baseRouter = createTRPCRouter({
         where: { id: input.id, ownerId: ctx.session.user.id },
       });
       if (!base) {
-        throw new Error("Base not found or access denied");
+        throw new TRPCError({ code: "NOT_FOUND", message: "Base not found or access denied" });
       }
       return ctx.db.base.update({
         where: { id: input.id },

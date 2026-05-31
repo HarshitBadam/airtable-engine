@@ -4,7 +4,7 @@ import { useGridStore } from "~/components/grid/GridStore";
 import { useShallow } from "zustand/react/shallow";
 import type { NumberFormatConfig } from "~/shared/numberUtils";
 import { formatCellValue } from "~/shared/numberUtils";
-import { findAllRanges, HighlightedText } from "~/components/grid/utils/highlightText";
+import { HighlightedText } from "~/components/grid/utils/highlightText";
 
 
 export type GridColumnDef = {
@@ -63,7 +63,6 @@ export const GridRow = memo(function GridRow({
   cellHeight = 32,
   backfillingColumnIds: _backfillingColumnIds,
 }: GridRowProps) {
-  // Subscribe to only this row's state — other rows won't re-render
   const activeColId = useGridStore(
     (s) => (s.activeCell?.rowId === row.id ? s.activeCell.columnId : null),
   );
@@ -94,7 +93,6 @@ export const GridRow = memo(function GridRow({
     }),
   );
 
-  /** Pre-compute the lowercase search term once per render. */
   const termLower = searchTerm.toLowerCase();
 
   /** Render a single cell (shared by frozen + scrollable). */
@@ -106,6 +104,7 @@ export const GridRow = memo(function GridRow({
     isSorted: boolean,
     isFiltered: boolean,
     extraStyle?: React.CSSProperties,
+    colIndex?: number,
   ) {
     const isNumber = col.type === "NUMBER";
 
@@ -128,6 +127,8 @@ export const GridRow = memo(function GridRow({
     return (
       <div
         key={col.id}
+        role="gridcell"
+        {...(colIndex !== undefined ? { "aria-colindex": colIndex } : {})}
         data-find-current={isFindCurrentCell ? "true" : undefined}
         className={`${styles.gridDataCell}${isActive ? ` ${styles.gridDataCellActive}` : ""}${sortedClass}${findCurrentClass}`}
         style={{
@@ -183,7 +184,11 @@ export const GridRow = memo(function GridRow({
   }
 
   return (
-    <div className={`${styles.gridRow}${isDeleting ? ` ${styles.gridRowDeleting}` : ''}`}>
+    <div
+      role="row"
+      aria-rowindex={rowIndex + 2}
+      className={`${styles.gridRow}${isDeleting ? ` ${styles.gridRowDeleting}` : ''}`}
+    >
       <div className={styles.gridRowFrozenGroup} style={{ width: freezeWidth }}>
         <div className={styles.gridRowNumCell} style={{ height: cellHeight }}>
           <div className={styles.gridRowNumOuter}>
@@ -209,7 +214,7 @@ export const GridRow = memo(function GridRow({
             </div>
           </div>
         </div>
-        {frozenColumns.map((col) =>
+        {frozenColumns.map((col, colIdx) =>
           renderCell(
             col,
             getCellValue(row.cells, col.id),
@@ -217,6 +222,8 @@ export const GridRow = memo(function GridRow({
             activeColId === col.id,
             sortedColumnIds.includes(col.id),
             filteredColumnIds.includes(col.id),
+            undefined,
+            colIdx + 2,
           ),
         )}
       </div>
@@ -234,6 +241,7 @@ export const GridRow = memo(function GridRow({
             ...(isLastCol ? { width: getColWidth(col.id) + 1 } : {}),
             ...(noFrozenColumns && colIdx === 0 ? { borderLeftColor: "transparent" } : {}),
           },
+          frozenColumns.length + colIdx + 2,
         );
       })}
     </div>

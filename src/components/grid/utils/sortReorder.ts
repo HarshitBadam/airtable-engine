@@ -3,14 +3,12 @@ import { asCellRecord } from "./asCellRecord";
 export type SortDef = { columnId: string; direction: "asc" | "desc" };
 export type SortReorderResult = "moved" | "evicted" | "skipped";
 
-/** Minimal row shape needed for sort comparison. */
 interface SortableRow {
   id: string;
   rowIndex: number;
   cells: unknown;
 }
 
-/** Read a cell value as a comparable string (null for empty/missing). */
 function getSortValue(cells: Record<string, unknown>, columnId: string): string | null {
   const v = cells[columnId];
   if (v == null) return null;
@@ -55,10 +53,6 @@ function compareSortValues(
   return direction === "desc" ? -cmp : cmp;
 }
 
-/**
- * Compare two rows by the active sort columns + stable tie-breaker.
- * Returns < 0 if a comes before b, > 0 if after, 0 if equal.
- */
 export function compareRows(
   aCells: Record<string, unknown>,
   bCells: Record<string, unknown>,
@@ -112,7 +106,6 @@ export function reorderRowInJumpCache<T extends SortableRow>(
 
   const others = entries.filter(([, r]) => r.id !== rowId).map(([, r]) => r);
 
-  // Binary search for the correct insertion point
   let lo = 0;
   let hi = others.length;
   while (lo < hi) {
@@ -149,10 +142,8 @@ export function reorderRowInJumpCache<T extends SortableRow>(
     }
   }
 
-  // Position unchanged — nothing to do
   if (lo === rowEntryIdx) return { cache: new Map(cache), result: "moved" };
 
-  // Insert at the new position and rebuild the map with same keys
   others.splice(lo, 0, row);
   const newCache = new Map<number, T>();
   others.forEach((r, i) => newCache.set(keys[i]!, r));
@@ -200,7 +191,6 @@ export function reorderRowInCache<T extends SortableRow>(
 
   allItems.splice(idx, 1);
 
-  // Binary-search for the correct insertion point
   let lo = 0;
   let hi = allItems.length;
   while (lo < hi) {
@@ -238,12 +228,10 @@ export function reorderRowInCache<T extends SortableRow>(
     };
   }
 
-  // Position unchanged — return original data
   if (lo === idx) return { data, result: "moved" };
 
   allItems.splice(lo, 0, row);
 
-  // Re-chunk into the original page structure
   let offset = 0;
   return {
     data: {

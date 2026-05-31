@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
 
 export const update = protectedProcedure
@@ -23,20 +24,20 @@ export const update = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
     const col = await ctx.db.column.findFirst({
       where: { id: input.columnId, tableId: input.tableId },
       select: { id: true },
     });
-    if (!col) throw new Error("Column not found");
+    if (!col) throw new TRPCError({ code: "NOT_FOUND", message: "Column not found" });
 
     if (input.name) {
       const duplicate = await ctx.db.column.findFirst({
         where: { tableId: input.tableId, name: input.name, NOT: { id: input.columnId } },
         select: { id: true },
       });
-      if (duplicate) throw new Error("A field with this name already exists in this table");
+      if (duplicate) throw new TRPCError({ code: "CONFLICT", message: "A field with this name already exists in this table" });
     }
 
     const data: Record<string, unknown> = {};

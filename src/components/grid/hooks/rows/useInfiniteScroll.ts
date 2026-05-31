@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import type { VirtualItem } from "@tanstack/react-virtual";
-import type { RowItem } from "./useGridRows";
+import type { RowItem } from "../useGridRows";
 
 interface RowsQuery {
   hasNextPage: boolean;
@@ -76,7 +76,6 @@ export function useInfiniteScroll({
           }
         }
 
-        // Pre-fetch approaching the edge of a cached region
         const PREFETCH_DIST = 40;
         if (firstActual >= rows.length) {
           const topIdx = firstActual;

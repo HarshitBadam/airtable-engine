@@ -5,12 +5,8 @@ import type { SubDropdown, FilterColumn } from "../utils/filterPanelTypes";
 import type { FilterTreeItem } from "~/components/grid/utils/filterTree";
 import { isGroup } from "~/components/grid/utils/filterTree";
 import type { FilterOperatorOption } from "~/components/grid/utils/filterOperators";
-import {
-  MagnifyingGlassIcon,
-  TextTypeIcon,
-  NumberTypeIcon,
-  ChevronDownIcon,
-} from "./FilterIcons";
+import { MagnifyingGlassIcon } from "./FilterIcons";
+import { TextTypeIcon, NumberTypeIcon } from "./SortIcons";
 
 export interface FilterDropdownsProps {
   openDropdown: SubDropdown;
@@ -62,7 +58,6 @@ export function FilterDropdowns({
 
   return (
     <>
-      {/* Root conjunction dropdown (and / or) */}
       {openDropdown?.kind === "conjunction" &&
         createPortal(
           <div
@@ -86,7 +81,6 @@ export function FilterDropdowns({
           document.body,
         )}
 
-      {/* Field picker dropdown (FilterFieldDropdown) */}
       {openDropdown?.kind === "field" &&
         createPortal(
           <div
@@ -125,7 +119,6 @@ export function FilterDropdowns({
           document.body,
         )}
 
-      {/* Operator dropdown */}
       {openDropdown?.kind === "operator" &&
         createPortal(
           <div
@@ -161,7 +154,6 @@ export function FilterDropdowns({
           document.body,
         )}
 
-      {/* Group + button dropdown (Add condition / Add group) */}
       {openDropdown?.kind === "groupPlus" &&
         createPortal(
           <div
@@ -195,7 +187,6 @@ export function FilterDropdowns({
           document.body,
         )}
 
-      {/* Group conjunction dropdown (and / or within a group) */}
       {openDropdown?.kind === "groupConjunction" &&
         createPortal(
           <div

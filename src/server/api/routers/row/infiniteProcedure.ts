@@ -7,40 +7,32 @@
  * cleanly extracted without duplicating significant shared state.
  */
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
 import {
   filterSchema,
   sortSchema,
   filterTreeSchema,
 } from "~/shared/grid";
-import { escapeLikePattern, escapeLiteral, type SqlParam } from "~/server/sql/escape";
+import { escapeLiteral, type SqlParam } from "~/server/sql/escape";
 import {
-  buildFilterSql,
-  buildFilterTreeSql,
   detectOrEqualsPattern,
   filterTreeHasConditions,
 } from "~/server/sql/filterSql";
 import {
   buildMultiSortCursorSql,
   buildMultiSortOrderBy,
-  normalizeSortValuesFromCells,
   sortedCursorSchema,
 } from "~/server/sql/sortSql";
 import { queryNoBitmap, queryRawUnsafe } from "~/server/sql/queryHelpers";
 import {
-  validateAndResolveFilters,
-  validateAndResolveSorts,
-} from "./columnResolution";
-
-type RowSelect = {
-  id: string;
-  rowIndex: number;
-  cells: unknown;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type CountRow = { count: number };
+  buildBaseWhere,
+  buildCountSql,
+  buildNextCursor,
+  validateSortsAndFilters,
+  type CountRow,
+  type RowSelect,
+} from "./rowQueryHelpers";
 
 export const infinite = protectedProcedure
   .input(
@@ -99,7 +91,7 @@ export const infinite = protectedProcedure
         }),
         queryRawUnsafe<RowSelect[]>(ctx.db, dataSql, dataParams),
       ]);
-      if (!table) throw new Error("Table not found");
+      if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
       const hasNextPage = rows.length > input.limit;
       const items = hasNextPage ? rows.slice(0, input.limit) : rows;
@@ -116,15 +108,9 @@ export const infinite = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true, rowCount: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
-    // Validate sort columns, redirect unbackfilled duplicates to their
-    // source column, and ensure sort indexes exist.
-    sorts = await validateAndResolveSorts(ctx.db, sorts, input.tableId, true);
-
-    // Validate filter columns and redirect unbackfilled duplicates to
-    // their source column (mirrors sort redirect above).
-    await validateAndResolveFilters(ctx.db, filters, filterTree, !!useTree, input.tableId);
+    sorts = await validateSortsAndFilters(ctx.db, sorts, filters, filterTree, !!useTree, input.tableId);
 
     const take = input.limit + 1;
     const isSorted = sorts.length > 0;
@@ -205,7 +191,6 @@ export const infinite = protectedProcedure
             let hasNext = rankedRows.length > input.limit;
             if (hasNext) items = rankedRows.slice(0, input.limit);
 
-            // If ranked rows exhausted, fill from unranked tail
             if (!hasNext && unrankedCount > 0) {
               const remaining = take - rankedRows.length;
               if (remaining > 0) {
@@ -272,21 +257,7 @@ export const infinite = protectedProcedure
         : null;
 
     const params: SqlParam[] = [];
-    params.push(input.tableId);
-    let whereSql = `WHERE "Row"."tableId" = $${params.length}`;
-
-    if (search && search.length > 0) {
-      const escaped = escapeLikePattern(search);
-      params.push(`%${escaped}%`);
-      whereSql += ` AND "Row"."searchText" ILIKE $${params.length} ESCAPE '\\'`;
-    }
-
-    // Use tree-structured filters when available, fall back to flat filters
-    if (useTree) {
-      whereSql += buildFilterTreeSql(filterTree, params);
-    } else {
-      whereSql += buildFilterSql(filters, params, conjunction);
-    }
+    let whereSql = buildBaseWhere(input.tableId, search, useTree, filterTree, filters, conjunction, params);
 
     let cursorRowIndexParam: number | null = null; // track $N for UNION ALL
     if (sorts.length === 0) {
@@ -367,27 +338,10 @@ export const infinite = protectedProcedure
 
     let countPromise: Promise<CountRow[]> | null = null;
     if (needsCount) {
-      const countParams: SqlParam[] = [];
-      countParams.push(input.tableId);
-      let countWhere = `WHERE "Row"."tableId" = $${countParams.length}`;
-
-      if (search && search.length > 0) {
-        const escaped = escapeLikePattern(search);
-        countParams.push(`%${escaped}%`);
-        countWhere += ` AND "Row"."searchText" ILIKE $${countParams.length} ESCAPE '\\'`;
-      }
-
-      if (useTree) {
-        countWhere += buildFilterTreeSql(filterTree, countParams);
-      } else {
-        countWhere += buildFilterSql(filters, countParams, conjunction);
-      }
-
-      const countSql = `SELECT COUNT(*)::int AS count FROM "Row" ${countWhere}`;
+      const { countSql, countParams } = buildCountSql(input.tableId, search, useTree, filterTree, filters, conjunction);
       countPromise = queryRawUnsafe<CountRow[]>(ctx.db, countSql, countParams);
     }
 
-    // Choose query runner: use queryNoBitmap for UNION ALL paths.
     const runInfiniteQuery = orEqInfinite
       ? () => queryNoBitmap<RowSelect[]>(ctx.db, sql, params)
       : () => queryRawUnsafe<RowSelect[]>(ctx.db, sql, params);
@@ -407,15 +361,7 @@ export const infinite = protectedProcedure
       | null = null;
 
     if (hasNextPage && items.length > 0) {
-      const last = items[items.length - 1]!;
-      if (sorts.length === 0) {
-        nextCursor = last.rowIndex;
-      } else {
-        nextCursor = {
-          rowIndex: last.rowIndex,
-          sortValues: normalizeSortValuesFromCells(sorts, last.cells),
-        };
-      }
+      nextCursor = buildNextCursor(sorts, items[items.length - 1]!);
     }
 
     const totalCount = countResult

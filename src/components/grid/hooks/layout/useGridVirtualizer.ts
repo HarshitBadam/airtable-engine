@@ -50,7 +50,6 @@ export function useGridVirtualizer({
     overscan: 15,
   });
 
-  // Re-measure when row height changes and adjust scrollTop to stay at the same row.
   const prevDataRowHeightRef = useRef(dataRowHeight);
   useEffect(() => {
     const prevH = prevDataRowHeightRef.current;

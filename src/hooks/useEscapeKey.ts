@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 
-/** Calls `onEscape` on every Escape keydown while `isOpen` is true. */
 export function useEscapeKey(isOpen: boolean, onEscape: () => void) {
   useEffect(() => {
     if (!isOpen) return;

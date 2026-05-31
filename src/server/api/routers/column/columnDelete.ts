@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
 
 type FilterTreeNode = { kind?: string; columnId?: string; items?: FilterTreeNode[]; [key: string]: unknown };
@@ -40,7 +41,7 @@ export const deleteColumn = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
     // Includes the last-column check inside the transaction to prevent
     // a race where two concurrent deletes both pass the count check.
@@ -48,13 +49,13 @@ export const deleteColumn = protectedProcedure
       const colCount = await tx.column.count({
         where: { tableId: input.tableId },
       });
-      if (colCount <= 1) throw new Error("Cannot delete the last column");
+      if (colCount <= 1) throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot delete the last column" });
 
       const col = await tx.column.findFirst({
         where: { id: input.columnId, tableId: input.tableId },
         select: { id: true },
       });
-      if (!col) throw new Error("Column not found");
+      if (!col) throw new TRPCError({ code: "NOT_FOUND", message: "Column not found" });
 
       await tx.column.delete({ where: { id: input.columnId } });
 
@@ -150,7 +151,7 @@ export const removeFromView = protectedProcedure
       where: { id: input.viewId, table: { base: { ownerId: ctx.session.user.id } } },
       select: { id: true, config: true },
     });
-    if (!view) throw new Error("View not found");
+    if (!view) throw new TRPCError({ code: "NOT_FOUND", message: "View not found" });
 
     const config = (view.config as Record<string, unknown>) ?? {};
 
@@ -159,7 +160,7 @@ export const removeFromView = protectedProcedure
       : [];
 
     if (columnOrderIds.length === 0) {
-      throw new Error("Cannot remove the last column from the view");
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot remove the last column from the view" });
     }
 
     const hiddenColumnIds = Array.isArray(config.hiddenColumnIds)

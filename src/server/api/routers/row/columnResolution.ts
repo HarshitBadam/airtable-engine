@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { ensureSortIndex } from "~/server/db/ensureColumnIndexes";
 import type {
   Filter as FilterInput,
@@ -73,8 +74,8 @@ export async function validateAndResolveSorts(
 
   for (const sort of sorts) {
     const col = colMap.get(sort.columnId);
-    if (!col) throw new Error("Invalid sort column");
-    if (col.type !== sort.type) throw new Error("Sort type mismatch");
+    if (!col) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid sort column" });
+    if (col.type !== sort.type) throw new TRPCError({ code: "BAD_REQUEST", message: "Sort type mismatch" });
   }
 
   const hasRedirects = cols.some((c) => c.sourceColumnId);
@@ -151,7 +152,7 @@ export async function validateAndResolveFilters(
   })) as ColumnRow[];
 
   if (cols.length !== uniqueColIds.length) {
-    throw new Error("Invalid filter column");
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid filter column" });
   }
 
   const hasRedirects = cols.some((c) => c.sourceColumnId);

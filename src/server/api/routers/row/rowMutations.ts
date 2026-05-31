@@ -1,10 +1,9 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
 import { escapeLiteral } from "~/server/sql/escape";
 
 /**
- * Insert a single empty row at a specific position.
- *
  * Strategy (Float rowIndex, zero shifting):
  *   position="end"   → atomically claim nextRowIndex (O(1), race-safe)
  *   position="above"  → midpoint between prev row and atIndex
@@ -26,14 +25,8 @@ export const insertAt = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
-    // Float midpoint insertion: O(log N), zero row shifting.
-    // Instead of shifting existing rows (O(N)), we place the new row
-    // at a midpoint between two neighbours.
-    //   e.g.  rows 4.0, 5.0 → insert above 5.0 → (4.0+5.0)/2 = 4.5
-    // This never touches any existing row — just one INSERT.
-    //
     // Wrapped in a transaction so the row INSERT and the Table counter
     // UPDATE are atomic — if either fails, both roll back and rowCount
     // stays consistent.
@@ -75,7 +68,6 @@ export const insertAt = protectedProcedure
           : input.atIndex + 1; // after the very last row
       }
 
-      // Single INSERT — O(log N) via B-tree index
       const newRow = await tx.row.create({
         data: {
           tableId: input.tableId,
@@ -86,7 +78,6 @@ export const insertAt = protectedProcedure
         select: { id: true, rowIndex: true, cells: true, createdAt: true, updatedAt: true },
       });
 
-      // Keep rowCount and nextRowIndex accurate.
       // GREATEST ensures nextRowIndex never goes backward if a midpoint
       // insert happens to land below the current nextRowIndex.
       await tx.$executeRawUnsafe(
@@ -107,10 +98,6 @@ export const insertAt = protectedProcedure
     });
   });
 
-/**
- * Duplicate a row: copy its cells and insert the clone right below it.
- * Uses the same capped-shift strategy as insertAt.
- */
 export const duplicateAt = protectedProcedure
   .input(
     z.object({
@@ -123,18 +110,17 @@ export const duplicateAt = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
     const sourceRow = await ctx.db.row.findFirst({
       where: { id: input.rowId, tableId: input.tableId },
       select: { rowIndex: true, cells: true, searchText: true },
     });
-    if (!sourceRow) throw new Error("Row not found");
+    if (!sourceRow) throw new TRPCError({ code: "NOT_FOUND", message: "Row not found" });
 
-    // Float midpoint: place the clone right after the source row.
     // Wrapped in a transaction so the row INSERT and the Table counter
     // UPDATE are atomic — if either fails, both roll back and rowCount
-    // stays consistent (same pattern as the delete mutation).
+    // stays consistent.
 
     return ctx.db.$transaction(async (tx) => {
       const nextRes = await tx.$queryRawUnsafe<{ nxt: number | null }[]>(
@@ -176,8 +162,6 @@ export const duplicateAt = protectedProcedure
   });
 
 /**
- * Delete a single row by ID.
- *
  * Idempotent: if the row is already gone (concurrent delete, double-click),
  * the mutation succeeds with count: 0 instead of throwing.
  */
@@ -193,10 +177,9 @@ export const deleteRow = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
     return ctx.db.$transaction(async (tx) => {
-      // Clean up ViewRowRank entries for this row across ALL views.
       await tx.$executeRawUnsafe(
         `DELETE FROM "ViewRowRank" WHERE "rowId" = $1::uuid`,
         input.rowId,
@@ -220,10 +203,6 @@ export const deleteRow = protectedProcedure
     });
   });
 
-/**
- * Clear all rows from a table (delete every row, reset counters).
- * Idempotent: calling on an already-empty table is a no-op.
- */
 export const clearData = protectedProcedure
   .input(
     z.object({
@@ -235,7 +214,7 @@ export const clearData = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true, rowCount: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
     if (table.rowCount === 0) return { deletedCount: 0 };
 
@@ -265,13 +244,6 @@ export const clearData = protectedProcedure
     return { deletedCount: table.rowCount };
   });
 
-/**
- * Reorder a single row: move it from its current rowIndex to another.
- *
- * Strategy: park the row at a temp index, then shift each affected row
- * ONE AT A TIME in the correct order so every write fills the slot that
- * was just vacated — no negation trick, no unique-constraint risk.
- */
 export const reorder = protectedProcedure
   .input(
     z.object({
@@ -288,7 +260,7 @@ export const reorder = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
     // Wrap the entire reorder in a transaction so the neighbour lookups
     // and the UPDATE are atomic — prevents a concurrent reorder from
@@ -298,7 +270,7 @@ export const reorder = protectedProcedure
         where: { id: input.rowId, tableId: input.tableId },
         select: { id: true, rowIndex: true },
       });
-      if (!row) throw new Error("Row not found");
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Row not found" });
 
       if (row.rowIndex === input.toIndex) return;
 

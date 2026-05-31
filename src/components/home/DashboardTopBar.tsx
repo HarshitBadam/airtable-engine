@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import styles from "~/components/home/HomeShell.module.css";
+import styles from "./DashboardTopBar.module.css";
 import {
   HamburgerIcon,
   SearchIcon,
@@ -18,9 +18,7 @@ interface DashboardTopBarProps {
   userName: string;
   userEmail: string;
   userInitial: string;
-  /** Reserved for future use — top bar may react to scroll position. */
   isScrolled?: boolean;
-  /** Reserved for future use — base accent color when inside a base. */
   baseColor?: string;
 }
 

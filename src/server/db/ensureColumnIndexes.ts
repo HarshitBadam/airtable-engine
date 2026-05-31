@@ -47,8 +47,7 @@ async function safeCreateIndex(db: PrismaClient, sql: string): Promise<void> {
 }
 
 /**
- * Drop all per-column indexes for a table.
- * Used during table/base deletion to prevent orphan indexes.
+ * Used during table/base deletion to prevent orphan indexes in pg_catalog.
  */
 export async function dropColumnIndexesForTable(
   db: PrismaClient,
@@ -68,7 +67,6 @@ export async function dropColumnIndexesForTable(
 }
 
 /**
- * Build the single B-tree sort index for a column.
  * Direction-agnostic: one ASC NULLS FIRST index serves both ASC
  * (forward scan) and DESC (backward scan) queries.
  *
@@ -95,7 +93,6 @@ export async function ensureSortIndex(
   )) as { cnt: number }[];
   if ((existing[0]?.cnt ?? 0) > 0) return;
 
-  // Slow path: build the single index
   if (columnType === "TEXT") {
     await safeCreateIndex(
       db,

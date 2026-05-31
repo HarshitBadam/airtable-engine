@@ -1,7 +1,7 @@
 import React from "react";
 import styles from "./GridContainer.module.css";
 import { useWorkspace } from "./GridWorkspaceContext";
-import { useVerticalScrollbar } from "~/components/grid/hooks/useVerticalScrollbar";
+import { useVerticalScrollbar } from "~/components/grid/hooks/layout/useVerticalScrollbar";
 
 interface GridFreezeChromoProps {
   effectiveHeaderHeight: number;

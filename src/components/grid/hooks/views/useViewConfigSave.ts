@@ -2,7 +2,6 @@ import { useRef, useEffect, useCallback } from "react";
 import { useLatestRef } from "~/hooks/useLatestRef";
 import { api } from "~/trpc/react";
 import { useGridStore } from "~/components/grid/GridStore";
-import type { RowHeightPreset } from "~/shared/grid";
 
 interface UseViewConfigSaveProps {
   tableId: string;

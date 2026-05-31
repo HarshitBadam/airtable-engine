@@ -200,7 +200,6 @@ export function detectOrEqualsPattern(
   useTree: boolean,
 ): { colId: string; values: (string | number)[] } | null {
   if (useTree && filterTree) {
-    // Tree form: outer AND with a single OR group of equals on same column.
     const items = filterTree.items;
     if (items.length !== 1) return null;
     const item = items[0]!;

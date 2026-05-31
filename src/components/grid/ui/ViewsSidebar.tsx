@@ -5,7 +5,7 @@ import { useWorkspace } from './GridWorkspaceContext';
 import { ViewListItem } from './ViewListItem';
 import { CreateViewDropdown } from './CreateViewDropdown';
 import { CreateViewForm } from './CreateViewForm';
-import { useViewsDragDrop } from '../hooks/useViewsDragDrop';
+import { useViewsDragDrop } from '../hooks/views/useViewsDragDrop';
 import { ViewContextMenu } from './ViewContextMenu';
 
 interface ViewsSidebarProps {

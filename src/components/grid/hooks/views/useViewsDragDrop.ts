@@ -18,7 +18,6 @@ export function useViewsDragDrop(
   const [localViewOrder, setLocalViewOrder] = useState<string[] | null>(null);
   const prevViewIdsRef = useRef<string>('');
 
-  // Reset local order when the server-authoritative view list changes
   useEffect(() => {
     const ids = views.map((v) => v.id).join(',');
     if (ids !== prevViewIdsRef.current) {

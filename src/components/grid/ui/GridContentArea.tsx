@@ -3,7 +3,7 @@ import styles from "./GridContainer.module.css";
 import { GridRow } from "./GridRow";
 import { GridSkeletonRow } from "./GridSkeletonRow";
 import { useWorkspace } from "./GridWorkspaceContext";
-import { useRowDragReorder } from "~/components/grid/hooks/useRowDragReorder";
+import { useRowDragReorder } from "~/components/grid/hooks/rows/useRowDragReorder";
 
 function PlusIcon() {
   return (

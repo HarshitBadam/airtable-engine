@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import styles from "~/components/home/HomeShell.module.css";
+import styles from "./DashboardPage.module.css";
 import basesStyles from "~/components/bases/bases.module.css";
 import {
   ChevronDownIcon,
@@ -35,7 +35,7 @@ export default function DashboardPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
 
-  const { bases, isLoading, createBase } = useBases();
+  const { bases, isLoading, isError, createBase } = useBases();
   const { data: session } = useSession();
 
   const userName = session?.user?.name ?? "User";
@@ -185,7 +185,7 @@ export default function DashboardPage() {
 
             <div
               onScroll={handleContentScroll}
-              className={`${styles.contentArea} ${bases.length > 0 || isLoading ? styles.contentAreaWithBases : ""}`}
+              className={`${styles.contentArea} ${bases.length > 0 || isLoading || isError ? styles.contentAreaWithBases : ""}`}
             >
               {isLoading ? (
                 <div className={basesStyles.basesGridWrapper}>
@@ -195,6 +195,12 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 </div>
+              ) : isError ? (
+                <section className={styles.emptyState} aria-label="Error state">
+                  <h2 className={styles.emptyTitle}>
+                    Failed to load bases. Please refresh.
+                  </h2>
+                </section>
               ) : bases.length === 0 ? (
                 <section className={styles.emptyState} aria-label="Empty state">
                   <h2 className={styles.emptyTitle}>
@@ -224,7 +230,6 @@ export default function DashboardPage() {
         onCreateBase={() => { setCreateModalOpen(false); handleCreateBase(); }}
       />
 
-      {/* Full-screen loading skeleton while base is being created */}
       {pendingBaseId && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "row", height: "100vh", width: "100vw", overflow: "hidden", background: "#fff", fontFamily: '-apple-system, system-ui, "system-ui", "Segoe UI", Roboto, sans-serif', fontSize: 13, color: "rgb(29, 31, 37)" }}>
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", width: 56, height: "100%", padding: "16px 8px", boxSizing: "border-box", borderRight: "1px solid rgba(0,0,0,0.1)", background: "#fff", flexShrink: 0 }} />

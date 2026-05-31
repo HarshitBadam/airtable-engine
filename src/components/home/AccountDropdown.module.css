@@ -1,0 +1,234 @@
+/**
+ * AccountDropdown.module.css
+ * Styles for src/components/home/AccountDropdown.tsx
+ */
+
+/* Avatar - pink/magenta, white border, soft shadow */
+.avatar {
+  display: block;
+  box-sizing: border-box;
+  color: var(--home-bg);
+  fill: var(--home-bg);
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 26px;
+  transform: translateX(-1px);
+  line-height: 26px;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  width: 26px;
+  border-radius: 9999px;
+  background: var(--home-avatar-bg);
+  border: none;
+}
+
+.avatar:hover {
+  opacity: 0.9;
+}
+
+.hoverTooltip {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 10px);
+  padding: 5px 8px 4px 8px;
+  font-family: var(--home-font-family-body);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #ffffff;
+  background: #31353e;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  z-index: 200;
+}
+
+/* Account tooltip position */
+.avatar + .hoverTooltip {
+  transform: translate(calc(-50% - 8px), 9px);
+  padding-bottom: 5px;
+}
+
+.accountDropdownWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Show tooltip on hover (only rendered when dropdown is closed) */
+.accountDropdownWrapper:hover .hoverTooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+
+.accountDropdown {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  box-sizing: border-box;
+  width: 296px;
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 
+    var(--home-border) 0px 0px 0px 1px,
+    var(--home-border) 0px 4px 11px;
+  z-index: 1100;
+  color: var(--home-text-primary);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+.accountDropdownHeader {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 64px;
+  margin: 0 8px 8px 8px;
+  padding: 8px 0 16px 0;
+  border-bottom: 1px solid var(--home-hover-bg);
+}
+
+.accountDropdownName {
+  display: block;
+  box-sizing: border-box;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19.5px;
+  white-space: nowrap;
+  cursor: default;
+  margin: 0;
+  text-align: left;
+}
+
+.accountDropdownEmail {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19.5px;
+  white-space: nowrap;
+  cursor: default;
+  text-align: left;
+}
+
+.accountDropdownItem {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 272px;
+  height: 34px;
+  padding: 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--home-text-primary);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  text-decoration: none;
+  outline: none;
+  background: transparent;
+  border: none;
+  text-align: left;
+}
+
+.accountDropdownItem:hover {
+  background-color: var(--home-hover-bg);
+}
+
+.accountDropdownItemIcon {
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+.accountDropdownItemText {
+  display: block;
+  flex: 0 1 auto;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.accountDropdownItemArrow {
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  transform: rotate(-90deg);
+}
+
+.accountDropdownDivider {
+  background-color: var(--home-hover-bg);
+  height: 1px;
+  margin: 8px;
+  padding: 0;
+}
+
+.accountDropdownBadgeBusiness {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 18px;
+  line-height: 18px;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgb(15, 104, 162);
+  background-color: rgb(196, 236, 255);
+  border-radius: 9999px;
+  padding: 0 8px;
+  margin-left: auto;
+  margin-right: 8px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.accountDropdownBadgeBusinessIcon {
+  display: block;
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+.accountDropdownBadgeBeta {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 18px;
+  line-height: 18px;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgb(175, 96, 2);
+  background-color: rgb(255, 234, 182);
+  border-radius: 9999px;
+  padding: 0 8px;
+  margin: 0 8px;
+  white-space: nowrap;
+  user-select: none;
+}

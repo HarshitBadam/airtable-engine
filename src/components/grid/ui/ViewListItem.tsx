@@ -50,6 +50,7 @@ export function ViewListItem({
   return (
     <li
       data-view-drag-item
+      aria-current={isActive ? "true" : undefined}
       className={`${styles.viewsSidebarViewItem} ${isActive ? styles.viewsSidebarViewItemActive : ''} ${isRenaming ? styles.viewsSidebarViewItemRenaming : ''} ${isDragging ? styles.viewsSidebarViewItemDragging : ''}`}
       style={style}
       onClick={() => { if (!isRenaming && !isDragging) onSelect(view.id); }}

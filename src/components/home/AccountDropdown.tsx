@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import styles from "./HomeShell.module.css";
+import styles from "./AccountDropdown.module.css";
 import { signOut } from "next-auth/react";
 import { AccountDropdownContent } from "./AccountDropdownContent";
 import type { AccountDropdownStyles } from "./AccountDropdownContent";

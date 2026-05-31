@@ -2,6 +2,7 @@ import "~/styles/globals.css";
 
 import { type Metadata } from "next";
 import { Geist, Inter } from "next/font/google";
+import { Toaster } from "sonner";
 
 import { TRPCReactProvider } from "~/trpc/react";
 import { Providers } from "./providers";
@@ -36,6 +37,7 @@ export default function RootLayout({
         <TRPCReactProvider>
           <Providers>{children}</Providers>
         </TRPCReactProvider>
+        <Toaster position="bottom-right" richColors />
       </body>
     </html>
   );

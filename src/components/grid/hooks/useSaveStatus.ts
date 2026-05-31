@@ -26,14 +26,12 @@ export function useSaveStatus(): SaveStatus {
     wasMutatingRef.current = isMutating;
 
     if (isMutating) {
-      // New mutation started — cancel any pending "saved → idle" timer
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
       setStatus("saving");
     } else if (wasMutating) {
-      // All mutations just settled → show "All changes saved" for 1s
       setStatus("saved");
       timerRef.current = setTimeout(() => {
         setStatus("idle");

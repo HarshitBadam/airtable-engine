@@ -9,7 +9,6 @@ export type DragState = {
   startY: number;
   currentX: number;
   currentY: number;
-  /** Viewport position of the dragged item at drag start */
   itemTop: number;
   itemLeft: number;
   itemWidth: number;
@@ -22,7 +21,6 @@ export function useStarredDragDrop(starredBases: StarredBase[], starredEntryWrap
   const [dragState, setDragState] = useState<DragState>(null);
   const dragRef = useRef<DragState>(null);
 
-  // Sync local order when server data changes (and not mid-drag)
   const starredIds = starredBases.map((b) => b.id).join(",");
   useEffect(() => {
     if (!dragRef.current) {

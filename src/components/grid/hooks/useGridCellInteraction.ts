@@ -4,7 +4,7 @@ import type React from "react";
 import { useLatestRef } from "~/hooks/useLatestRef";
 import { useGridStore } from "~/components/grid/GridStore";
 import { useGridCellOverlay } from "~/components/grid/hooks/useGridCellOverlay";
-import { useFindInView } from "~/components/grid/hooks/useFindInView";
+import { useFindInView } from "~/components/grid/hooks/search/useFindInView";
 import { useGridKeyboard } from "~/components/grid/hooks/useGridKeyboard";
 import { useCellOverlaySync } from "~/components/grid/hooks/useCellOverlaySync";
 import type { GridColumnDef } from "~/components/grid/ui/GridRow";
@@ -20,7 +20,6 @@ type CommitArgs = {
 };
 
 interface UseGridCellInteractionArgs {
-  // DOM / layout refs
   selectionOverlayRef: React.RefObject<HTMLDivElement | null>;
   hScrollRef: React.RefObject<HTMLDivElement | null>;
   gridScrollerRef: React.RefObject<HTMLDivElement | null>;
@@ -32,7 +31,6 @@ interface UseGridCellInteractionArgs {
   dataRowHeightRef: React.MutableRefObject<number>;
   mapToVirtualIndexRef: React.MutableRefObject<(n: number) => number>;
   jumpCacheRef: React.MutableRefObject<Map<number, RowItem>>;
-  // runtime data
   tableId: string;
   activeSearchTerm: string;
   visibleColumns: GridColumnDef[];
@@ -45,7 +43,6 @@ interface UseGridCellInteractionArgs {
   triggerJumpFetch: (offset: number, force?: boolean) => void;
   columnWidths: Record<string, number>;
   frozenColCount: number;
-  // stable callback refs
   commitRef: React.MutableRefObject<(args: CommitArgs) => void>;
   getCellValue: (cells: unknown, columnId: string) => string;
 }

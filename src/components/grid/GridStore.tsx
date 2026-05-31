@@ -178,7 +178,6 @@ export function createGridStore(tableId: string) {
     initializeFromView: (viewId, cfg) => {
       const fp2 = configFingerprint(cfg);
 
-      // Convert saved Filter[] → FilterConditionUI[] so FilterPanel shows correct state
       const restoredConditions: FilterConditionUI[] = cfg.filters.map((f, idx) => ({
         id: `restored-${idx}-${Date.now()}`,
         columnId: f.columnId,
@@ -351,7 +350,6 @@ export function useGridStore<T>(selector: (s: GridState) => T): T {
   return useStore(store, selector);
 }
 
-/** Return the raw Zustand store API (for .getState() in event handlers). */
 export function useGridStoreApi(): StoreApi<GridState> {
   const store = useContext(GridStoreCtx);
   if (!store) throw new Error("useGridStoreApi must be used within GridStoreProvider");

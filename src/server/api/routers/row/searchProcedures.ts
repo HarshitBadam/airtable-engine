@@ -24,7 +24,6 @@ import {
   validateAndResolveSorts,
 } from "./columnResolution";
 
-// searchMatchCount — count total substring occurrences across rows (respects filters).
 export const searchMatchCount = protectedProcedure
   .input(
     z.object({
@@ -49,7 +48,6 @@ export const searchMatchCount = protectedProcedure
     const filterTree = input.filterTree;
     const useTree = filterTree && filterTreeHasConditions(filterTree);
 
-    // Redirect unbackfilled duplicate filter columns to their source.
     await validateAndResolveFilters(ctx.db, filters, filterTree, !!useTree, input.tableId);
 
     // $1 = searchLower, $2 = tableId, $3 = ILIKE pattern, $4+ = filter params.
@@ -120,7 +118,6 @@ export const findEdgeMatch = protectedProcedure
     const filterTree = input.filterTree;
     const useTree = filterTree && filterTreeHasConditions(filterTree);
 
-    // Redirect unbackfilled duplicate filter columns to their source.
     await validateAndResolveFilters(ctx.db, filters, filterTree, !!useTree, input.tableId);
 
     const q1Params: SqlParam[] = [input.tableId, `%${escaped}%`];

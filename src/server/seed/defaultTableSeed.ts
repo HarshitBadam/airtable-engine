@@ -24,9 +24,8 @@ export type SeededTable = {
 };
 
 /**
- * Seed a fresh table with default Airtable-style columns, a "Grid view",
- * and faker rows.  Caller is responsible for the surrounding transaction so
- * partial seeds never end up persisted.
+ * Caller is responsible for the surrounding transaction so partial seeds
+ * never end up persisted.
  */
 export async function seedDefaultTable(
   tx: Tx,
@@ -110,9 +109,9 @@ export async function seedDefaultTable(
 }
 
 /**
- * Build sort indexes for all seed columns. Run *outside* the transaction
- * because index DDL takes its own locks. On a fresh 25-row table this is
- * <50ms total and means the first sort doesn't hit a cold-start build.
+ * Run *outside* the transaction because index DDL takes its own locks.
+ * On a fresh 25-row table this is <50ms total, ensuring the first sort
+ * doesn't hit a cold-start index build.
  */
 export async function ensureSeedColumnIndexes(
   db: unknown,

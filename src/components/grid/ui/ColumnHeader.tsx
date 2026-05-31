@@ -19,6 +19,8 @@ export interface ColumnHeaderCellProps {
   searchTerm?: string;
   /** columnId of the current find-match in the header sentinel row, or null. */
   findHeaderMatchColId: string | null;
+  /** 1-indexed column position for aria-colindex (optional). */
+  colIndex?: number;
   onMenuToggle: (e: React.MouseEvent, colId: string) => void;
   onResizeStart: (e: React.MouseEvent, colId: string) => void;
   onRowHeightResizeStart: (e: React.MouseEvent) => void;
@@ -36,6 +38,7 @@ export function ColumnHeaderCell({
   searchTermLower,
   searchTerm,
   findHeaderMatchColId,
+  colIndex,
   onMenuToggle,
   onResizeStart,
   onRowHeightResizeStart,
@@ -50,6 +53,9 @@ export function ColumnHeaderCell({
 
   return (
     <div
+      role="columnheader"
+      aria-label={col.name}
+      {...(colIndex !== undefined ? { "aria-colindex": colIndex } : {})}
       data-col-header-id={col.id}
       className={[
         styles.gridHeaderCell,

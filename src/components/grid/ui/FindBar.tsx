@@ -76,7 +76,6 @@ export function FindBar({
 
   return (
     <div className={styles.findBar}>
-      {/* Input — "Find in view..." */}
       <input
         ref={inputRef}
         className={styles.findInput}
@@ -109,7 +108,6 @@ export function FindBar({
         </span>
       )}
 
-      {/* Navigation arrows (prev/next) — only when results exist */}
       {showResultNav && (
         <div className={styles.findNavArrows}>
           <button

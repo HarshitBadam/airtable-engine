@@ -8,7 +8,7 @@ import { api } from "~/trpc/react";
 import { useGridStore, useGridStoreApi } from "~/components/grid/GridStore";
 import { useLatestRef } from "~/hooks/useLatestRef";
 import { countOccurrences } from "~/components/grid/utils/countOccurrences";
-import type { RowItem, RowInfiniteInput } from "./useGridRows";
+import type { RowItem, RowInfiniteInput } from "../useGridRows";
 
 type RowInfinitePage = inferProcedureOutput<AppRouter["row"]["infinite"]>;
 type RowInfiniteCursor = RowInfinitePage["nextCursor"];

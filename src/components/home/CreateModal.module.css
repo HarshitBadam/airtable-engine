@@ -1,0 +1,292 @@
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContainer {
+  width: 752px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  background-color: var(--home-bg);
+  border-radius: 12px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--home-text-primary);
+  overflow: hidden;
+  position: relative;
+  pointer-events: all;
+  animation: bounceIn 240ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modalContainer {
+    animation: none !important;
+  }
+}
+
+.modalHeader {
+  width: 100%;
+  height: 69.75px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--home-border);
+  box-sizing: border-box;
+  position: relative;
+}
+
+.modalTitle {
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 28.75px;
+  margin: 0;
+  margin-left: 24px;
+  color: var(--home-text-primary);
+}
+
+.modalCloseButton {
+  position: absolute;
+  top: 22px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--home-text-primary);
+  transition: background 0.15s ease;
+}
+
+.modalCloseButton:hover {
+  background: var(--home-hover-bg);
+}
+
+.modalCloseButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+.modalWorkspace {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 24px 24px 0 24px;
+  box-sizing: border-box;
+}
+
+.modalWorkspaceLabel {
+  display: block;
+  box-sizing: border-box;
+  color: var(--home-text-primary);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 15px;
+  font-weight: 500;
+  height: 22.5px;
+  line-height: 22.5px;
+  margin: 0;
+  margin-right: 4px;
+  padding: 0;
+  pointer-events: all;
+  unicode-bidi: isolate;
+}
+
+.modalWorkspaceSelect {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--home-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.modalWorkspaceSelect:hover {
+  color: var(--home-text-primary);
+}
+
+.modalWorkspaceSelect svg {
+  width: 14px;
+  height: 14px;
+}
+
+.modalContent {
+  width: 100%;
+  min-width: 0;
+  min-height: 359.25px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  padding: 24px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--home-text-primary);
+  pointer-events: all;
+  unicode-bidi: isolate;
+  overflow-y: auto;
+}
+
+.modalOptions {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 704px;
+  min-height: 311.25px;
+  margin: 0;
+  padding: 0;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--home-text-primary);
+  pointer-events: all;
+  unicode-bidi: isolate;
+  transform: translateY(-2px);
+}
+
+.modalOptionCard {
+  flex: 1 1 0;
+  min-width: 220px;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: box-shadow 0.15s ease;
+  padding: 0;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+}
+
+.modalOptionCard:hover {
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.06) 0px 1px 3px 0px, var(--home-hover-bg) 0px 2px 6px 0px;
+}
+
+.modalOptionImage {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1.7 / 1;
+  object-fit: cover;
+  box-sizing: border-box;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  display: block;
+}
+
+.modalOptionText {
+  width: 100%;
+  min-width: 0;
+  min-height: 111.25px;
+  box-sizing: border-box;
+  padding: 16px;
+  margin: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--home-text-primary);
+  cursor: pointer;
+  display: block;
+  flex: 1 1 auto;
+  pointer-events: all;
+  unicode-bidi: isolate;
+  transform: translateX(-2px);
+}
+
+.modalOptionTitleRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  min-width: 0;
+}
+
+.modalOptionTitle {
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 26.25px;
+  color: var(--home-text-primary);
+  margin: 0 0 8px 0;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.modalOptionTitleRow .modalOptionTitle {
+  margin: 0;
+}
+
+.modalOptionBadge {
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  height: 18px;
+  line-height: 18px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 11px;
+  font-weight: 400;
+  color: rgb(0, 100, 0);
+  background-color: rgb(207, 245, 209);
+  border-radius: 9999px;
+  padding: 0 8px;
+  margin: 0 0 0 8px;
+  cursor: pointer;
+  pointer-events: all;
+  unicode-bidi: isolate;
+}
+
+.modalOptionDesc {
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 22px;
+  color: var(--home-text-secondary);
+  margin: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}

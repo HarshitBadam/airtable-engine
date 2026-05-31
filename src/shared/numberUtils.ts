@@ -1,13 +1,8 @@
 export interface NumberFormatConfig {
-  /** Number of decimal places to display (0–8). Default: 1 */
   decimalPlaces: number;
-  /** Thousands/decimal separator style. Default: "Local" */
   thousandsSep: string;
-  /** Whether to show thousands separators. Default: true */
   showThousands: boolean;
-  /** Large number abbreviation: "Thousand" | "Million" | "Billion" | null. Default: null */
   largeNumAbbrev: string | null;
-  /** Whether negative numbers are allowed. Default: true */
   allowNegative: boolean;
 }
 
@@ -19,7 +14,6 @@ export const DEFAULT_NUMBER_CONFIG: NumberFormatConfig = {
   allowNegative: true,
 };
 
-/** Suffix multipliers (case-insensitive) */
 const SUFFIX_MAP: Record<string, number> = {
   k: 1_000,
   m: 1_000_000,
@@ -61,7 +55,6 @@ export function parseNumberInput(
 
   if (s === "") return null;
 
-  // Extract trailing suffix (e.g., "K", "M", "B", "T", "thousand", etc.)
   let multiplier = 1;
   const suffixMatch = /([a-zA-Z]+)\s*$/.exec(s);
   if (suffixMatch) {
@@ -116,7 +109,6 @@ export function parseNumberInput(
 
   normalized = normalized.replace(/[\s\u00A0]/g, "");
 
-  // Now parse as a standard number (handles scientific notation too, e.g. "1e4")
   const num = Number(normalized);
   if (!Number.isFinite(num)) return null;
 
@@ -127,9 +119,6 @@ export function parseNumberInput(
   return result;
 }
 
-/**
- * Determine the thousands and decimal characters from the separator label.
- */
 function getSeparators(thousandsSep: string): {
   thousandChar: string;
   decimalChar: string;
@@ -218,6 +207,5 @@ export function formatCellValue(
   const num = Number(str);
   if (!Number.isFinite(num)) return str;
 
-  // Format using config (fall back to defaults if no config stored)
   return formatNumber(num, config ?? DEFAULT_NUMBER_CONFIG);
 }

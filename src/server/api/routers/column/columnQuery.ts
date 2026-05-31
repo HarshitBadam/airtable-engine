@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
 import { ensureSortIndex } from "~/server/db/ensureColumnIndexes";
 
@@ -9,7 +10,7 @@ export const list = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
     return ctx.db.column.findMany({
       where: { tableId: input.tableId },
@@ -25,17 +26,16 @@ export const ensureIndexes = protectedProcedure
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
       select: { id: true },
     });
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
 
     const col = await ctx.db.column.findFirst({
       where: { id: input.columnId, tableId: input.tableId },
       select: { id: true, type: true },
     });
-    if (!col) throw new Error("Column not found");
+    if (!col) throw new TRPCError({ code: "NOT_FOUND", message: "Column not found" });
 
-    // Delegates to the shared ensureSortIndex which builds a single
-    // ASC NULLS FIRST index (serving both ASC and DESC via backward scan).
-    // Fast path (<1ms) when the index already exists.
+    // Single ASC NULLS FIRST index serves both ASC (forward scan) and DESC
+    // (backward scan) queries. Fast path (<1ms) when the index already exists.
     await ensureSortIndex(
       ctx.db,
       input.tableId,

@@ -29,7 +29,6 @@ export default async function globalSetup(config: FullConfig) {
   const prisma = new PrismaClient();
 
   try {
-    // 1. Upsert test user
     let user = await prisma.user.findUnique({
       where: { email: TEST_USER_EMAIL },
     });
@@ -46,7 +45,6 @@ export default async function globalSetup(config: FullConfig) {
       console.log("[global-setup] Found existing test user:", user.id);
     }
 
-    // 2. Upsert session (expires 30 days from now)
     const existingSession = await prisma.session.findUnique({
       where: { sessionToken: TEST_SESSION_TOKEN },
     });
@@ -68,7 +66,6 @@ export default async function globalSetup(config: FullConfig) {
       console.log("[global-setup] Created test session");
     }
 
-    // 3. Find or create a test base with a table
     let base = await prisma.base.findFirst({
       where: { ownerId: user.id, name: TEST_BASE_NAME },
       include: { tables: { include: { columns: true } } },
@@ -97,7 +94,6 @@ export default async function globalSetup(config: FullConfig) {
       });
       console.log("[global-setup] Created test base:", base.id);
 
-      // Create a default view for the table
       const table = base.tables[0]!;
       await prisma.view.create({
         data: {
@@ -125,7 +121,6 @@ export default async function globalSetup(config: FullConfig) {
 
     const table = base.tables[0]!;
 
-    // Write test metadata for specs to read
     const fs = await import("fs");
     const metaPath = nodePath.join(__dirname, ".auth", "test-meta.json");
     fs.writeFileSync(
@@ -143,7 +138,6 @@ export default async function globalSetup(config: FullConfig) {
     );
     console.log("[global-setup] Wrote test metadata to", metaPath);
 
-    // 4. Save auth state (session cookie) for Playwright
     const browser = await chromium.launch();
     const context = await browser.newContext();
 

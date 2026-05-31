@@ -82,11 +82,11 @@ export function TopBar({ baseName, baseColor, baseBorderColor, baseTextColor }: 
             </span>
           )}
 
-          <button className={styles.topBarHistoryButton}>
+          <button aria-label="History" className={styles.topBarHistoryButton}>
             <IconClockCounterClockwise className={styles.topBarHistoryIcon} />
           </button>
 
-          <button className={styles.topBarLinkButton}>
+          <button aria-label="Copy link" className={styles.topBarLinkButton}>
             <LinkIcon className={styles.topBarLinkIcon} size={16} />
           </button>
           <button className={styles.topBarLaunchButton}>

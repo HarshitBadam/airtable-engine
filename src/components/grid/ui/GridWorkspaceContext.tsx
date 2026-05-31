@@ -5,21 +5,25 @@ import type { GridColumnDef } from "./GridRow";
 import type { RowItem } from "~/components/grid/hooks/useGridRows";
 import type { VirtualItem } from "@tanstack/react-virtual";
 import type { NumberFormatConfig } from "~/shared/numberUtils";
-import type { RowHeightPreset } from "~/shared/grid";
-import type { ViewConfigInput } from "~/shared/grid";
+import type { RowHeightPreset, ViewConfigInput } from "~/shared/grid";
 
 export interface GridBarHandle {
   openFilterPanel: () => void;
   openSortPanel: () => void;
 }
 
-export interface GridWorkspaceState {
+// GridWorkspaceState is composed from these domain slices.
+// useWorkspace() returns the flat union — consuming components need not change.
+
+export interface BaseInfoState {
   baseId: string;
   baseColor: string;
   baseBorderColor: string;
   baseTextColor: string;
   baseName: string;
+}
 
+export interface TableChromeState {
   tables: Array<{ id: string; name: string }>;
   activeTableId: string;
   filteredTables: Array<{ id: string; name: string }>;
@@ -72,7 +76,10 @@ export interface GridWorkspaceState {
   handleDeleteTable: () => void;
   handleTableSelect: (id: string) => void;
   scrollToEnd: (direction: "left" | "right") => void;
+  navigateToTable: (id: string) => void;
+}
 
+export interface ViewsState {
   views: { id: string; name: string }[];
   activeViewId: string | null;
   setActiveViewId: (id: string) => void;
@@ -122,7 +129,9 @@ export interface GridWorkspaceState {
   startSidebarRename: (viewId: string) => void;
   commitSidebarRename: () => void;
   cancelSidebarRename: () => void;
+}
 
+export interface ColumnsState {
   orderedColumns: GridColumnDef[];
   visibleColumns: GridColumnDef[];
   hiddenColumnIds: string[];
@@ -144,59 +153,6 @@ export interface GridWorkspaceState {
   handleToggleAutoSort: () => void;
   handleSaveSorts: () => void;
   handleCancelSorts: () => void;
-
-  gridBarRef: React.RefObject<GridBarHandle | null>;
-  gridFooterRef: React.RefObject<HTMLDivElement | null>;
-  gridBodyRef: React.RefObject<HTMLDivElement | null>;
-  scrollableHeaderRef: React.RefObject<HTMLDivElement | null>;
-  gridScrollerRef: React.RefObject<HTMLDivElement | null>;
-  hScrollRef: React.RefObject<HTMLDivElement | null>;
-  scrollShadowRef: React.RefObject<HTMLDivElement | null>;
-  freezeSnapPreviewRef: React.RefObject<HTMLDivElement | null>;
-  freezeLineRef: React.RefObject<HTMLDivElement | null>;
-  freezePillRef: React.RefObject<HTMLDivElement | null>;
-  freezeTooltipRef: React.RefObject<HTMLDivElement | null>;
-  selectionOverlayRef: React.RefObject<HTMLDivElement | null>;
-
-  freezeWidth: number;
-  rowHeight: number;
-  scrollableColumnsWidth: number;
-  frozenColumns: GridColumnDef[];
-  scrollableColumns: GridColumnDef[];
-  getColWidth: (colId: string) => number;
-
-  rows: { id: string; cells: unknown }[];
-  virtualItems: VirtualItem[];
-  totalVirtualSize: number;
-  totalCount: number;
-  dataRowHeight: number;
-  mapToActualIndex: (virtualIndex: number) => number;
-  getRowAtIndex: (index: number) => RowItem | null;
-
-  getCellValue: (cells: unknown, colId: string) => string;
-  stableCommit: (args: {
-    rowId: string;
-    columnId: string;
-    columnType: "TEXT" | "NUMBER";
-    numberConfig?: unknown;
-  }) => void;
-  stableCancel: () => void;
-
-  handleResizeStart: (e: React.MouseEvent, colId: string) => void;
-  handleRowHeightResizeStart: (e: React.MouseEvent) => void;
-  handleFreezeDragStart: (e: React.MouseEvent) => void;
-  handleFreezeLineMouseMove: (e: React.MouseEvent) => void;
-
-  handleAddRow: () => void;
-  handleAddBulkRows: (populate?: boolean) => void;
-  handleInsertRecordAbove: (rowId: string) => void;
-  handleInsertRecordBelow: (rowId: string) => void;
-  handleDuplicateRecord: (rowId: string) => void;
-  handleDeleteRecord: (rowId: string) => void;
-  handleReorderRow: (rowId: string, fromIndex: number, toIndex: number) => void;
-  isBulkAdding: boolean;
-  canDragRows: boolean;
-
   handleDeleteField: (columnId: string) => void;
   handleCreateField: (
     name: string,
@@ -211,7 +167,64 @@ export interface GridWorkspaceState {
   handleSortByField: (columnId: string, direction: "asc" | "desc") => void;
   handleDuplicateField: (columnId: string, duplicateCells: boolean) => void;
   backfillingColumnIds: ReadonlySet<string>;
+}
 
+export interface GridLayoutState {
+  gridBarRef: React.RefObject<GridBarHandle | null>;
+  gridFooterRef: React.RefObject<HTMLDivElement | null>;
+  gridBodyRef: React.RefObject<HTMLDivElement | null>;
+  scrollableHeaderRef: React.RefObject<HTMLDivElement | null>;
+  gridScrollerRef: React.RefObject<HTMLDivElement | null>;
+  hScrollRef: React.RefObject<HTMLDivElement | null>;
+  scrollShadowRef: React.RefObject<HTMLDivElement | null>;
+  freezeSnapPreviewRef: React.RefObject<HTMLDivElement | null>;
+  freezeLineRef: React.RefObject<HTMLDivElement | null>;
+  freezePillRef: React.RefObject<HTMLDivElement | null>;
+  freezeTooltipRef: React.RefObject<HTMLDivElement | null>;
+  selectionOverlayRef: React.RefObject<HTMLDivElement | null>;
+  freezeWidth: number;
+  rowHeight: number;
+  scrollableColumnsWidth: number;
+  frozenColumns: GridColumnDef[];
+  scrollableColumns: GridColumnDef[];
+  getColWidth: (colId: string) => number;
+  handleResizeStart: (e: React.MouseEvent, colId: string) => void;
+  handleRowHeightResizeStart: (e: React.MouseEvent) => void;
+  handleFreezeDragStart: (e: React.MouseEvent) => void;
+  handleFreezeLineMouseMove: (e: React.MouseEvent) => void;
+}
+
+export interface GridDataState {
+  rows: { id: string; cells: unknown }[];
+  virtualItems: VirtualItem[];
+  totalVirtualSize: number;
+  totalCount: number;
+  dataRowHeight: number;
+  mapToActualIndex: (virtualIndex: number) => number;
+  getRowAtIndex: (index: number) => RowItem | null;
+  getCellValue: (cells: unknown, colId: string) => string;
+  stableCommit: (args: {
+    rowId: string;
+    columnId: string;
+    columnType: "TEXT" | "NUMBER";
+    numberConfig?: unknown;
+  }) => void;
+  stableCancel: () => void;
+}
+
+export interface RowMutationsState {
+  handleAddRow: () => void;
+  handleAddBulkRows: (populate?: boolean) => void;
+  handleInsertRecordAbove: (rowId: string) => void;
+  handleInsertRecordBelow: (rowId: string) => void;
+  handleDuplicateRecord: (rowId: string) => void;
+  handleDeleteRecord: (rowId: string) => void;
+  handleReorderRow: (rowId: string, fromIndex: number, toIndex: number) => void;
+  isBulkAdding: boolean;
+  canDragRows: boolean;
+}
+
+export interface SearchState {
   search: string;
   activeSearchTerm: string;
   displayMatchCount: number;
@@ -219,14 +232,28 @@ export interface GridWorkspaceState {
   isSearchPending: boolean;
   handleNextMatch: () => void;
   handlePrevMatch: () => void;
+}
 
+export interface DisplayState {
   rowHeightPreset: RowHeightPreset;
   setRowHeightPreset: (preset: RowHeightPreset) => void;
   wrapHeaders: boolean;
   setWrapHeaders: (val: boolean) => void;
-
-  navigateToTable: (id: string) => void;
 }
+
+// The flat union is intentional: useWorkspace() consumers destructure directly.
+// Each domain interface above is the authoritative source for its slice.
+
+export type GridWorkspaceState =
+  & BaseInfoState
+  & TableChromeState
+  & ViewsState
+  & ColumnsState
+  & GridLayoutState
+  & GridDataState
+  & RowMutationsState
+  & SearchState
+  & DisplayState;
 
 const GridWorkspaceContext = createContext<GridWorkspaceState | null>(null);
 

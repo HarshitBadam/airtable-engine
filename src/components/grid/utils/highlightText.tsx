@@ -1,6 +1,5 @@
 import React from "react";
 
-/** Return non-overlapping [start, end) ranges of `query` in `text` (case-insensitive). */
 export function findAllRanges(text: string, query: string): [number, number][] {
   if (!query) return [];
   const ranges: [number, number][] = [];
@@ -11,7 +10,7 @@ export function findAllRanges(text: string, query: string): [number, number][] {
     const idx = lower.indexOf(qLower, pos);
     if (idx === -1) break;
     ranges.push([idx, idx + qLower.length]);
-    pos = idx + qLower.length; // non-overlapping
+    pos = idx + qLower.length;
   }
   return ranges;
 }

@@ -57,6 +57,7 @@ export const GridBar = forwardRef<GridBarHandle>(function GridBar(_props, ref) {
       <div className={styles.gridBarLeft}>
         <button
           type="button"
+          aria-label="Toggle views sidebar"
           className={styles.gridBarListButton}
           onClick={handleToggleViewsSidebar}
           onMouseEnter={handleListButtonMouseEnter}

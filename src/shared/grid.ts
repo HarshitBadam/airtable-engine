@@ -29,7 +29,7 @@ export type Sort = z.infer<typeof sortSchema>;
 export const filterTreeConditionSchema = z.object({
   kind: z.literal("condition"),
   columnId: z.string(),
-  op: z.string(), // one of the filter operators
+  op: z.string(),
   value: z.union([z.string(), z.number()]).optional(),
 });
 
@@ -91,9 +91,7 @@ export const viewConfigSchema = z.object({
   // When empty, rows display in default rowIndex order.
   // When populated, defines the display order of rows for this view.
   rowOrderIds: z.array(z.string()).default([]),
-  // Row height preset (Short/Medium/Tall/Extra Tall) — per-view
   rowHeightPreset: rowHeightPresetSchema.default("short"),
-  // Wrap header text — per-view
   wrapHeaders: z.boolean().default(false),
 });
 

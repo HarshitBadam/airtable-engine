@@ -3,7 +3,7 @@
 import { useRef, useEffect } from "react";
 import { useLatestRef } from "~/hooks/useLatestRef";
 import { api } from "~/trpc/react";
-import type { RowInfiniteInput } from "./useGridRows";
+import type { RowInfiniteInput } from "../useGridRows";
 
 interface UseViewScrollPersistenceArgs {
   activeViewId: string | null | undefined;
