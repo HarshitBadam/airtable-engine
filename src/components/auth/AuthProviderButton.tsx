@@ -1,6 +1,6 @@
 "use client";
 
-import { GoogleIcon, AppleIcon } from "./Icons";
+import { GoogleIcon, AppleIcon } from "./AuthIcons";
 import styles from "./auth.module.css";
 
 type Provider = "sso" | "google" | "apple";

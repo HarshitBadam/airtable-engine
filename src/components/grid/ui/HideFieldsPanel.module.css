@@ -1,7 +1,3 @@
-/* =============================================
-   HIDE FIELDS PANEL — Dropdown from "Hide fields" button
-   ============================================= */
-
 /* Main container — fixed 320px width, variable height */
 .hideFieldsPanel {
   box-sizing: border-box;
@@ -34,7 +30,6 @@
   padding: 0 1px 8px 1px;
 }
 
-/* === SEARCH REGION === */
 .searchRegion {
   align-items: center;
   border-bottom-color: rgba(0, 0, 0, 0.1);
@@ -107,7 +102,6 @@
   width: 16px;
 }
 
-/* === LINE ITEMS CONTAINER (scrollable) === */
 .fieldList {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -151,7 +145,6 @@
   background-color: rgba(0, 0, 0, 0.38);
 }
 
-/* === LINE ITEM (each field row) === */
 .fieldItem {
   display: flex;
   align-items: center;
@@ -193,7 +186,6 @@
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* === TOGGLE PILL === */
 .togglePill {
   display: flex;
   flex-basis: auto;
@@ -231,7 +223,6 @@
   width: 4px;
 }
 
-/* === TYPE ICON (A or #) === */
 .fieldTypeIcon {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -250,7 +241,6 @@
   width: 16px;
 }
 
-/* === FIELD NAME === */
 .fieldName {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -275,7 +265,6 @@
   unicode-bidi: isolate;
 }
 
-/* === DRAG HANDLE (6 dots) === */
 .dragHandle {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -296,7 +285,6 @@
   cursor: grabbing;
 }
 
-/* === DRAG STATE — lifted item === */
 .fieldItemDragging {
   position: fixed;
   z-index: 100000;
@@ -334,7 +322,6 @@
   transition: transform 0.15s ease;
 }
 
-/* === BOTTOM BUTTONS CONTAINER === */
 .buttonsRow {
   box-sizing: border-box;
   color: rgb(29, 31, 37);

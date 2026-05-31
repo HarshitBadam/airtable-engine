@@ -3,10 +3,6 @@
  * Sidebar overlays main content (no shift needed)
  */
 
-/* ========================================
-   Root Container
-   ======================================== */
-
 .shell {
   display: flex;
   flex-direction: column;
@@ -15,10 +11,6 @@
   background: var(--home-bg);
   overflow: hidden;
 }
-
-/* ========================================
-   Top Bar
-   ======================================== */
 
 .topbar {
   display: flex;
@@ -506,10 +498,6 @@
   opacity: 0.9;
 }
 
-/* ========================================
-   Body Container (Rail + Sidebar + Main)
-   ======================================== */
-
 .body {
   display: flex;
   flex: 1;
@@ -517,10 +505,6 @@
   overflow: hidden;
   background: var(--home-bg-main);
 }
-
-/* ========================================
-   Sidebar Container (Rail + Panel)
-   ======================================== */
 
 .sidebarContainer {
   position: relative;
@@ -536,10 +520,6 @@
 .sidebarContainerExpanded {
   width: 300px;
 }
-
-/* ========================================
-   Rail (Collapsed Icon Sidebar)
-   ======================================== */
 
 .rail {
   display: flex;
@@ -760,10 +740,6 @@
 .railCreatePartial:hover svg {
   opacity: 1;
 }
-
-/* ========================================
-   Sidebar Panel (Expanded)
-   ======================================== */
 
 .sidebar {
   display: flex;
@@ -1299,10 +1275,6 @@
   text-overflow: ellipsis;
 }
 
-/* ========================================
-   Main Content
-   ======================================== */
-
 .main {
   display: flex;
   flex-direction: column;
@@ -1481,10 +1453,6 @@
   color: var(--home-text-primary);
 }
 
-/* ========================================
-   Content Area (holds the list/grid or empty state)
-   ======================================== */
-
 .contentArea {
   display: block;
   box-sizing: border-box;
@@ -1516,10 +1484,6 @@
   /* Clip horizontal overflow so list view doesn't push layout */
   overflow-x: clip;
 }
-
-/* ========================================
-   Empty State
-   ======================================== */
 
 .emptyState {
   display: flex;
@@ -1594,10 +1558,6 @@
 .emptyCta:hover {
   box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px, rgba(0, 0, 0, 0.08) 0px 1px 4px 0px, rgba(0, 0, 0, 0.08) 0px 2px 6px 0px;
 }
-
-/* ========================================
-   Filter Dropdown
-   ======================================== */
 
 .filterDropdown {
   display: block;
@@ -1679,9 +1639,6 @@
   position: relative;
 }
 
-/* ========================================
-   Responsive: Collapse Help button to just "?" at < 1459px
-   ======================================== */
 @media (max-width: 1458px) {
   /* Hide the "Help" text, show only ? icon */
   .helpText {
@@ -1695,10 +1652,8 @@
   }
 }
 
-/* ========================================
-   Responsive: Hide menu button, auto-close sidebar (<= 600px)
-   Note: No padding changes - layout stays consistent at all widths
-   ======================================== */
+/* Responsive: Hide menu button, auto-close sidebar (<= 600px).
+   No padding changes — layout stays consistent at all widths. */
 @media (max-width: 600px) {
   /* Hide hamburger menu button wrapper */
   .hamburgerWrapper {
@@ -1732,10 +1687,6 @@
   }
 }
 
-
-/* ========================================
-   Create Modal Overlay & Container
-   ======================================== */
 
 .modalOverlay {
   position: fixed;
@@ -2037,10 +1988,6 @@
   overflow-wrap: break-word;
   word-break: break-word;
 }
-
-/* ========================================
-   Account Dropdown Menu
-   ======================================== */
 
 .accountDropdownWrapper {
   position: relative;

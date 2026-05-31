@@ -3,6 +3,10 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import styles from "./HideFieldsPanel.module.css";
+import {
+  useHideFieldsDrag,
+  HIDE_FIELDS_ITEM_HEIGHT,
+} from "../hooks/useHideFieldsDrag";
 
 export interface HideFieldColumn {
   id: string;
@@ -19,7 +23,6 @@ interface HideFieldsPanelProps {
   onReorder?: (fromIndex: number, toIndex: number) => void;
 }
 
-// Text type SVG icon
 const TextTypeIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
     <path
@@ -29,7 +32,6 @@ const TextTypeIcon = () => (
   </svg>
 );
 
-// Number type SVG icon
 const NumberTypeIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
     <path
@@ -39,7 +41,6 @@ const NumberTypeIcon = () => (
   </svg>
 );
 
-// Question mark SVG icon
 const QuestionIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
     <path
@@ -49,7 +50,6 @@ const QuestionIcon = () => (
   </svg>
 );
 
-// DotsSixVertical SVG icon (drag handle)
 const DotsSixVerticalIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
     <path
@@ -59,9 +59,6 @@ const DotsSixVerticalIcon = () => (
   </svg>
 );
 
-// ============================================
-// MAIN COMPONENT
-// ============================================
 export function HideFieldsPanel({
   columns,
   hiddenColumnIds,
@@ -72,98 +69,26 @@ export function HideFieldsPanel({
 }: HideFieldsPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Drag-and-drop state
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-  const dragItemRef = useRef<HTMLDivElement | null>(null);
-  const fieldListRef = useRef<HTMLDivElement>(null);
-  const itemRectsRef = useRef<DOMRect[]>([]);
-  // Refs to track latest drag indices (avoids calling onReorder inside setState updaters)
-  const dragIndexRef = useRef<number | null>(null);
-  const dragOverIndexRef = useRef<number | null>(null);
-
-  // Filter columns by search
   const filteredColumns = columns.filter((col) =>
     col.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  const {
+    dragIndex,
+    dragOverIndex,
+    dragPos,
+    dragItemRef,
+    fieldListRef,
+    itemRectsRef,
+    handleDragStart,
+    getItemDragStyle,
+  } = useHideFieldsDrag(filteredColumns.length, onReorder);
 
   const isHidden = useCallback(
     (colId: string) => hiddenColumnIds.includes(colId),
     [hiddenColumnIds],
   );
 
-  // === DRAG-TO-REORDER HANDLERS ===
-  const handleDragStart = useCallback(
-    (e: React.MouseEvent, index: number) => {
-      e.preventDefault();
-
-      // Capture all item rects at start
-      if (fieldListRef.current) {
-        const items = fieldListRef.current.querySelectorAll<HTMLDivElement>(
-          "[data-field-item]",
-        );
-        itemRectsRef.current = Array.from(items).map((el) =>
-          el.getBoundingClientRect(),
-        );
-      }
-
-      dragIndexRef.current = index;
-      dragOverIndexRef.current = index;
-      setDragIndex(index);
-      setDragOverIndex(index);
-      setDragPos({ x: e.clientX, y: e.clientY });
-
-      const handleMouseMove = (ev: MouseEvent) => {
-        setDragPos({ x: ev.clientX, y: ev.clientY });
-
-        // Determine which index we're hovering over
-        const rects = itemRectsRef.current;
-        let newOver = index;
-        for (let i = 0; i < rects.length; i++) {
-          const rect = rects[i]!;
-          const midY = rect.top + rect.height / 2;
-          if (ev.clientY > midY) {
-            newOver = i;
-          }
-        }
-        newOver = Math.max(0, Math.min(newOver, filteredColumns.length - 1));
-        dragOverIndexRef.current = newOver;
-        setDragOverIndex(newOver);
-      };
-
-      const handleMouseUp = () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-        document.body.style.userSelect = "";
-        document.body.style.webkitUserSelect = "";
-
-        // Read from refs (not state) to avoid calling onReorder inside a setState updater
-        const fromIdx = dragIndexRef.current;
-        const toIdx = dragOverIndexRef.current;
-
-        // Clear drag state
-        dragIndexRef.current = null;
-        dragOverIndexRef.current = null;
-        setDragIndex(null);
-        setDragOverIndex(null);
-        setDragPos(null);
-
-        // Fire reorder callback outside of any setState updater
-        if (fromIdx !== null && toIdx !== null && fromIdx !== toIdx && onReorder) {
-          onReorder(fromIdx, toIdx);
-        }
-      };
-
-      document.body.style.userSelect = "none";
-      document.body.style.webkitUserSelect = "none";
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-    },
-    [filteredColumns.length, onReorder],
-  );
-
-  // Compute max height: 8px off bottom of viewport
   const panelRef = useRef<HTMLDivElement>(null);
   const [maxFieldListHeight, setMaxFieldListHeight] = useState<number>(421);
 
@@ -177,10 +102,6 @@ export function HideFieldsPanel({
     setMaxFieldListHeight(clamped);
   }, [columns.length]);
 
-  // Compute the full row height (content 18px + 3px top pad + 3px bottom pad + 2px margin)
-  const ITEM_HEIGHT = 26; // 18 + 3 + 3 + 2
-
-  // Render the inner content of a field row (toggle + icon + name + drag handle)
   const renderFieldContent = (
     col: HideFieldColumn,
     index: number,
@@ -189,29 +110,24 @@ export function HideFieldsPanel({
     const hidden = isHidden(col.id);
     return (
       <>
-        {/* Left container (toggle + icon + name) */}
         <div
           className={styles.fieldItemLeft}
           onClick={isDragOverlay ? undefined : () => onToggleColumn(col.id)}
           style={isDragOverlay ? { pointerEvents: "none" } : undefined}
         >
-          {/* Toggle pill */}
           <div
             className={`${styles.togglePill} ${hidden ? styles.togglePillOff : styles.togglePillOn}`}
           >
             <div className={styles.togglePillCircle} />
           </div>
 
-          {/* Type icon */}
           <span className={styles.fieldTypeIcon}>
             {col.type === "NUMBER" ? <NumberTypeIcon /> : <TextTypeIcon />}
           </span>
 
-          {/* Field name */}
           <span className={styles.fieldName}>{col.name}</span>
         </div>
 
-        {/* Drag handle (6 dots) */}
         <div
           className={styles.dragHandle}
           onMouseDown={isDragOverlay ? undefined : (e) => handleDragStart(e, index)}
@@ -223,48 +139,10 @@ export function HideFieldsPanel({
     );
   };
 
-  // Compute transform for each item during drag
-  const getItemDragStyle = (
-    index: number,
-  ): React.CSSProperties | undefined => {
-    if (dragIndex === null || dragOverIndex === null) return undefined;
-
-    if (index === dragIndex) {
-      // The dragged item's placeholder: translate from original position to drop position
-      const delta = dragOverIndex - dragIndex;
-      return {
-        transform: `translateY(${delta * ITEM_HEIGHT}px)`,
-        transition: "transform 0.15s ease",
-      };
-    }
-
-    // Items between dragIndex and dragOverIndex shift to make room
-    if (dragOverIndex > dragIndex) {
-      // Dragging down: items between (dragIndex, dragOverIndex] shift up by 1
-      if (index > dragIndex && index <= dragOverIndex) {
-        return {
-          transform: `translateY(${-ITEM_HEIGHT}px)`,
-          transition: "transform 0.15s ease",
-        };
-      }
-    } else if (dragOverIndex < dragIndex) {
-      // Dragging up: items between [dragOverIndex, dragIndex) shift down by 1
-      if (index >= dragOverIndex && index < dragIndex) {
-        return {
-          transform: `translateY(${ITEM_HEIGHT}px)`,
-          transition: "transform 0.15s ease",
-        };
-      }
-    }
-
-    return { transition: "transform 0.15s ease" };
-  };
-
   return (
     <>
     <div ref={panelRef} className={styles.hideFieldsPanel}>
       <div className={styles.panelContent}>
-      {/* Search region */}
       <div className={styles.searchRegion}>
         <input
           className={styles.searchInput}
@@ -279,7 +157,6 @@ export function HideFieldsPanel({
         </span>
       </div>
 
-      {/* Field list (scrollable) */}
       <div
         ref={fieldListRef}
         className={styles.fieldList}
@@ -299,7 +176,6 @@ export function HideFieldsPanel({
         ))}
       </div>
 
-      {/* Bottom buttons */}
       <div className={styles.buttonsRow}>
         <button
           type="button"
@@ -327,7 +203,7 @@ export function HideFieldsPanel({
           className={styles.fieldItemDragging}
           style={{
             left: itemRectsRef.current[dragIndex]?.left ?? 0,
-            top: dragPos.y - (ITEM_HEIGHT / 2),
+            top: dragPos.y - (HIDE_FIELDS_ITEM_HEIGHT / 2),
             width: itemRectsRef.current[dragIndex]?.width ?? 288,
           }}
         >

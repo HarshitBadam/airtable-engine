@@ -1,7 +1,3 @@
-/* ============================================
-   FIND BAR — "Find in view" search bar
-   ============================================ */
-
 /* Main container */
 .findBar {
   background-color: #ffffff;
@@ -26,7 +22,6 @@
   width: 366px;
 }
 
-/* === INPUT (flex-grow: 1, fills remaining space) === */
 .findInput {
   appearance: auto;
   background-attachment: scroll;
@@ -103,7 +98,6 @@
   color: rgb(97, 102, 112);
 }
 
-/* === SPINNER (while search is pending) === */
 .findSpinner {
   display: flex;
   align-items: center;
@@ -125,7 +119,6 @@
   display: block;
 }
 
-/* === NO RESULTS TEXT === */
 .findNoResults {
   display: flex;
   align-items: center;
@@ -142,7 +135,6 @@
   white-space: nowrap;
 }
 
-/* === RESULT COUNT TEXT ("X of Y") === */
 .findResultCount {
   box-sizing: border-box;
   color: #8D8F92;
@@ -162,7 +154,6 @@
   align-self: center;
 }
 
-/* === NAVIGATION ARROWS CONTAINER === */
 .findNavArrows {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -242,7 +233,6 @@
   width: 12px;
 }
 
-/* === ASK OMNI BUTTON === */
 .findOmniButton {
   align-items: center;
   align-self: center;
@@ -277,7 +267,6 @@
   background-color: rgb(49, 53, 62);
 }
 
-/* === X CLOSE BUTTON === */
 .findCloseButton {
   align-items: center;
   border-bottom-left-radius: 6px;

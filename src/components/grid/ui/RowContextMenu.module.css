@@ -1,0 +1,130 @@
+.recordContextMenu {
+  box-sizing: border-box;
+  padding: 12px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  list-style: none;
+  margin: 0;
+  width: 240px;
+}
+
+.recordContextMenuItem {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 8px;
+  border-radius: 3px;
+  box-sizing: border-box;
+  cursor: pointer;
+  list-style: none;
+  margin: 0;
+  color: rgb(29, 31, 37);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  width: 216px;
+}
+.recordContextMenuItem:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.recordContextMenuItemIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  color: rgb(29, 31, 37);
+}
+
+.recordContextMenuOmniIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-right: 8px;
+  overflow: hidden;
+  color: #1D1F25;
+}
+.recordContextMenuOmniIcon path {
+  fill: #1D1F25;
+}
+
+.recordContextMenuItemText {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  margin-left: 4px;
+  margin-bottom: 0;
+  margin-right: 0;
+  margin-top: 0;
+  padding: 0;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 18px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  color: rgb(29, 31, 37);
+}
+
+.recordContextMenuSeparator {
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.05);
+  margin: 8px;
+  list-style: none;
+  padding: 0;
+  width: 200px;
+}
+
+.recordContextMenuDeleteIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  color: rgb(177, 15, 65);
+}
+
+.recordContextMenuDeleteText {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  margin-left: 4px;
+  margin-bottom: 0;
+  margin-right: 0;
+  margin-top: 0;
+  padding: 0;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 18px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  color: rgb(177, 15, 65);
+}

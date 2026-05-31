@@ -1,8 +1,3 @@
-/**
- * DeleteConfirmDialog component
- * Confirmation dialog for deleting a base
- */
-
 "use client";
 
 import { useRef, useLayoutEffect, useState } from "react";
@@ -25,17 +20,14 @@ export function DeleteConfirmDialog({ baseName, onConfirm, onCancel }: DeleteCon
     const dialog = dialogRef.current;
     if (!dialog) return;
 
-    // Get computed transform to preserve X offset
     const computedStyle = window.getComputedStyle(dialog);
     const matrix = new DOMMatrix(computedStyle.transform);
     const currentX = matrix.m41;
     const currentY = matrix.m42;
 
-    // Get dialog height
     const dialogHeight = dialog.offsetHeight;
     const viewportHeight = window.innerHeight;
 
-    // Calculate expected dialog bottom using parent's position
     const parent = dialog.parentElement;
     if (!parent) return;
     
@@ -45,7 +37,6 @@ export function DeleteConfirmDialog({ baseName, onConfirm, onCancel }: DeleteCon
     const expectedDialogBottom = expectedDialogTop + dialogHeight;
 
     if (expectedDialogBottom > viewportHeight - VIEWPORT_BOTTOM_BUFFER) {
-      // Move dialog up exactly enough so its bottom edge is flush with viewport bottom
       const overflow = expectedDialogBottom - viewportHeight;
       setAdjustedTransform(`translate(${currentX}px, ${currentY - overflow}px)`);
     } else {

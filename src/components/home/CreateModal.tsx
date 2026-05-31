@@ -1,8 +1,3 @@
-/**
- * CreateModal component
- * Modal for creating a new base with options
- */
-
 "use client";
 
 import Image from "next/image";
@@ -22,7 +17,6 @@ export function CreateModal({ isOpen, isCreating, onClose, onCreateBase }: Creat
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
       <div className={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className={styles.modalHeader}>
           <h2 className={styles.modalTitle}>How do you want to start?</h2>
           <button
@@ -35,7 +29,6 @@ export function CreateModal({ isOpen, isCreating, onClose, onCreateBase }: Creat
           </button>
         </div>
 
-        {/* Workspace Section */}
         <div className={styles.modalWorkspace}>
           <span className={styles.modalWorkspaceLabel}>Workspace:</span>
           <span className={styles.modalWorkspaceSelect}>
@@ -44,10 +37,8 @@ export function CreateModal({ isOpen, isCreating, onClose, onCreateBase }: Creat
           </span>
         </div>
 
-        {/* Options */}
         <div className={styles.modalContent}>
           <div className={styles.modalOptions}>
-            {/* Build an app with Omni */}
             <div className={styles.modalOptionCard}>
               <Image
                 src="/image.png"
@@ -67,7 +58,6 @@ export function CreateModal({ isOpen, isCreating, onClose, onCreateBase }: Creat
               </div>
             </div>
 
-            {/* Build an app on your own */}
             <div
               className={styles.modalOptionCard}
               onClick={(e) => {

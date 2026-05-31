@@ -114,16 +114,3 @@ export async function ensureSortIndex(
     );
   }
 }
-
-/**
- * Alias for ensureSortIndex — builds the single sort index for a column.
- * Used during column creation.
- */
-export async function ensureColumnIndexes(
-  db: PrismaClient,
-  tableId: string,
-  columnId: string,
-  columnType: "TEXT" | "NUMBER",
-): Promise<void> {
-  await ensureSortIndex(db, tableId, columnId, columnType);
-}

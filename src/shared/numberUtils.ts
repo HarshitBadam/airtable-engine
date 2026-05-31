@@ -1,7 +1,3 @@
-// ============================================
-// NUMBER FORMAT CONFIG TYPE
-// ============================================
-
 export interface NumberFormatConfig {
   /** Number of decimal places to display (0–8). Default: 1 */
   decimalPlaces: number;
@@ -22,10 +18,6 @@ export const DEFAULT_NUMBER_CONFIG: NumberFormatConfig = {
   largeNumAbbrev: null,
   allowNegative: true,
 };
-
-// ============================================
-// NUMBER PARSING
-// ============================================
 
 /** Suffix multipliers (case-insensitive) */
 const SUFFIX_MAP: Record<string, number> = {
@@ -59,7 +51,6 @@ export function parseNumberInput(
   let s = raw.trim();
   if (s === "") return null;
 
-  // Check for and preserve leading sign
   let sign = 1;
   if (s.startsWith("-")) {
     sign = -1;
@@ -123,7 +114,6 @@ export function parseNumberInput(
     normalized = s.replace(/[\s\u00A0]/g, "");
   }
 
-  // Also strip any remaining non-breaking spaces
   normalized = normalized.replace(/[\s\u00A0]/g, "");
 
   // Now parse as a standard number (handles scientific notation too, e.g. "1e4")
@@ -132,15 +122,10 @@ export function parseNumberInput(
 
   const result = sign * num * multiplier;
 
-  // Reject negative if not allowed
   if (!allowNegative && result < 0) return null;
 
   return result;
 }
-
-// ============================================
-// NUMBER FORMATTING
-// ============================================
 
 /**
  * Determine the thousands and decimal characters from the separator label.
@@ -176,12 +161,10 @@ export function formatNumber(
   const { decimalPlaces, thousandsSep, showThousands, largeNumAbbrev, allowNegative } = config;
   const { thousandChar, decimalChar } = getSeparators(thousandsSep);
 
-  // If negative isn't allowed, show absolute value
   let num = allowNegative ? value : Math.abs(value);
   const isNegative = num < 0;
   num = Math.abs(num);
 
-  // Apply large number abbreviation
   let suffix = "";
   if (largeNumAbbrev === "Thousand") {
     num = num / 1_000;
@@ -194,19 +177,16 @@ export function formatNumber(
     suffix = "B";
   }
 
-  // Format to fixed decimal places
   const fixed = num.toFixed(decimalPlaces);
   const dotIdx = fixed.indexOf(".");
   const intPart = dotIdx >= 0 ? fixed.slice(0, dotIdx) : fixed;
   const decPart = dotIdx >= 0 ? fixed.slice(dotIdx + 1) : "";
 
-  // Add thousands grouping (when enabled and no large-number abbreviation active)
   let intFormatted = intPart;
   if (showThousands && !largeNumAbbrev) {
     intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandChar);
   }
 
-  // Combine
   const sign = isNegative ? "-" : "";
   if (decPart.length > 0) {
     return `${sign}${intFormatted}${decimalChar}${decPart}${suffix}`;
@@ -235,7 +215,6 @@ export function formatCellValue(
         : "";
   if (columnType !== "NUMBER") return str;
 
-  // Try to parse the stored value as a number
   const num = Number(str);
   if (!Number.isFinite(num)) return str;
 

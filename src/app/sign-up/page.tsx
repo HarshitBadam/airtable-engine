@@ -10,7 +10,6 @@ export const metadata: Metadata = {
 export default async function SignUpPage() {
   const session = await auth();
 
-  // Redirect to dashboard if already authenticated
   if (session?.user) {
     redirect("/dashboard");
   }

@@ -1,8 +1,3 @@
-/* ============================================
-   GridWorkspace - Airtable-like Table UI Shell
-   ============================================ */
-
-/* === ROOT CONTAINER (includes layout tokens as CSS vars) === */
 .workspace {
   /* Rail (narrow sidebar) */
   --grid-rail-width: 56px;
@@ -73,7 +68,6 @@
   color: var(--grid-text-primary);
 }
 
-/* === MAIN CONTENT AREA (right of rail) === */
 .mainArea {
   display: flex;
   flex-direction: column;
@@ -83,7 +77,6 @@
   overflow: hidden;
 }
 
-/* === CONTENT AREA (toolbar + grid bar + grid) === */
 .contentArea {
   display: flex;
   flex-direction: column;
@@ -93,7 +86,6 @@
   position: relative;
 }
 
-/* === GRID AREA (views sidebar + grid container) === */
 .gridArea {
   display: flex;
   flex: 1;
@@ -114,7 +106,6 @@
   overflow: hidden;
 }
 
-/* === COLUMN OPERATION TOAST === */
 .columnOpToast {
   position: absolute;
   top: 44px;          /* below the header row */
@@ -161,7 +152,6 @@
   50% { opacity: 0.5; }
 }
 
-/* === VIEW LOADING OVERLAY === */
 .viewLoadingOverlay {
   position: absolute;
   top: 0;

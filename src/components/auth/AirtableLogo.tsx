@@ -1,8 +1,4 @@
-/**
- * AirtableLogo - Airtable logo component for auth pages
- */
-
-import { AirtableLogoIcon } from "./Icons";
+import { AirtableLogoIcon } from "./AuthIcons";
 
 interface AirtableLogoProps {
   width?: number;

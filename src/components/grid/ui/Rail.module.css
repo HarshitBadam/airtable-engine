@@ -1,6 +1,3 @@
-/* =============================================
-   RAIL (Narrow vertical sidebar - 56px wide)
-   ============================================= */
 .rail {
   display: flex;
   flex-direction: column;
@@ -239,9 +236,6 @@
   text-align: center;
 }
 
-/* =============================================
-   RAIL ACCOUNT DROPDOWN
-   ============================================= */
 .railAccountWrapper {
   position: relative;
   display: inline-flex;
@@ -306,9 +300,6 @@
   box-sizing: border-box;
 }
 
-/* =============================================
-   RAIL HOVER TOOLTIPS
-   ============================================= */
 .railTooltip {
   position: absolute;
   left: calc(100% + 8px);

@@ -1,20 +1,3 @@
-/* =============================================
-   TableToolbar.module.css
-   Extracted from GridWorkspace.module.css
-   
-   Contains all CSS classes for the table toolbar:
-   - Table toolbar layout (.tableToolbar, .tableToolbarInner, .tableToolbarSpacer, etc.)
-   - Tabs wrapper and scrollable area (.tableTabsWrapper, .tableTabsScrollable)
-   - Scroll indicators (.scrollIndicator*)
-   - Table tabs (.tableTab*, .tableTabWrapper)
-   - Table tabs dropdown (.tableTabsDropdown*)
-   - Table dropdown menu (.tableDropdown*)
-   - Add or import button and dropdown (.addOrImport*)
-   - Table title dropdown (.tableTitleDropdown*)
-   - Table rename popup (.tableRename*)
-   ============================================= */
-
-/* === TABLE TOOLBAR === */
 .tableToolbar {
   display: flex;
   position: relative;
@@ -92,8 +75,6 @@
 .tableTabsScrollable::-webkit-scrollbar {
   display: none;
 }
-
-/* === SCROLL INDICATORS === */
 
 /* Scroll indicator containers - absolutely positioned to not affect layout */
 .scrollIndicatorLeft,
@@ -194,7 +175,6 @@
   flex-shrink: 0;
 }
 
-/* === TABLE TAB (e.g., "Table 1") === */
 /* Note: Explicit overrides to prevent cascade from earlier .tableTab definition */
 .tableTab {
   display: flex;
@@ -471,7 +451,6 @@
   user-select: none;
 }
 
-/* === TABLE TABS DROPDOWN BUTTON (chevron after tabs) === */
 .tableTabsDropdownButton {
   display: flex;
   align-items: center;
@@ -512,7 +491,6 @@
   shape-rendering: geometricPrecision;
 }
 
-/* === TABLE TABS DROPDOWN WRAPPER === */
 .tableTabsDropdownWrapper {
   position: relative;
   display: flex;
@@ -525,7 +503,6 @@
   transform: translateX(-3px);
 }
 
-/* === TABLE DROPDOWN MENU === */
 .tableDropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -560,7 +537,6 @@
   right: 0;
 }
 
-/* === SEARCH SECTION === */
 .tableDropdownSearch {
   display: flex;
   box-sizing: border-box;
@@ -628,7 +604,6 @@
   opacity: 0.75;
 }
 
-/* === TABLE ENTRIES SECTION (Scrollable) === */
 .tableDropdownEntries {
   display: flex;
   flex-direction: column;
@@ -671,7 +646,6 @@
   background-clip: padding-box;
 }
 
-/* === TABLE ENTRY ROW === */
 .tableDropdownEntry {
   display: flex;
   align-items: center;
@@ -705,7 +679,6 @@
   padding-right: 8px;
 }
 
-/* === TABLE ENTRY CHECK ICON (for active table) === */
 .tableDropdownEntryCheck {
   display: flex;
   align-items: center;
@@ -732,7 +705,6 @@
   flex-shrink: 0;
 }
 
-/* === TABLE ENTRY TEXT === */
 .tableDropdownEntryText {
   display: block;
   box-sizing: border-box;
@@ -760,7 +732,6 @@
   width: 312px;
 }
 
-/* === ENTRY EYE SLASH BUTTON (appears on hover) === */
 .tableDropdownEntryEyeSlash {
   display: flex;
   align-items: center;
@@ -798,7 +769,6 @@
   flex-shrink: 0;
 }
 
-/* === ENTRY DRAG HANDLE (appears on hover) === */
 .tableDropdownEntryDrag {
   display: flex;
   align-items: center;
@@ -827,7 +797,6 @@
   height: 16px;
 }
 
-/* === ADD TABLE SECTION (Bottom) === */
 .tableDropdownAddSection {
   display: flex;
   align-items: center;
@@ -900,7 +869,6 @@
   cursor: pointer;
 }
 
-/* === ADD OR IMPORT BUTTON === */
 .addOrImportButton {
   display: flex;
   align-items: center;
@@ -1049,9 +1017,6 @@
   user-select: none;
 }
 
-/* =============================================
-   ADD OR IMPORT DROPDOWN MENU
-   ============================================= */
 .addOrImportWrapper {
   position: relative;
   display: flex;
@@ -1591,9 +1556,6 @@
   unicode-bidi: isolate;
 }
 
-/* =============================================
-   TABLE TITLE DROPDOWN MENU
-   ============================================= */
 .tableTitleDropdown {
   position: fixed;
   box-sizing: border-box;
@@ -1809,10 +1771,6 @@
   display: flex;
   align-items: flex-end;
 }
-
-/* ============================================
-   Table Rename Popup
-   ============================================ */
 
 /* Main container */
 .tableRenamePopup {
@@ -2348,10 +2306,6 @@
   background-color: rgb(18, 95, 195);
 }
 
-/* ============================================
-   Table Rename – Duplicate name error tooltip
-   Matches Airtable's jQuery UI tooltip exactly.
-   ============================================ */
 @keyframes tooltipFadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }

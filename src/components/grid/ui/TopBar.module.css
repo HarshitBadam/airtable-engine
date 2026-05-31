@@ -1,4 +1,3 @@
-/* === TOP BAR (base name bar) === */
 .topBar {
   display: block;
   position: relative;
@@ -22,7 +21,6 @@
   width: 100%;
 }
 
-/* === TOP BAR LEFT === */
 .topBarLeft {
   display: flex;
   align-items: center;
@@ -118,7 +116,6 @@
   shape-rendering: geometricPrecision;
 }
 
-/* === TOP BAR CENTER (Nav items) === */
 .topBarCenter {
   display: flex;
   align-items: stretch;
@@ -167,7 +164,6 @@
   background-color: var(--base-color, rgb(213, 68, 1));
 }
 
-/* === TOP BAR RIGHT === */
 .topBarRight {
   display: flex;
   align-items: center;
@@ -296,7 +292,6 @@
   opacity: 1;
 }
 
-/* === SAVING INDICATOR === */
 .savingIndicator {
   display: flex;
   align-items: center;
@@ -361,7 +356,6 @@
   margin-left: 4px;
 }
 
-/* === LINK BUTTON === */
 .topBarLinkButton {
   display: flex;
   align-items: center;

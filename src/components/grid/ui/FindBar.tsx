@@ -32,12 +32,10 @@ export function FindBar({
   const [searchValue, setSearchValue] = useState(defaultValue);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus the input when the find bar mounts
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  // Escape key closes the find bar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -70,7 +68,6 @@ export function FindBar({
     [onPrevMatch, onNextMatch],
   );
 
-  // Determine which state we're in
   const hasSearchText = searchValue.trim().length > 0;
   const hasResults = totalMatches !== undefined && totalMatches > 0;
   const showSpinner = hasSearchText && isSearching;
@@ -90,7 +87,6 @@ export function FindBar({
         onKeyDown={handleKeyDown}
       />
 
-      {/* Spinner while searching */}
       {showSpinner && (
         <div className={styles.findSpinner}>
           <svg width="13.5" height="13.5" viewBox="0 0 54 54" style={{ shapeRendering: "geometricPrecision" }} className={styles.findSpinnerSvg}>
@@ -103,12 +99,10 @@ export function FindBar({
         </div>
       )}
 
-      {/* No results text */}
       {showNoResults && (
         <span className={styles.findNoResults}>No results</span>
       )}
 
-      {/* Result count "X of Y" */}
       {showResultNav && (
         <span className={styles.findResultCount}>
           {matchIndex.toLocaleString()} of {(totalMatches ?? 0).toLocaleString()}
@@ -118,7 +112,6 @@ export function FindBar({
       {/* Navigation arrows (prev/next) — only when results exist */}
       {showResultNav && (
         <div className={styles.findNavArrows}>
-          {/* Up chevron (previous match) */}
           <button
             type="button"
             className={styles.findNavButton}
@@ -130,7 +123,6 @@ export function FindBar({
             </svg>
           </button>
 
-          {/* Down chevron (next match) */}
           <button
             type="button"
             className={styles.findNavButton}
@@ -144,7 +136,6 @@ export function FindBar({
         </div>
       )}
 
-      {/* Ask Omni button */}
       <button
         type="button"
         className={styles.findOmniButton}
@@ -152,7 +143,6 @@ export function FindBar({
         Ask Omni
       </button>
 
-      {/* X close button */}
       <button
         type="button"
         className={styles.findCloseButton}

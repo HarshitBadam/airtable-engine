@@ -1,7 +1,3 @@
-/* =============================================
-   GRID CONTAINER — Headers, Rows, Footer, Overlays
-   ============================================= */
-
 .gridContainer {
   flex: 1;
   display: flex;
@@ -11,7 +7,6 @@
   position: relative;
 }
 
-/* === GRID BODY (header + content panes, fills space above footer) === */
 .gridBody {
   flex: 1;
   min-height: 0;
@@ -20,7 +15,6 @@
   background: #F7F8FC;
 }
 
-/* --- Header panes (32px tall) --- */
 .gridHeaderFrozen {
   position: absolute;
   top: 0;
@@ -44,7 +38,6 @@
   z-index: 1;
 }
 
-/* --- Serial number / checkbox header (leftmost, always frozen) --- */
 .gridHeaderRowNum {
   width: 83px;
   flex-shrink: 0;
@@ -84,7 +77,6 @@
   border-left-color: transparent;
 }
 
-/* --- Column header cell --- */
 /* Total: 180 × 32 (box-sizing: border-box)
    Content area: 179 × 30 (after 1px left border, 1px bottom border, 1px top padding) */
 .gridHeaderCell {
@@ -282,14 +274,12 @@
   overflow: visible;
 }
 
-/* --- Scrollable header inner (horizontal flex row) --- */
 .gridHeaderScrollableInner {
   display: flex;
   height: 32px;
   width: max-content;
 }
 
-/* --- Add column button (right of last header) --- */
 .gridHeaderAddCol {
   width: 93px;
   padding-top: 8px;
@@ -311,7 +301,6 @@
   color: rgb(51, 51, 51);
 }
 
-/* --- Right spacer after add-column button --- */
 .gridHeaderSpacer {
   width: 0;
   height: 32px;
@@ -322,7 +311,6 @@
   border-bottom: 1px solid #dde1e3;
 }
 
-/* --- Content panes (below header, fills remaining height) --- */
 .gridContentFrozen {
   position: absolute;
   top: 32px;
@@ -359,7 +347,7 @@
   z-index: 1;
 }
 
-/* === UNIFIED SCROLL CONTAINER (replaces separate frozen + scrollable content panes) ===
+/* Unified scroll container: replaces separate frozen + scrollable content panes.
    Single container handles vertical scroll natively — no JS sync needed.
    Horizontal scroll is driven by the custom hScrollbar below the footer.
    Frozen cells use position:sticky to stay pinned during horizontal scroll. */
@@ -383,7 +371,6 @@
   display: none; /* Chrome/Safari */
 }
 
-/* === CUSTOM VERTICAL SCROLLBAR (JS-driven overlay, matches Airtable) === */
 .customVScrollTrack {
   position: absolute;
   right: 0;
@@ -435,7 +422,6 @@
   background: #F8F8F8;
 }
 
-/* === FULL-WIDTH HORIZONTAL SCROLLBAR (overlays bottom of footer) === */
 .gridHorizontalScrollbar {
   position: absolute;
   bottom: 0;
@@ -477,7 +463,6 @@
   height: 1px;
 }
 
-/* --- Add Row: frozen pane (below serial column) --- */
 .gridAddRowFrozen {
   width: 100%;
   height: 30px;
@@ -528,7 +513,6 @@
   width: 16px;
 }
 
-/* --- Add Row: scrollable pane (slab spanning all scrollable columns) --- */
 .gridAddRowScrollable {
   height: 30px;
   border-bottom: 1px solid rgb(221, 225, 227);
@@ -539,11 +523,7 @@
   flex-shrink: 0;
 }
 
-/* =============================================
-   GRID ROW & CELL STYLES
-   ============================================= */
-
-/* --- Row container (frozen pane) --- */
+/* Row container (frozen pane) */
 .gridRow {
   display: flex;
   flex-direction: row;
@@ -551,14 +531,12 @@
   contain: layout style paint;
 }
 
-/* --- Row container (scrollable pane) --- */
 .gridRowScrollable {
   display: flex;
   flex-direction: row;
   flex-shrink: 0;
 }
 
-/* --- Row hover state (applies to both frozen + scrollable rows) --- */
 .gridRow:hover .gridRowFrozenGroup {
   background: #F8F8F8;
 }
@@ -589,7 +567,6 @@
   }
 }
 
-/* --- Serial number cell (leftmost, 83px wide) --- */
 .gridRowNumCell {
   width: 83px;
   height: 32px;
@@ -765,7 +742,6 @@
   border-left-color: transparent;
 }
 
-/* --- Data cell (each column cell, 180x32 border-box with 1px left + 1px bottom border) --- */
 .gridDataCell {
   height: 32px;
   flex-shrink: 0;
@@ -820,13 +796,11 @@
   background-color: #FCF8F8;
 }
 
-/* ========================================================================
-   SELECTION OVERLAY — inside the scroll content so it scrolls with both
+/* Selection overlay: inside the scroll content so it scrolls with both
    vertical and horizontal content at compositor speed (zero lag).  z-index:6
    paints above the freeze bar (z:4), frozen groups (z:2), and all cells.
    For non-frozen cells a JS clip-path clips the overlay at the freeze bar
-   so it never paints over the frozen columns.
-   ======================================================================== */
+   so it never paints over the frozen columns. */
 .gridSelectionOverlay {
   position: absolute;
   top: 0;
@@ -867,7 +841,6 @@
   color: rgb(22, 110, 225);
 }
 
-/* --- Cell content wrapper (6px padding all sides, fills cell) --- */
 .gridCellContent {
   width: 100%;
   height: 100%;
@@ -879,7 +852,6 @@
   overflow: hidden;
 }
 
-/* --- Text cell inner (always left-aligned) --- */
 .gridCellText {
   width: 100%;
   height: 19.5px;
@@ -895,7 +867,6 @@
   min-width: 0;
 }
 
-/* --- Number cell inner (always right-aligned) --- */
 .gridCellNumber {
   width: 100%;
   height: 19.5px;
@@ -911,7 +882,6 @@
   min-width: 0;
 }
 
-/* --- Inline cell editor --- */
 .gridCellEditor {
   width: 100%;
   height: 100%;
@@ -936,7 +906,6 @@
   padding-bottom: 7px;
 }
 
-/* --- Blue snap preview line (shown during freeze drag at target boundary) --- */
 .gridFreezeSnapPreview {
   position: absolute;
   top: 0;
@@ -949,7 +918,6 @@
   transition: left 0.08s ease-out, opacity 0.1s ease-out;
 }
 
-/* --- Freeze divider line (spans full gridBody height) --- */
 .gridFreezeLine {
   position: absolute;
   top: 0;
@@ -1067,7 +1035,6 @@
   transition-delay: 0s;
 }
 
-/* === GRID FOOTER BAR === */
 .gridFooter {
   height: 34px;
   min-height: 34px;
@@ -1125,7 +1092,6 @@
   box-sizing: border-box;
 }
 
-/* === TOOLBAR === */
 .toolbar {
   display: flex;
   align-items: center;
@@ -1219,7 +1185,6 @@
   color: var(--grid-text-placeholder);
 }
 
-/* === VIEW TABS BAR === */
 .viewTabsBar {
   display: flex;
   align-items: center;
@@ -1268,7 +1233,6 @@
   border-radius: 2px 2px 0 0;
 }
 
-/* === GRID BODY WRAPPER === */
 .gridBodyWrapper {
   flex: 1;
   display: flex;
@@ -1277,7 +1241,6 @@
   position: relative;
 }
 
-/* === ROW NUMBER COLUMN (Fixed on left) === */
 .rowNumberColumn {
   width: var(--grid-row-num-width);
   min-width: var(--grid-row-num-width);
@@ -1324,7 +1287,6 @@
   background: var(--grid-bg-hover);
 }
 
-/* === SCROLLABLE GRID === */
 .scrollableGrid {
   flex: 1;
   display: flex;
@@ -1334,7 +1296,6 @@
   overflow-y: hidden;
 }
 
-/* === GRID HEADER === */
 .gridHeader {
   display: flex;
   position: sticky;
@@ -1401,7 +1362,6 @@
   color: var(--grid-text-primary);
 }
 
-/* === GRID ROWS CONTAINER (single scroll container) === */
 .gridRowsContainer {
   flex: 1;
   overflow-y: auto;
@@ -1444,7 +1404,6 @@
   background: var(--grid-bg);
 }
 
-/* === ADD ROW === */
 .addRowContainer {
   display: flex;
   align-items: center;
@@ -1472,7 +1431,6 @@
 }
 
 
-/* === LOADING STATE === */
 .loadingOverlay {
   display: flex;
   align-items: center;
@@ -1482,7 +1440,6 @@
   font-size: var(--grid-font-size-md);
 }
 
-/* === EMPTY STATE === */
 .emptyState {
   display: flex;
   flex-direction: column;
@@ -1494,7 +1451,6 @@
   font-size: var(--grid-font-size-md);
 }
 
-/* === SCROLLBAR STYLING === */
 .gridRowsContainer::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -1531,10 +1487,6 @@
   background: #ccc;
 }
 
-/* =============================================
-   COLUMN HEADER DROPDOWN MENU
-   ============================================= */
-
 /* Header cell active state (menu open) — keep hover bg + chevron visible */
 .gridHeaderCellMenuOpen {
   background: #F8F8F8;
@@ -1542,304 +1494,6 @@
 .gridHeaderCellMenuOpen .gridHeaderCellChevron {
   opacity: 1;
 }
-
-/* Inner menu list — just content, no positioning (wrapper div handles that) */
-.colHeaderMenu {
-  box-sizing: border-box;
-  padding: 12px;
-  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 18px;
-  color: rgb(29, 31, 37);
-  list-style: none;
-  margin: 0;
-}
-
-/* Line item */
-.colHeaderMenuItem {
-  display: flex;
-  align-items: center;
-  height: 34px;
-  padding: 8px;
-  border-radius: 3px;
-  box-sizing: border-box;
-  cursor: pointer;
-  list-style: none;
-  margin: 0;
-  color: rgb(29, 31, 37);
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 18px;
-}
-.colHeaderMenuItem:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-/* Icon within line item */
-.colHeaderMenuItemIcon {
-  display: block;
-  width: 16px;
-  height: 16px;
-  flex-basis: auto;
-  flex-grow: 0;
-  flex-shrink: 0;
-  margin-right: 8px;
-  overflow: hidden;
-  shape-rendering: geometricPrecision;
-  color: rgb(29, 31, 37);
-}
-
-/* Text within line item */
-.colHeaderMenuItemText {
-  display: block;
-  margin-left: 8px;
-  flex: 1;
-  min-width: 0;
-  height: 18px;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 18px;
-  white-space: nowrap;
-  user-select: none;
-  color: rgb(29, 31, 37);
-}
-
-/* Separator line */
-.colHeaderMenuSeparator {
-  height: 1px;
-  background-color: rgba(0, 0, 0, 0.05);
-  margin: 8px;
-  list-style: none;
-}
-
-/* Delete item icon — red */
-.colHeaderMenuDeleteIcon {
-  display: block;
-  width: 16px;
-  height: 16px;
-  flex-basis: auto;
-  flex-grow: 0;
-  flex-shrink: 0;
-  margin-right: 8px;
-  overflow: hidden;
-  shape-rendering: geometricPrecision;
-  color: rgb(177, 15, 65);
-}
-
-/* Delete item text — red */
-.colHeaderMenuDeleteText {
-  display: block;
-  margin-left: 8px;
-  flex: 1;
-  min-width: 0;
-  height: 18px;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 18px;
-  white-space: nowrap;
-  user-select: none;
-  color: rgb(177, 15, 65);
-}
-
-/* Disabled state (for hide/delete when single field) */
-.colHeaderMenuItemDisabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* Content wrapper for items with badge (e.g., Edit field permissions) */
-.colHeaderMenuItemContent {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  margin-left: 8px;
-}
-
-.colHeaderMenuItemContent .colHeaderMenuItemText {
-  margin-left: 0;
-  width: auto;
-  flex: 0 1 auto;
-}
-
-/* Team badge */
-.colHeaderMenuTeamBadge {
-  display: flex;
-  align-items: center;
-  flex-basis: auto;
-  flex-grow: 0;
-  flex-shrink: 0;
-  height: 18px;
-  padding: 0 8px;
-  margin-left: auto;
-  background-color: rgb(196, 236, 255);
-  border-radius: 9999px;
-  color: rgb(15, 104, 162);
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 18px;
-  white-space: nowrap;
-  user-select: none;
-  cursor: pointer;
-}
-
-.colHeaderMenuBadgeIcon {
-  display: block;
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-  margin-right: 4px;
-  color: rgb(15, 104, 162);
-  overflow: hidden;
-  shape-rendering: geometricPrecision;
-}
-
-/* =============================================
-   RECORD CELL CONTEXT MENU
-   ============================================= */
-
-.recordContextMenu {
-  box-sizing: border-box;
-  padding: 12px;
-  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 18px;
-  color: rgb(29, 31, 37);
-  list-style: none;
-  margin: 0;
-  width: 240px;
-}
-
-/* Line item */
-.recordContextMenuItem {
-  display: flex;
-  align-items: center;
-  height: 34px;
-  padding: 8px;
-  border-radius: 3px;
-  box-sizing: border-box;
-  cursor: pointer;
-  list-style: none;
-  margin: 0;
-  color: rgb(29, 31, 37);
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 18px;
-  width: 216px;
-}
-.recordContextMenuItem:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-/* Icon within line item */
-.recordContextMenuItemIcon {
-  display: block;
-  width: 16px;
-  height: 16px;
-  flex-basis: auto;
-  flex-grow: 0;
-  flex-shrink: 0;
-  margin-right: 8px;
-  overflow: hidden;
-  shape-rendering: geometricPrecision;
-  color: rgb(29, 31, 37);
-}
-
-/* Omni icon — override individual path fills to match text color */
-.recordContextMenuOmniIcon {
-  display: block;
-  width: 16px;
-  height: 16px;
-  flex-basis: auto;
-  flex-grow: 0;
-  flex-shrink: 0;
-  margin-right: 8px;
-  overflow: hidden;
-  color: #1D1F25;
-}
-.recordContextMenuOmniIcon path {
-  fill: #1D1F25;
-}
-
-/* Text within line item */
-.recordContextMenuItemText {
-  display: block;
-  flex-basis: auto;
-  flex-grow: 1;
-  flex-shrink: 1;
-  margin-left: 4px;
-  margin-bottom: 0;
-  margin-right: 0;
-  margin-top: 0;
-  padding: 0;
-  max-width: 100%;
-  min-width: 0;
-  min-height: 0;
-  height: 18px;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 18px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  user-select: none;
-  color: rgb(29, 31, 37);
-}
-
-/* Separator line */
-.recordContextMenuSeparator {
-  height: 1px;
-  background-color: rgba(0, 0, 0, 0.05);
-  margin: 8px;
-  list-style: none;
-  padding: 0;
-  width: 200px;
-}
-
-/* Delete item icon — red */
-.recordContextMenuDeleteIcon {
-  display: block;
-  width: 16px;
-  height: 16px;
-  flex-basis: auto;
-  flex-grow: 0;
-  flex-shrink: 0;
-  margin-right: 8px;
-  overflow: hidden;
-  shape-rendering: geometricPrecision;
-  color: rgb(177, 15, 65);
-}
-
-/* Delete item text — red */
-.recordContextMenuDeleteText {
-  display: block;
-  flex-basis: auto;
-  flex-grow: 1;
-  flex-shrink: 1;
-  margin-left: 4px;
-  margin-bottom: 0;
-  margin-right: 0;
-  margin-top: 0;
-  padding: 0;
-  max-width: 100%;
-  min-width: 0;
-  min-height: 0;
-  height: 18px;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 18px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  user-select: none;
-  color: rgb(177, 15, 65);
-}
-
-/* =============================================
-   DUPLICATE FIELD DIALOG
-   ============================================= */
 
 @keyframes dupBounceIn {
   0% { transform: scale(0.95); opacity: 0; }
@@ -2060,10 +1714,6 @@
   background-color: rgb(18, 96, 196);
 }
 
-/* =============================================
-   BULK ADD ROWS — FLOATING FOOTER PILL
-   ============================================= */
-
 /* Single unified pill button — floats above the footer, anchored bottom-left.
    Default: subtle grey text, thin border, no shadow.
    Hover: border disappears, shadow lifts in. */
@@ -2205,10 +1855,6 @@
 .bulkAddPulseText {
   animation: bulkAddPulse 1.5s ease-in-out infinite;
 }
-
-/* =============================================
-   BULK ADD ROWS — CONFIRMATION DIALOG
-   ============================================= */
 
 @keyframes bulkAddBounceIn {
   0% { transform: scale(0.95); opacity: 0; }
@@ -2435,7 +2081,6 @@
   filter: brightness(0.82);
 }
 
-/* === Skeleton row loading animation === */
 .skeletonBar {
   background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%);
   background-size: 200% 100%;

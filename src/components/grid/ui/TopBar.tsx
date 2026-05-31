@@ -4,9 +4,9 @@ import {
   IconChevronDown,
   IconClockCounterClockwise,
   IconSidebarPlay,
-} from "./icons";
+} from "./GridIcons";
 import { LinkIcon } from "~/components/home/Icons";
-import { useSaveStatus } from "~/components/grid/useSaveTracker";
+import { useSaveStatus } from "~/components/grid/hooks/useSaveStatus";
 
 interface TopBarProps {
   baseName: string;
@@ -20,7 +20,6 @@ export function TopBar({ baseName, baseColor, baseBorderColor, baseTextColor }: 
   return (
     <div className={styles.topBar}>
       <div className={styles.topBarInner}>
-        {/* Left Section: Base Icon, Name, Dropdown */}
         <div className={styles.topBarLeft}>
           <div className={styles.topBarLeftContent}>
             <div 
@@ -37,7 +36,6 @@ export function TopBar({ baseName, baseColor, baseBorderColor, baseTextColor }: 
           </div>
         </div>
 
-        {/* Center Section: Navigation Items */}
         <ul className={styles.topBarCenter} style={{ '--base-color': baseColor } as React.CSSProperties}>
           <li className={`${styles.topBarNavItem} ${styles.topBarNavItemActive}`}>Data</li>
           <li className={styles.topBarNavItem}>Automations</li>
@@ -45,9 +43,7 @@ export function TopBar({ baseName, baseColor, baseBorderColor, baseTextColor }: 
           <li className={styles.topBarNavItem}>Forms</li>
         </ul>
 
-        {/* Right Section: Saving indicator, Link, History, Launch, Share */}
         <div className={styles.topBarRight}>
-          {/* Saving / Saved Indicator */}
           {saveStatus !== "idle" && (
             <span className={styles.savingIndicator}>
               {saveStatus === "saving" && (
@@ -90,7 +86,6 @@ export function TopBar({ baseName, baseColor, baseBorderColor, baseTextColor }: 
             <IconClockCounterClockwise className={styles.topBarHistoryIcon} />
           </button>
 
-          {/* Link Button */}
           <button className={styles.topBarLinkButton}>
             <LinkIcon className={styles.topBarLinkIcon} size={16} />
           </button>

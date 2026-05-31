@@ -22,10 +22,6 @@ export const sortSchema = z.object({
 export type Filter = z.infer<typeof filterSchema>;
 export type Sort = z.infer<typeof sortSchema>;
 
-/* ============================================================
-   Filter tree (condition groups)
-   ============================================================ */
-
 /**
  * A condition leaf in the filter tree.
  * Matches the existing flat Filter shape but adds `kind` discriminator.
@@ -102,6 +98,7 @@ export const viewConfigSchema = z.object({
 });
 
 export type ViewConfig = z.infer<typeof viewConfigSchema>;
+export type ViewConfigInput = z.input<typeof viewConfigSchema>;
 
 export const defaultViewConfig: ViewConfig = {
   search: "",

@@ -17,9 +17,6 @@ declare module "next-auth" {
   }
 }
 
-/**
- * NextAuth configuration
- */
 export const authConfig = {
   providers: [
     GoogleProvider({

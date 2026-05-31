@@ -1,7 +1,3 @@
-/* ============================================
-   Clear Data Warning Modal
-   ============================================ */
-
 /* Modal overlay - dims background */
 .clearDataModalOverlay {
   position: fixed;
@@ -314,10 +310,6 @@
 .clearDataConfirmButton:hover {
   background-color: rgb(195, 4, 52);
 }
-
-/* ============================================
-   Delete Table Popup
-   ============================================ */
 
 /* Delete popup container */
 .deleteTablePopup {

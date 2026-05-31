@@ -1,8 +1,3 @@
-/**
- * BasesGrid component
- * Displays a responsive grid of base cards
- */
-
 import styles from "./bases.module.css";
 import { BaseCard } from "./BaseCard";
 

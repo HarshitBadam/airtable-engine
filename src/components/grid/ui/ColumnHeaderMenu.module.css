@@ -1,0 +1,141 @@
+.colHeaderMenu {
+  box-sizing: border-box;
+  padding: 12px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  list-style: none;
+  margin: 0;
+}
+
+.colHeaderMenuItem {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 8px;
+  border-radius: 3px;
+  box-sizing: border-box;
+  cursor: pointer;
+  list-style: none;
+  margin: 0;
+  color: rgb(29, 31, 37);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+}
+.colHeaderMenuItem:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.colHeaderMenuItemIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  color: rgb(29, 31, 37);
+}
+
+.colHeaderMenuItemText {
+  display: block;
+  margin-left: 8px;
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  user-select: none;
+  color: rgb(29, 31, 37);
+}
+
+.colHeaderMenuSeparator {
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.05);
+  margin: 8px;
+  list-style: none;
+}
+
+.colHeaderMenuDeleteIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  color: rgb(177, 15, 65);
+}
+
+.colHeaderMenuDeleteText {
+  display: block;
+  margin-left: 8px;
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  user-select: none;
+  color: rgb(177, 15, 65);
+}
+
+.colHeaderMenuItemDisabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.colHeaderMenuItemContent {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  margin-left: 8px;
+}
+
+.colHeaderMenuItemContent .colHeaderMenuItemText {
+  margin-left: 0;
+  width: auto;
+  flex: 0 1 auto;
+}
+
+.colHeaderMenuTeamBadge {
+  display: flex;
+  align-items: center;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 18px;
+  padding: 0 8px;
+  margin-left: auto;
+  background-color: rgb(196, 236, 255);
+  border-radius: 9999px;
+  color: rgb(15, 104, 162);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+}
+
+.colHeaderMenuBadgeIcon {
+  display: block;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  margin-right: 4px;
+  color: rgb(15, 104, 162);
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}

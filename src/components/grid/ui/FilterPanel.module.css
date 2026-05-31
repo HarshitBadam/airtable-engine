@@ -1,8 +1,4 @@
-/* =============================================
-   FILTER PANEL — Empty-state dropdown
-   ============================================= */
-
-/* --- Keyframe animations for group operations --- */
+/* Keyframe animations for group operations */
 @keyframes filterGroupExpand {
   0% {
     opacity: 0.85;
@@ -16,7 +12,6 @@
   }
 }
 
-/* === PANEL CONTAINER === */
 .filterPanel {
   box-sizing: border-box;
   width: 543.234px;
@@ -37,7 +32,7 @@
   white-space: nowrap;
 }
 
-/* === 1. HEADER — "Filter" title === */
+/* Filter panel header */
 .filterHeader {
   display: flex;
   align-items: center;
@@ -55,7 +50,7 @@
   white-space: nowrap;
 }
 
-/* === 2. AI DESCRIBE ROW === */
+/* AI describe row */
 .filterDescribeRow {
   display: block;
   box-sizing: border-box;
@@ -127,7 +122,7 @@
   opacity: 0.5;
 }
 
-/* === 3. EMPTY STATE ROW — "No filter conditions are applied" === */
+/* Empty state row */
 .filterEmptyRow {
   display: flex;
   align-items: center;
@@ -177,7 +172,7 @@
   cursor: pointer;
 }
 
-/* === 4. BOTTOM ACTION BAR === */
+/* Bottom action bar */
 .filterActions {
   display: flex;
   align-items: center;
@@ -315,11 +310,7 @@
   color: rgb(29, 31, 37);
 }
 
-/* =============================================
-   ACTIVE STATE (≥ 1 filter condition)
-   ============================================= */
-
-/* --- Width overrides when panel has conditions --- */
+/* Width overrides when panel has conditions */
 .filterPanelActive {
   width: 590px;
 }
@@ -338,7 +329,6 @@
   padding: 0px 16px 16px 16px;
 }
 
-/* === "In this view, show records" label === */
 .filterShowRecords {
   display: block;
   box-sizing: border-box;
@@ -354,7 +344,6 @@
   white-space: nowrap;
 }
 
-/* === FILTER ROWS CONTAINER (scrollable) === */
 /* max-height is set dynamically via JS so the panel keeps a 104px gap
    from the bottom of the viewport.  Falls back to a generous static
    value if JS hasn't run yet. */
@@ -399,7 +388,6 @@
   background-color: rgba(0, 0, 0, 0.38);
 }
 
-/* === INDIVIDUAL FILTER ROW === */
 .filterRow {
   display: flex;
   align-items: flex-start;
@@ -454,7 +442,6 @@
   outline: none;
 }
 
-/* --- Left column: "Where" or conjunction --- */
 .filterRowLeft {
   display: flex;
   align-items: center;
@@ -549,7 +536,6 @@
   cursor: pointer;
 }
 
-/* --- Right column: field + operator + value + trash + drag --- */
 /* This container forms ONE contiguous bordered strip around all items */
 .filterRowRight {
   display: flex;
@@ -778,11 +764,7 @@
   cursor: grab;
 }
 
-/* =============================================
-   SUB-DROPDOWNS (conjunction, operator, field)
-   ============================================= */
-
-/* --- Shared dropdown base (portal-rendered) --- */
+/* Shared dropdown base (portal-rendered) */
 .filterSubDropdown {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -806,7 +788,6 @@
   overflow: hidden;
 }
 
-/* === CONJUNCTION DROPDOWN (and / or) === */
 .filterConjunctionDropdown {
   width: 56px;
 }
@@ -836,7 +817,6 @@
   background: rgba(0, 0, 0, 0.05);
 }
 
-/* === OPERATOR DROPDOWN (Find an operator) === */
 .filterOperatorDropdown {
   width: auto;
   min-width: 120px;
@@ -955,7 +935,6 @@
   background: rgba(0, 0, 0, 0.05);
 }
 
-/* === FIELD DROPDOWN (Find a field) === */
 .filterFieldDropdown {
   width: auto;
   min-width: 160px;
@@ -1018,11 +997,7 @@
   max-width: 200px;
 }
 
-/* =============================================
-   CONDITION GROUPS
-   ============================================= */
-
-/* --- Panel width overrides when groups exist --- */
+/* Panel width overrides when groups exist */
 .filterPanelWithGroups {
   width: 682px;
 }
@@ -1044,7 +1019,6 @@
   padding: 0px 16px 16px 16px;
 }
 
-/* --- Panel width overrides when nested groups exist --- */
 .filterPanelWithNestedGroups {
   width: 762px;
 }
@@ -1066,7 +1040,6 @@
   padding: 0px 16px 16px 16px;
 }
 
-/* === GROUP BOX — outer bordered container === */
 /* Empty: 568×38 content + 1px border = 570×40 */
 .filterGroupBox {
   box-sizing: border-box;
@@ -1101,7 +1074,6 @@
   animation: filterGroupExpand 0.25s cubic-bezier(0.2, 0, 0, 1) both;
 }
 
-/* === GROUP HEADER ROW — text + action buttons === */
 /* 32px total: 4px top padding + 28px content. Sits at top of 40px group box */
 .filterGroupHeader {
   display: flex;
@@ -1194,7 +1166,6 @@
   fill: rgb(29, 31, 37);
 }
 
-/* === GROUP CONTENT — conditions/groups inside === */
 .filterGroupContent {
   box-sizing: border-box;
   padding: 0 0 4px 0;
@@ -1218,7 +1189,6 @@
   background: #ffffff;
 }
 
-/* === GROUP + BUTTON DROPDOWN MENU === */
 /* Container: 174px wide, padding 12px. Height is 92px with 2 items, auto otherwise */
 .filterGroupPlusMenu {
   box-sizing: border-box;
@@ -1292,7 +1262,6 @@
   width: 134px;
 }
 
-/* === CONJUNCTION BETWEEN ROOT-LEVEL GROUPS ("or" / "and" pill) === */
 .filterGroupConjunctionRow {
   display: flex;
   align-items: center;
@@ -1322,7 +1291,6 @@
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* === NESTED GROUP (group inside a group) === */
 .filterNestedGroupBox {
   box-sizing: border-box;
   border: 1px solid rgba(0, 0, 0, 0.1);

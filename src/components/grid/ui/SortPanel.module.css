@@ -1,7 +1,3 @@
-/* =============================================
-   SORT PANEL — Dropdown from "Sort" button
-   ============================================= */
-
 /* Main container */
 .sortPanel {
   box-sizing: border-box;
@@ -27,7 +23,6 @@
     rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
 }
 
-/* === HEADER ROW ("Sort by" + ?) === */
 .sortHeader {
   align-items: center;
   box-sizing: border-box;
@@ -75,7 +70,6 @@
   width: 16px;
 }
 
-/* === SEPARATOR LINE === */
 .sortSeparator {
   border-left: 1px inset rgba(0, 0, 0, 0.1);
   border-right: 1px inset rgba(0, 0, 0, 0.1);
@@ -92,7 +86,6 @@
   width: 280px;
 }
 
-/* === SEARCH CONTAINER === */
 .sortSearchContainer {
   align-items: center;
   box-sizing: border-box;
@@ -163,7 +156,6 @@
   color: #757575;
 }
 
-/* === FIELD LIST ITEMS === */
 .sortFieldItem {
   align-items: center;
   border-radius: 3px;
@@ -218,10 +210,6 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
-
-/* =============================================
-   ACTIVE SORT STATE — when sort is applied
-   ============================================= */
 
 /* Outer wrapper — no padding, holds main + footer */
 .sortActivePanel {
@@ -290,7 +278,6 @@
   width: 412px;
 }
 
-/* === SORT LINE ITEM === */
 .sortLineItemOuter {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -510,7 +497,6 @@
   width: 16px;
 }
 
-/* === ADD ANOTHER SORT ROW === */
 .sortAddRow {
   align-items: center;
   box-sizing: border-box;
@@ -585,10 +571,6 @@
   white-space: nowrap;
   unicode-bidi: isolate;
 }
-
-/* =============================================
-   FOOTER BAR (toggle + Cancel/Sort)
-   ============================================= */
 
 .sortFooter {
   align-items: center;
@@ -751,10 +733,6 @@
   background-color: rgb(18, 96, 197);
 }
 
-/* =============================================
-   SUB-DROPDOWNS (field picker, direction, add sort)
-   ============================================= */
-
 /* Shared base for portal-rendered sub-dropdowns */
 .sortSubDropdown {
   box-sizing: border-box;
@@ -833,8 +811,6 @@
 .sortSubFieldItem:hover {
   background: rgba(0, 0, 0, 0.05);
 }
-
-/* === DIRECTION DROPDOWN === */
 
 .sortDirectionDropdownMenu {
   width: 120px;

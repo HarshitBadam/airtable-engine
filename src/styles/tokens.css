@@ -51,10 +51,6 @@
   --auth-form-width: 512px;
   --auth-form-width-narrow: 500px;
 
-  /* ========================================
-     Home Shell Tokens (from Airtable's actual design system)
-     ======================================== */
-
   /* Layout */
   --home-topbar-height: 57px;
   --home-rail-width: 48px;

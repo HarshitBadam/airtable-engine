@@ -19,7 +19,6 @@ export const appRouter = createTRPCRouter({
   view: view.viewRouter,
 });
 
-// export type definition of API
 export type AppRouter = typeof appRouter;
 
 /**

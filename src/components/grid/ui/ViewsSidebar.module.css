@@ -1,8 +1,3 @@
-/* =============================================
-   VIEWS SIDEBAR
-   ============================================= */
-
-/* === VIEWS SIDEBAR (collapsible) === */
 .viewsSidebar {
   border-right: 1px solid rgba(0, 0, 0, 0.1);
   box-sizing: border-box;
@@ -48,7 +43,6 @@
   box-sizing: border-box;
 }
 
-/* --- "+ Create new..." button --- */
 .viewsSidebarCreateButton {
   align-items: center;
   appearance: auto;
@@ -121,7 +115,6 @@
   transform: translateY(-0.5px);
 }
 
-/* --- "Find a view" search wrapper --- */
 .viewsSidebarSearchWrapper {
   position: relative;
   display: flex;
@@ -181,7 +174,6 @@
   pointer-events: none;
 }
 
-/* --- View item list --- */
 .viewsSidebarViewList {
   list-style: none;
   margin: 0;
@@ -219,7 +211,6 @@
   background-color: rgba(0, 0, 0, 0.38);
 }
 
-/* --- View item (default / non-hover) --- */
 .viewsSidebarViewItem {
   background-color: transparent;
   border-radius: 3px;
@@ -324,7 +315,6 @@
   user-select: none;
 }
 
-/* --- Hover state: star icon (hidden by default, shown on hover) --- */
 .viewsSidebarViewItemStarIcon {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -346,7 +336,6 @@
   fill: #FFBA06;
 }
 
-/* --- Hover state: actions container (overflow + drag handle) --- */
 .viewsSidebarViewItemActions {
   display: none;
   align-items: center;
@@ -417,8 +406,7 @@
   display: flex;
 }
 
-/* === Sidebar inline rename state ===
-   Item stays in "hover" grey, grid icon stays visible, star/actions hidden. */
+/* Sidebar inline rename state: item stays in "hover" grey, grid icon stays visible, star/actions hidden. */
 .viewsSidebarViewItemRenaming {
   background-color: rgba(0, 0, 0, 0.05);
   padding-right: 8px;
@@ -456,11 +444,6 @@
   background: #FFFFFF;
 }
 
-/* =============================================
-   VIEW SIDEBAR EXPAND TOGGLE
-   ============================================= */
-
-/* === EXPAND TOGGLE (when sidebar collapsed) === */
 .viewsSidebarExpandToggle {
   position: absolute;
   left: 8px;
@@ -484,10 +467,6 @@
   background: var(--grid-bg-hover);
   color: var(--grid-text-primary);
 }
-
-/* =============================================
-   CREATE NEW DROPDOWN (View Type Selector)
-   ============================================= */
 
 /* Main container */
 .createNewDropdownContainer {
@@ -702,10 +681,6 @@
   cursor: pointer;
   unicode-bidi: isolate;
 }
-
-/* =============================================
-   CREATE VIEW BOX
-   ============================================= */
 
 /* Main container */
 .createViewBoxContainer {
@@ -1334,10 +1309,6 @@
   word-spacing: 0px;
 }
 
-/* =============================================
-   VIEW ITEM CONTEXT MENU
-   ============================================= */
-
 /* Main container */
 .viewItemContextMenuContainer {
   box-sizing: border-box;
@@ -1596,9 +1567,6 @@
   -webkit-box-flex: 1;
 }
 
-/* ============================================
-   View Rename – Duplicate name error tooltip (sidebar, portal)
-   ============================================ */
 @keyframes tooltipFadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }

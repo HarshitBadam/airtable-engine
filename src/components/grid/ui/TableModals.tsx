@@ -1,9 +1,6 @@
 import { useRef, useEffect } from "react";
 import styles from "./TableModals.module.css";
 
-// ============================================
-// CLEAR DATA MODAL
-// ============================================
 
 interface ClearDataModalProps {
   isOpen: boolean;
@@ -51,9 +48,6 @@ export function ClearDataModal({ isOpen, tableName, onClose, onConfirm }: ClearD
   );
 }
 
-// ============================================
-// DELETE TABLE POPUP
-// ============================================
 
 interface DeleteTablePopupProps {
   isOpen: boolean;
@@ -65,7 +59,6 @@ interface DeleteTablePopupProps {
 export function DeleteTablePopup({ isOpen, position, onClose, onConfirm }: DeleteTablePopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
 
-  // Click outside handler
   useEffect(() => {
     if (!isOpen) return;
     const handleClick = (e: MouseEvent) => {

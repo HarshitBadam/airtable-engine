@@ -1,15 +1,14 @@
 "use client";
 
 import { use } from "react";
-import { GridWorkspace } from "~/components/grid/ui/GridWorkspace";
-import { GridStoreProvider } from "~/components/grid/grid-store";
-import { api } from "~/trpc/react";
+import { GridWorkspace } from "~/components/grid/ui";
+import { GridStoreProvider } from "~/components/grid/GridStoreProvider";
+import { useResolveTableId } from "~/hooks/useResolveTableId";
 
 type PageProps = {
   params: Promise<{ baseId: string; tableId: string }>;
 };
 
-/** Airtable-style loading skeleton for the base view */
 function BaseLoadingSkeleton() {
   return (
     <div style={{
@@ -23,7 +22,6 @@ function BaseLoadingSkeleton() {
       fontSize: 13,
       color: "rgb(29, 31, 37)",
     }}>
-      {/* Sidebar rail */}
       <div style={{
         display: "flex",
         flexDirection: "column",
@@ -36,23 +34,19 @@ function BaseLoadingSkeleton() {
         background: "#fff",
         flexShrink: 0,
       }} />
-      {/* Main area */}
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-        {/* Top bar */}
         <div style={{
           height: 56,
           borderBottom: "1px solid rgba(0,0,0,0.1)",
           background: "#fff",
           flexShrink: 0,
         }} />
-        {/* Sub-header bar */}
         <div style={{
           height: 48,
           borderBottom: "1px solid rgba(0,0,0,0.1)",
           background: "#fff",
           flexShrink: 0,
         }} />
-        {/* Main content area with spinner */}
         <main style={{
           flex: 1,
           display: "flex",
@@ -94,60 +88,23 @@ function BaseLoadingSkeleton() {
  * in the base before rendering the workspace.
  */
 function ResolvedWorkspace({ baseId, tableId }: { baseId: string; tableId: string }) {
-  const needsResolve = tableId === "default";
+  const result = useResolveTableId(baseId, tableId);
 
-  const tablesQ = api.table.listByBase.useQuery(
-    { baseId },
-    {
-      staleTime: 60_000,
-      enabled: needsResolve,
-      // Retry on failure (base may not exist yet during optimistic navigation)
-      retry: (failureCount) => failureCount < 20,
-      retryDelay: 500,
-      // Keep polling every 500ms while we have no tables (creation in-flight)
-      refetchInterval: (query) => {
-        const data = query.state.data;
-        return (!data || data.length === 0) ? 500 : false;
-      },
-    },
-  );
+  if (result.status === "loading") {
+    return <BaseLoadingSkeleton />;
+  }
 
-  // If we need to resolve "default" → real table ID
-  if (needsResolve) {
-    // Show skeleton while loading OR if the query succeeded but returned
-    // no tables yet (base creation transaction still in-flight).
-    const tables = tablesQ.data ?? [];
-    if (tablesQ.isLoading || (tablesQ.isSuccess && tables.length === 0)) {
-      return <BaseLoadingSkeleton />;
-    }
-
-    // Prefer last-visited table for this base, fall back to first table
-    const lastTableId = typeof window !== "undefined"
-      ? localStorage.getItem(`base-lastTable-${baseId}`)
-      : null;
-    const resolvedId = (lastTableId && tables.some(t => t.id === lastTableId))
-      ? lastTableId
-      : tables[0]?.id;
-
-    if (!resolvedId) {
-      return (
-        <div style={{ color: "#333", padding: 40, fontFamily: "sans-serif" }}>
-          No tables found for this base. Go back and try again.
-        </div>
-      );
-    }
-
+  if (result.status === "no-tables") {
     return (
-      <GridStoreProvider tableId={resolvedId}>
-        <GridWorkspace baseId={baseId} tableId={resolvedId} />
-      </GridStoreProvider>
+      <div style={{ color: "#333", padding: 40, fontFamily: "sans-serif" }}>
+        No tables found for this base. Go back and try again.
+      </div>
     );
   }
 
-  // tableId is already a real ID
   return (
-    <GridStoreProvider tableId={tableId}>
-      <GridWorkspace baseId={baseId} tableId={tableId} />
+    <GridStoreProvider tableId={result.tableId}>
+      <GridWorkspace baseId={baseId} tableId={result.tableId} />
     </GridStoreProvider>
   );
 }

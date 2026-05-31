@@ -10,6 +10,9 @@
  * The ID is removed in onSettled (after the mutation fully resolves).
  */
 
+// Intentional module-level singleton: select() callbacks run synchronously
+// and cannot access React context or Zustand — a module-level Set is the
+// only mechanism that is readable in that context without async indirection.
 const pending = new Set<string>();
 
 export function markPendingDelete(id: string): void {

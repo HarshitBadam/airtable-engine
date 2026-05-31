@@ -1,13 +1,8 @@
-/* =============================================
-   FIELD CONFIG PANEL — Configuration after selecting a field type
-   ============================================= */
-
 @keyframes opacityFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-/* === Outer config container (replaces picker content) === */
 .configContainer {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -22,9 +17,6 @@
   padding: 0;
 }
 
-/* =============================================================
-   TOP SECTION: Field name input + Type selector (88px)
-   ============================================================= */
 .configTop {
   box-sizing: border-box;
   display: flex;
@@ -208,9 +200,6 @@
   display: block;
 }
 
-/* =============================================================
-   MIDDLE SECTION: Description + Default value (text — 100px)
-   ============================================================= */
 .configMiddle {
   animation-duration: 0.4s;
   animation-name: opacityFadeIn;
@@ -233,9 +222,6 @@
   position: relative;
 }
 
-/* =============================================================
-   SCROLLABLE CONTAINER (for Number type — flex column layout)
-   ============================================================= */
 .configContainerScrollable {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -312,10 +298,6 @@
   padding: 0 16px 4px 16px;
 }
 
-/* =============================================================
-   NUMBER FIELD — Formatting section
-   ============================================================= */
-
 /* Wrapper: centers formatting content (356px) inside 400px panel */
 .numFormattingWrapper {
   box-sizing: border-box;
@@ -341,7 +323,6 @@
   width: 356px;
 }
 
-/* --- Dropdown block (label + select button) --- */
 .numDropdownBlock {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -448,10 +429,6 @@
   shape-rendering: geometricPrecision;
 }
 
-/* =============================================================
-   NUMBER FIELD — Toggle row (pill + label)
-   ============================================================= */
-
 .numToggleRow {
   align-items: center;
   box-sizing: border-box;
@@ -505,10 +482,6 @@
   margin: 0 0 0 8px;
   padding: 0;
 }
-
-/* =============================================================
-   NUMBER FIELD — Example text
-   ============================================================= */
 
 .numExample {
   box-sizing: border-box;
@@ -577,9 +550,6 @@
   border-color: rgb(22, 110, 225);
 }
 
-/* =============================================================
-   ACTIONS BAR: + Add description | Cancel | Create field (56px)
-   ============================================================= */
 .configActions {
   align-items: center;
   box-sizing: border-box;
@@ -749,9 +719,6 @@
   user-select: none;
 }
 
-/* =============================================================
-   FOOTER: Automate with agent + Convert (48px)
-   ============================================================= */
 .configFooter {
   align-items: center;
   box-sizing: border-box;
@@ -861,10 +828,6 @@
   user-select: none;
 }
 
-/* =============================================================
-   NUMBER DROPDOWN — Active (open) state for trigger
-   ============================================================= */
-
 .numDropdownActive {
   box-shadow: 0 0 0 2px rgb(22, 110, 225) !important;
 }
@@ -890,10 +853,6 @@
   display: block;
   margin: 0;
 }
-
-/* =============================================================
-   NUMBER DROPDOWN — Popup (rendered via portal)
-   ============================================================= */
 
 .numDropdownPopup {
   background-color: rgb(255, 255, 255);
@@ -1037,11 +996,9 @@
   white-space: nowrap;
 }
 
-/* =============================================================
-   EDIT MODE: Wrapper holding optional warning + actions row.
+/* Edit mode: wrapper holding optional warning + actions row.
    Fixed height so the panel doesn't shift when warning appears.
-   Total = 26px (warning area: 8px margin-top + 18px) + 56px (actions) = 82px
-   ============================================================= */
+   Total = 26px (warning area: 8px margin-top + 18px) + 56px (actions) = 82px */
 .configActionsEditWrapper {
   box-sizing: border-box;
   display: flex;
@@ -1065,9 +1022,6 @@
   padding: 8px 16px 16px 16px;
 }
 
-/* =============================================================
-   DUPLICATE FIELD NAME WARNING (edit mode, auto-detect)
-   ============================================================= */
 @keyframes bounceIn {
   0% {
     opacity: 0;

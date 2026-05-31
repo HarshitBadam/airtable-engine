@@ -3,10 +3,6 @@
  * Grid layout and card styles for base cards
  */
 
-/* ========================================
-   Bases Grid Wrapper
-   ======================================== */
-
 .basesGridWrapper {
   display: flex;
   flex-direction: column;
@@ -17,10 +13,6 @@
   padding-left: 1px; /* Prevent left box-shadow from being clipped */
   box-sizing: border-box;
 }
-
-/* ========================================
-   Bases Grid Container
-   ======================================== */
 
 .basesGrid {
   display: grid;
@@ -33,10 +25,6 @@
   /* Use margin instead of padding so it clips with content when height shrinks */
   margin-bottom: 24px;
 }
-
-/* ========================================
-   Base Card
-   ======================================== */
 
 .baseCard {
   position: relative;
@@ -120,10 +108,6 @@
   height: 100%;
 }
 
-/* ========================================
-   Base Card Icon (Left side)
-   ======================================== */
-
 /* Outer container - holds the icon square */
 .baseCardIconArea {
   display: flex;
@@ -158,10 +142,6 @@
   margin-left: 2px;
   transform: translate(-1px, 0.5px);
 }
-
-/* ========================================
-   Base Card Content (Right side)
-   ======================================== */
 
 .baseCardContent {
   display: flex;
@@ -260,10 +240,6 @@
   margin-left: 0px;
   margin-top: 1px;
 }
-
-/* ========================================
-   Hover Actions Overlay
-   ======================================== */
 
 .baseCardHoverActions {
   position: absolute;
@@ -402,10 +378,6 @@
   transform: translate(1px, -1px);
 }
 
-/* ========================================
-   Dropdown Menu
-   ======================================== */
-
 .baseCardMenu {
   position: absolute;
   top: calc(100% + 10px); /* 10px below the button */
@@ -498,10 +470,6 @@
   top: auto;
   bottom: calc(100% + 8px); /* 9px above the button */
 }
-
-/* ========================================
-   Delete Confirmation Dialog
-   ======================================== */
 
 .deleteConfirmOverlay {
   position: fixed;
@@ -654,10 +622,6 @@
   background-color: rgb(200, 4, 54);
 }
 
-/* ========================================
-   Starred Indicator (non-hover state)
-   ======================================== */
-
 .baseCardStarredIndicator {
   position: absolute;
   top: 22px;
@@ -670,10 +634,6 @@
 .baseCardDeleteConfirm .baseCardStarredIndicator {
   display: none;
 }
-
-/* ========================================
-   Starred Sidebar Entries
-   ======================================== */
 
 .starredEntry {
   display: flex;
@@ -793,10 +753,6 @@
   opacity: 1;
 }
 
-/* ========================================
-   Skeleton Loading Cards
-   ======================================== */
-
 @keyframes opacityPulse {
   0% {
     opacity: 0.15;
@@ -816,10 +772,6 @@
   padding: 0;
   animation: opacityPulse 1.5s ease-out infinite alternate;
 }
-
-/* ========================================
-   Drag-and-Drop for Starred Items
-   ======================================== */
 
 /* Wrapper around each item — handles the sliding transform */
 .starredEntryWrapper {
@@ -864,10 +816,6 @@
   cursor: grabbing;
 }
 
-/* ========================================
-   Responsive Adjustments
-   ======================================== */
-
 @media (max-width: 480px) {
   .baseCard {
     height: 80px;
@@ -895,10 +843,6 @@
     font-size: 11px;
   }
 }
-
-/* ========================================
-   List View Styles
-   ======================================== */
 
 .listViewContainer {
   box-sizing: border-box;

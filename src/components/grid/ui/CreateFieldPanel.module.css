@@ -1,8 +1,3 @@
-/* =============================================
-   CREATE FIELD PANEL — Dropdown for adding new fields
-   ============================================= */
-
-/* === Main container (portal, fixed position) === */
 .createFieldPanel {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -28,7 +23,6 @@
   overflow-x: hidden;
 }
 
-/* === Sticky search header === */
 .searchHeader {
   background-color: rgb(255, 255, 255);
   box-sizing: border-box;
@@ -134,7 +128,6 @@
   cursor: pointer;
 }
 
-/* === Dividers === */
 .divider {
   border: none;
   border-top: 1px inset rgba(0, 0, 0, 0.05);
@@ -163,7 +156,6 @@
   width: 388px;
 }
 
-/* === Scrollable content area === */
 .scrollableContent {
   box-sizing: border-box;
   display: flex;
@@ -176,7 +168,6 @@
   margin: 0;
 }
 
-/* === Section labels === */
 .sectionLabel {
   box-sizing: border-box;
   color: rgb(97, 102, 112);
@@ -191,7 +182,6 @@
   padding: 0;
 }
 
-/* === Field agents grid (2 columns, 4 rows) === */
 .agentsGrid {
   display: flex;
   flex-wrap: wrap;
@@ -249,7 +239,6 @@
   padding: 0;
 }
 
-/* === Standard field items (single column list) === */
 .standardItem {
   align-items: center;
   border-radius: 6px;
@@ -350,10 +339,6 @@
   z-index: 1;
   background-color: rgb(255, 255, 255);
 }
-
-/* =============================================
-   DISCARD CONFIRMATION DIALOG
-   ============================================= */
 
 /* Full-screen semi-transparent overlay */
 .discardOverlay {

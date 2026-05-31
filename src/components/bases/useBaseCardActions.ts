@@ -1,16 +1,9 @@
-/**
- * useBaseCardActions hook
- * Handles all mutations for base cards (rename, delete, toggle star)
- * with optimistic updates
- */
-
 import { api } from "~/trpc/react";
 import { markPendingDelete, clearPendingDelete } from "./pendingDeletes";
 
 export function useBaseCardActions() {
   const utils = api.useUtils();
 
-  // Optimistic rename mutation
   const renameMutation = api.base.rename.useMutation({
     onMutate: async ({ id, name }) => {
       await utils.base.listMine.cancel();
@@ -60,7 +53,6 @@ export function useBaseCardActions() {
     },
   });
 
-  // Optimistic star toggle mutation
   const toggleStarMutation = api.base.toggleStar.useMutation({
     onMutate: async ({ id }) => {
       await utils.base.listMine.cancel();
@@ -105,7 +97,6 @@ export function useBaseCardActions() {
     },
   });
 
-  // Record open mutation - updates lastOpenedAt and moves base to top
   const recordOpenMutation = api.base.recordOpen.useMutation({
     onMutate: async ({ id }) => {
       await utils.base.listMine.cancel();
@@ -115,7 +106,6 @@ export function useBaseCardActions() {
       const previousStarred = utils.base.listStarred.getData();
       const now = new Date();
 
-      // Update lastOpenedAt and move to top of list
       utils.base.listMine.setData(undefined, (old) => {
         if (!old) return old;
         const base = old.find((b) => b.id === id);
