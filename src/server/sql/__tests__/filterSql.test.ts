@@ -160,11 +160,14 @@ describe("buildFilterSql", () => {
     expect(params).toEqual(["existing", "new"]);
   });
 
-  it("escapes single quotes inside column IDs via escapeLiteral", () => {
+  it("rejects column IDs containing characters outside the safe identifier set", () => {
+    // Defense-in-depth: real column IDs are server-generated cuids/uuids. Any ID
+    // with a quote (or other injection character) is rejected outright by
+    // assertSafeId rather than merely escaped.
     const filter: Filter = { columnId: "col'1", op: "is_empty" };
-    const sql = buildFilterSql([filter], params);
-    // Single quote in the column ID must be doubled for safe SQL embedding
-    expect(sql).toContain("col''1");
+    expect(() => buildFilterSql([filter], params)).toThrow(
+      /Unsafe SQL identifier rejected/,
+    );
   });
 });
 

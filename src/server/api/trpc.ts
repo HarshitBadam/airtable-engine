@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { checkRateLimit, type RateBucket } from "~/server/api/rateLimit";
 
 export const createTRPCContext = async (opts: { headers: Headers }) => {
   const session = await auth();
@@ -50,6 +51,37 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
   return result;
 });
 
+const HEAVY_MUTATION_PATHS = new Set([
+  "row.addMany",
+  "row.clearData",
+  "row.applyPermanentSort",
+  "row.computeViewRanks",
+  "column.backfill",
+]);
+
+const rateLimitMiddleware = t.middleware(async ({ ctx, next, path, type }) => {
+  const userId = ctx.session?.user?.id;
+  const identifier =
+    userId ??
+    ctx.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "anon";
+
+  let bucket: RateBucket = "queryDefault";
+  if (type === "mutation") {
+    bucket = HEAVY_MUTATION_PATHS.has(path) ? "mutationHeavy" : "mutationDefault";
+  }
+
+  const { success } = await checkRateLimit(identifier, bucket);
+  if (!success) {
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: "Rate limit exceeded. Please slow down.",
+    });
+  }
+
+  return next();
+});
+
 export const protectedProcedure = t.procedure
   .use(timingMiddleware)
   .use(({ ctx, next }) => {
@@ -61,4 +93,5 @@ export const protectedProcedure = t.procedure
         session: { ...ctx.session, user: ctx.session.user },
       },
     });
-  });
+  })
+  .use(rateLimitMiddleware);

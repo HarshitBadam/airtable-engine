@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
+import { assertSafeId } from "~/server/sql/escape";
 
 export const backfill = protectedProcedure
   .input(
@@ -34,9 +35,9 @@ export const backfill = protectedProcedure
       resolvedSrcId = src.sourceColumnId;
     }
 
-    const tId = input.tableId.replace(/'/g, "''");
-    const srcId = resolvedSrcId.replace(/'/g, "''");
-    const newId = input.columnId.replace(/'/g, "''");
+    const tId = assertSafeId(input.tableId);
+    const srcId = assertSafeId(resolvedSrcId);
+    const newId = assertSafeId(input.columnId);
 
     const BATCH = 50_000;
     const MAX_RETRIES = 3;

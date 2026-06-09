@@ -25,6 +25,8 @@
  * ignored since it means another connection already created the index.
  */
 
+import { assertSafeId, escapeLiteral } from "~/server/sql/escape";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PrismaClient = any;
 
@@ -53,6 +55,7 @@ export async function dropColumnIndexesForTable(
   db: PrismaClient,
   tableId: string,
 ): Promise<void> {
+  assertSafeId(tableId);
   const prefix = `ri_${tableId.slice(0, 8)}_`;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
   const indexes = (await db.$queryRawUnsafe(
@@ -78,9 +81,9 @@ export async function ensureSortIndex(
   columnId: string,
   columnType: "TEXT" | "NUMBER",
 ): Promise<void> {
+  const tId = escapeLiteral(tableId);
+  const cId = escapeLiteral(columnId);
   const baseName = `ri_${tableId.slice(0, 8)}_${columnId}`;
-  const tId = tableId.replace(/'/g, "''");
-  const cId = columnId.replace(/'/g, "''");
 
   const suffix = columnType === "TEXT" ? "_s" : "_ns";
   const indexName = `${baseName}${suffix}`;

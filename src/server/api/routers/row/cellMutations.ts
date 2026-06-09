@@ -8,21 +8,46 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
 import { escapeLiteral } from "~/server/sql/escape";
+import {
+  MAX_ADD_MANY_PER_CALL,
+  DEFAULT_ADD_MANY,
+  MAX_ROWS_PER_TABLE,
+  MAX_ROWS_PER_USER,
+} from "../../limits";
 
 export const addMany = protectedProcedure
   .input(
     z.object({
       tableId: z.string(),
-      count: z.number().min(1).max(200000).default(100000),
+      count: z.number().min(1).max(MAX_ADD_MANY_PER_CALL).default(DEFAULT_ADD_MANY),
       populate: z.boolean().default(true),
     }),
   )
   .mutation(async ({ ctx, input }) => {
     const table = await ctx.db.table.findFirst({
       where: { id: input.tableId, base: { ownerId: ctx.session.user.id } },
-      select: { id: true },
+      select: { id: true, rowCount: true },
     });
     if (!table) throw new TRPCError({ code: "NOT_FOUND", message: "Table not found" });
+
+    if (table.rowCount + input.count > MAX_ROWS_PER_TABLE) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Row limit for this table reached (max ${MAX_ROWS_PER_TABLE}). Delete rows or use a new table.`,
+      });
+    }
+
+    const userAggregate = await ctx.db.table.aggregate({
+      where: { base: { ownerId: ctx.session.user.id } },
+      _sum: { rowCount: true },
+    });
+    const userTotal = userAggregate._sum.rowCount ?? 0;
+    if (userTotal + input.count > MAX_ROWS_PER_USER) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Account row limit reached (max ${MAX_ROWS_PER_USER}).`,
+      });
+    }
 
     const columns = input.populate
       ? await ctx.db.column.findMany({

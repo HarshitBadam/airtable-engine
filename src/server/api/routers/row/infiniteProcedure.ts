@@ -125,7 +125,11 @@ export const infinite = protectedProcedure
     // filtered subset.
     if (input.viewId && isSorted && !hasFiltersOrSearch) {
       const view = await ctx.db.view.findFirst({
-        where: { id: input.viewId },
+        where: {
+          id: input.viewId,
+          tableId: input.tableId,
+          table: { base: { ownerId: ctx.session.user.id } },
+        },
         select: { ranksStale: true },
       });
 

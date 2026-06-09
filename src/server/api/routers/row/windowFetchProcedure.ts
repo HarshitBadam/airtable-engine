@@ -146,7 +146,11 @@ export const windowFetch = protectedProcedure
     const hasFiltersOrSearch = filters.length > 0 || Boolean(useTree) || Boolean(search && search.length > 0);
     if (input.viewId && sorts.length > 0 && !hasFiltersOrSearch) {
       const view = await ctx.db.view.findFirst({
-        where: { id: input.viewId },
+        where: {
+          id: input.viewId,
+          tableId: input.tableId,
+          table: { base: { ownerId: ctx.session.user.id } },
+        },
         select: { ranksStale: true },
       });
 

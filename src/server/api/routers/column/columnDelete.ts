@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";
+import { assertSafeId } from "~/server/sql/escape";
 
 type FilterTreeNode = { kind?: string; columnId?: string; items?: FilterTreeNode[]; [key: string]: unknown };
 
@@ -121,8 +122,8 @@ export const deleteColumn = protectedProcedure
       }
     });
 
-    const colId = input.columnId.replace(/'/g, "''");
-    const tId = input.tableId.replace(/'/g, "''");
+    const colId = assertSafeId(input.columnId);
+    const tId = assertSafeId(input.tableId);
 
     try {
       const totalCleaned: number = await ctx.db.$executeRawUnsafe(`

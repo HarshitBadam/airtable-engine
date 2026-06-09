@@ -210,7 +210,12 @@ export const findEdgeMatch = protectedProcedure
       // doesn't affect rank because it doesn't filter the view).
       if (input.viewId && !useTree && filters.length === 0) {
         const view = await ctx.db.view.findFirst({
-          where: { id: input.viewId, ranksStale: false },
+          where: {
+            id: input.viewId,
+            ranksStale: false,
+            tableId: input.tableId,
+            table: { base: { ownerId: ctx.session.user.id } },
+          },
           select: { id: true },
         });
         if (view) {
