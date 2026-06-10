@@ -87,9 +87,10 @@ export const backfill = protectedProcedure
     // window, sorts redirect to the source column's existing index.
 
     // Clear sourceColumnId — getCellValue and sort-redirect no longer
-    // need the fallback.
-    await ctx.db.column.update({
-      where: { id: input.columnId },
+    // need the fallback. Scoped to the owned tableId (not id alone) so a
+    // caller can't flip sourceColumnId on a column outside their table.
+    await ctx.db.column.updateMany({
+      where: { id: input.columnId, tableId: input.tableId },
       data: { sourceColumnId: null },
     });
 

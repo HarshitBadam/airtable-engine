@@ -15,7 +15,7 @@ This app is a public-facing portfolio/demo: anyone with a Google account can sig
 | Known dependency CVEs | DoS / misc | Patched (Next.js upgraded) |
 | Missing security headers | Clickjacking / MIME sniffing | Mitigated |
 
-Note on cost: Vercel's Hobby tier does **not** bill overages — it throttles/pauses. The real cost lever is the **database** provider's free-tier storage/compute being exhausted, which the row ceilings below are designed to prevent.
+Note on cost (verified Jun 2026): **Neither free tier can bill you.** Vercel's Hobby plan has no overage billing and cannot be configured to purchase extra usage — when a limit (bandwidth, function invocations, etc.) is hit, the project is **paused** until the next cycle. Neon's Free plan likewise never bills overages — when compute (100 CU-hours/mo), storage (0.5 GB), or egress (5 GB/mo) is exhausted, the project's compute is **suspended** (data is preserved). With no payment method on file, the worst-case outcome of any attack is **temporary downtime, not a charge.** The defenses below exist to keep the app *available* and to make abuse expensive, not to prevent billing (which is structurally impossible here).
 
 ## SQL injection
 
@@ -47,10 +47,12 @@ Tunable constants in [`src/server/api/limits.ts`](../src/server/api/limits.ts):
 | --- | --- | --- |
 | `MAX_ADD_MANY_PER_CALL` | 100,000 | Bounds a single bulk insert (matches the UI's bulk-add button) |
 | `DEFAULT_ADD_MANY` | 1,000 | Safe default when `count` is omitted |
-| `MAX_ROWS_PER_TABLE` | 500,000 | Hard ceiling per table |
-| `MAX_ROWS_PER_USER` | 1,000,000 | Hard ceiling across all of one user's tables |
+| `MAX_ROWS_PER_TABLE` | 2,000,000 | Application-level ceiling per table |
+| `MAX_ROWS_PER_USER` | 10,000,000 | Application-level ceiling across all of one user's tables |
 
 `row.addMany` checks both ceilings (using the materialized `rowCount`, so the check is sub-millisecond) before inserting and returns a friendly `BAD_REQUEST` when exceeded.
+
+> **The binding limit on free Neon is storage, not these ceilings.** Neon's Free plan caps a project at **0.5 GB**, which is reached well before 2M rows (each row stores a JSONB `cells` blob + `searchText` + per-column B-tree index entries). When storage is exhausted Neon **suspends writes** (it does not bill — see the cost note above), so the app may start rejecting inserts before the application ceilings are hit. The ceilings above are a secondary guard, not the primary cost control. Lower them if you'd prefer a friendly `BAD_REQUEST` to appear before Neon's hard storage stop.
 
 ## Authorization (multi-tenant isolation)
 
