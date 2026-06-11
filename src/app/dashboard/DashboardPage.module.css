@@ -212,6 +212,8 @@
   padding: 0 4px;
   text-align: center;
   width: 100%;
+  position: relative;
+  z-index: 0;
   overflow-y: auto;
   /* Hide scrollbar */
   scrollbar-width: none; /* Firefox */
