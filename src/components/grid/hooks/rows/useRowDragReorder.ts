@@ -1,10 +1,12 @@
 import { useRef, useState, useCallback } from "react";
 import type React from "react";
 import styles from "../../ui/GridContainer.module.css";
+import type { GridScrollController } from "~/components/grid/hooks/layout/useGridVirtualizer";
 
 interface UseRowDragReorderParams {
   canDragRows: boolean;
   gridScrollerRef: React.RefObject<HTMLDivElement | null>;
+  scroll: GridScrollController;
   totalCount: number;
   DATA_ROW_HEIGHT: number;
   onReorderRow?: (rowId: string, fromIndex: number, toIndex: number) => void;
@@ -13,6 +15,7 @@ interface UseRowDragReorderParams {
 export function useRowDragReorder({
   canDragRows,
   gridScrollerRef,
+  scroll,
   totalCount,
   DATA_ROW_HEIGHT,
   onReorderRow,
@@ -64,7 +67,7 @@ export function useRowDragReorder({
         ghost.style.top = `${ev.clientY - offsetY}px`;
 
         const rect = scroller.getBoundingClientRect();
-        const relY = ev.clientY - rect.top + scroller.scrollTop;
+        const relY = ev.clientY - rect.top + scroll.getOffset();
         const dropIdx = Math.max(0, Math.min(totalCount - 1, Math.floor(relY / DATA_ROW_HEIGHT)));
 
         if (dropIdx !== currentDropIdx) {
@@ -78,13 +81,13 @@ export function useRowDragReorder({
 
         if (ev.clientY < rect.top + EDGE) {
           const tick = () => {
-            scroller.scrollTop -= SPEED;
+            scroll.scrollBy(-SPEED);
             autoScrollRafRef.current = requestAnimationFrame(tick);
           };
           autoScrollRafRef.current = requestAnimationFrame(tick);
         } else if (ev.clientY > rect.bottom - EDGE) {
           const tick = () => {
-            scroller.scrollTop += SPEED;
+            scroll.scrollBy(SPEED);
             autoScrollRafRef.current = requestAnimationFrame(tick);
           };
           autoScrollRafRef.current = requestAnimationFrame(tick);
@@ -104,7 +107,7 @@ export function useRowDragReorder({
         if (currentDropIdx !== rowIndex) {
           const scrollerRect = scroller.getBoundingClientRect();
           const targetViewportY =
-            currentDropIdx * DATA_ROW_HEIGHT - scroller.scrollTop + scrollerRect.top;
+            currentDropIdx * DATA_ROW_HEIGHT - scroll.getOffset() + scrollerRect.top;
 
           ghost.style.transition = "top 150ms ease-out, opacity 150ms ease-out";
           ghost.style.top = `${targetViewportY}px`;
@@ -125,7 +128,7 @@ export function useRowDragReorder({
       window.addEventListener("mousemove", handleMove);
       window.addEventListener("mouseup", handleUp);
     },
-    [canDragRows, gridScrollerRef, totalCount, DATA_ROW_HEIGHT, onReorderRow],
+    [canDragRows, gridScrollerRef, scroll, totalCount, DATA_ROW_HEIGHT, onReorderRow],
   );
 
   return { dragState, handleRowDragStart };

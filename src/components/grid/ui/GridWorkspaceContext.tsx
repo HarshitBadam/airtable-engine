@@ -4,6 +4,7 @@ import { createContext, useContext } from "react";
 import type { GridColumnDef } from "./GridRow";
 import type { RowItem } from "~/components/grid/hooks/useGridRows";
 import type { VirtualItem } from "@tanstack/react-virtual";
+import type { GridScrollController } from "~/components/grid/hooks/layout/useGridVirtualizer";
 import type { NumberFormatConfig } from "~/shared/numberUtils";
 import type { RowHeightPreset, ViewConfigInput } from "~/shared/grid";
 
@@ -201,6 +202,10 @@ export interface GridDataState {
   totalVirtualSize: number;
   totalCount: number;
   dataRowHeight: number;
+  /** Current JS-driven vertical scroll offset (replaces native scrollTop). */
+  scrollOffset: number;
+  /** Imperative vertical scroll controller (replaces scroller.scrollTop). */
+  scroll: GridScrollController;
   mapToActualIndex: (virtualIndex: number) => number;
   getRowAtIndex: (index: number) => RowItem | null;
   getCellValue: (cells: unknown, colId: string) => string;

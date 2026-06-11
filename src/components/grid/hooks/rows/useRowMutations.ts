@@ -8,6 +8,7 @@ import { api } from "~/trpc/react";
 import { useGridStore, useGridStoreApi } from "~/components/grid/GridStore";
 import { useLatestRef } from "~/hooks/useLatestRef";
 import { countOccurrences } from "~/components/grid/utils/countOccurrences";
+import type { GridScrollController } from "~/components/grid/hooks/layout/useGridVirtualizer";
 import type { RowItem, RowInfiniteInput } from "../useGridRows";
 
 type RowInfinitePage = inferProcedureOutput<AppRouter["row"]["infinite"]>;
@@ -23,7 +24,7 @@ interface UseRowMutationsArgs {
   isValidTable: boolean;
   rowQueryInput: RowInfiniteInput;
   totalCount: number | null | undefined;
-  gridScrollerRef: React.RefObject<HTMLDivElement | null>;
+  scroll: GridScrollController;
   visibleColumnsRef: React.RefObject<ColumnRef[]>;
   rowsRef: React.RefObject<RowItem[]>;
   addToJumpCache: (pos: number, row: RowItem) => void;
@@ -55,7 +56,7 @@ export function useRowMutations(args: UseRowMutationsArgs): UseRowMutationsResul
     isValidTable,
     rowQueryInput,
     totalCount,
-    gridScrollerRef,
+    scroll,
     visibleColumnsRef,
     rowsRef,
     addToJumpCache,
@@ -179,8 +180,7 @@ export function useRowMutations(args: UseRowMutationsArgs): UseRowMutationsResul
         }
 
         requestAnimationFrame(() => {
-          const scroller = gridScrollerRef.current;
-          if (scroller) scroller.scrollTop = scroller.scrollHeight;
+          scroll.setOffset(scroll.getMaxScroll());
         });
 
         const firstCol = visibleColumnsRef.current[0];
@@ -195,7 +195,7 @@ export function useRowMutations(args: UseRowMutationsArgs): UseRowMutationsResul
         console.error("[handleAddRow] insertAt failed:", err.message);
       },
     });
-  }, [isValidTable, tableId, insertAtMut, utils, rowQueryInput, totalCount, addToJumpCache, addProtectedRowId, setActiveCell, startEditing, gridStoreApi, gridScrollerRef, visibleColumnsRef]);
+  }, [isValidTable, tableId, insertAtMut, utils, rowQueryInput, totalCount, addToJumpCache, addProtectedRowId, setActiveCell, startEditing, gridStoreApi, scroll, visibleColumnsRef]);
 
   const handleAddBulkRows = useCallback((populate = true) => {
     if (!isValidTable || isBulkAdding) return;
@@ -227,10 +227,7 @@ export function useRowMutations(args: UseRowMutationsArgs): UseRowMutationsResul
 
     newRowTargetIndexRef.current = null;
 
-    const scroller = gridScrollerRef.current;
-    if (scroller) {
-      scroller.scrollTop = scroller.scrollHeight;
-    }
+    scroll.setOffset(scroll.getMaxScroll());
     requestAnimationFrame(() => {
       setActiveCell({ rowId: newRow.id, columnId: firstCol.id });
       startEditing({ rowId: newRow.id, columnId: firstCol.id }, '');

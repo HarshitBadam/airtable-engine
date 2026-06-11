@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import type { GridScrollController } from "~/components/grid/hooks/layout/useGridVirtualizer";
 import type { RowItem } from "./useGridRows";
 
 interface CellCoords {
@@ -14,6 +15,7 @@ interface ColumnDef {
 
 interface UseCellOverlaySyncArgs {
   hScrollRef: React.RefObject<HTMLDivElement | null>;
+  scroll: GridScrollController;
   updateSelectionOverlay: () => void;
   activeCell: CellCoords | null;
   editingCell: CellCoords | null;
@@ -29,9 +31,11 @@ interface UseCellOverlaySyncArgs {
 }
 
 /**
- * Three effects that keep the selection overlay and active cell in sync:
+ * Effects that keep the selection overlay and active cell in sync:
  *
- * 1. Re-positions the overlay on horizontal scroll (hScrollbar events).
+ * 1. Re-positions the overlay on horizontal scroll (hScrollbar events) AND on
+ *    every vertical offset change (vertical scroll is JS-driven, so the
+ *    overlay no longer moves "for free" with native scrolling).
  * 2. Re-positions the overlay when the active cell, visible columns, column
  *    widths, or freeze config change.
  * 3. Recovers from a stale active cell — when the row the selection is on
@@ -40,6 +44,7 @@ interface UseCellOverlaySyncArgs {
  */
 export function useCellOverlaySync({
   hScrollRef,
+  scroll,
   updateSelectionOverlay,
   activeCell,
   editingCell,
@@ -53,15 +58,19 @@ export function useCellOverlaySync({
   setActiveCell,
   clearSelection,
 }: UseCellOverlaySyncArgs): void {
-  // Overlay is inside the scroll content, so it scrolls naturally with both
-  // vertical and horizontal movement. The hScroll listener is still needed to
-  // update frozen-column offsets and the clip-path for non-frozen cells.
+  // Horizontal: the hScroll listener updates frozen-column offsets and the
+  // clip-path for non-frozen cells. Vertical: scroll is JS-driven, so the
+  // overlay must be explicitly re-positioned on every offset change.
   useEffect(() => {
     const hScroll = hScrollRef.current;
     const onHScroll = () => updateSelectionOverlay();
     hScroll?.addEventListener("scroll", onHScroll, { passive: true });
-    return () => { hScroll?.removeEventListener("scroll", onHScroll); };
-  }, [hScrollRef, updateSelectionOverlay]);
+    const unsubscribe = scroll.subscribe(() => updateSelectionOverlay());
+    return () => {
+      hScroll?.removeEventListener("scroll", onHScroll);
+      unsubscribe();
+    };
+  }, [hScrollRef, scroll, updateSelectionOverlay]);
 
   useEffect(() => {
     updateSelectionOverlay();

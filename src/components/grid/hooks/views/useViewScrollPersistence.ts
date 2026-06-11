@@ -3,11 +3,12 @@
 import { useRef, useEffect } from "react";
 import { useLatestRef } from "~/hooks/useLatestRef";
 import { api } from "~/trpc/react";
+import type { GridScrollController } from "~/components/grid/hooks/layout/useGridVirtualizer";
 import type { RowInfiniteInput } from "../useGridRows";
 
 interface UseViewScrollPersistenceArgs {
   activeViewId: string | null | undefined;
-  gridScrollerRef: React.RefObject<HTMLDivElement | null>;
+  scroll: GridScrollController;
   rowQueryInput: RowInfiniteInput;
   clearJumpCache: () => void;
 }
@@ -28,7 +29,7 @@ interface UseViewScrollPersistenceArgs {
  */
 export function useViewScrollPersistence({
   activeViewId,
-  gridScrollerRef,
+  scroll,
   rowQueryInput,
   clearJumpCache,
 }: UseViewScrollPersistenceArgs): void {
@@ -39,33 +40,31 @@ export function useViewScrollPersistence({
 
   useEffect(() => {
     if (prevViewIdRef.current !== activeViewId) {
-      const scroller = gridScrollerRef.current;
-      if (scroller && prevViewIdRef.current) {
-        localStorage.setItem(`view-scrollTop-${prevViewIdRef.current}`, String(scroller.scrollTop));
+      if (prevViewIdRef.current) {
+        localStorage.setItem(`view-scrollTop-${prevViewIdRef.current}`, String(scroll.getOffset()));
       }
       prevViewIdRef.current = activeViewId;
       void utils.row.infinite.invalidate();
       clearJumpCache();
       // Restore incoming view's scroll position (after data loads, so defer).
       // Double rAF: first lets React re-render, second lets the virtualizer measure.
-      if (scroller && activeViewId) {
+      if (activeViewId) {
         const saved = localStorage.getItem(`view-scrollTop-${activeViewId}`);
         const scrollTop = saved ? Number(saved) : 0;
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            scroller.scrollTop = scrollTop;
+            scroll.setOffset(scrollTop);
           });
         });
       }
     }
-  }, [activeViewId, utils, clearJumpCache, gridScrollerRef]);
+  }, [activeViewId, utils, clearJumpCache, scroll]);
 
   useEffect(() => {
     return () => {
       const viewId = unmountViewIdRef.current;
-      const scroller = gridScrollerRef.current;
-      if (viewId && scroller) {
-        localStorage.setItem(`view-scrollTop-${viewId}`, String(scroller.scrollTop));
+      if (viewId) {
+        localStorage.setItem(`view-scrollTop-${viewId}`, String(scroll.getOffset()));
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -99,11 +98,8 @@ export function useViewScrollPersistence({
 
     if (isViewSwitch) return;
 
-    const scroller = gridScrollerRef.current;
-    if (scroller) {
-      requestAnimationFrame(() => {
-        scroller.scrollTop = 0;
-      });
-    }
-  }, [rowQueryInput, gridScrollerRef]);
+    requestAnimationFrame(() => {
+      scroll.setOffset(0);
+    });
+  }, [rowQueryInput, scroll]);
 }

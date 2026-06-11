@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type React from "react";
 import type { GridColumnDef } from "~/components/grid/ui/GridRow";
+import type { GridScrollController } from "~/components/grid/hooks/layout/useGridVirtualizer";
 import type { RowItem } from "./useGridRows";
 
 const ROW_NUM_WIDTH = 83;
@@ -12,6 +13,7 @@ interface UseGridCellOverlayProps {
   selectionOverlayRef: React.RefObject<HTMLDivElement | null>;
   hScrollRef: React.RefObject<HTMLDivElement | null>;
   gridScrollerRef: React.RefObject<HTMLDivElement | null>;
+  scroll: GridScrollController;
   visibleColumnsRef: React.MutableRefObject<GridColumnDef[]>;
   rowsRef: React.MutableRefObject<{ id: string; cells: unknown }[]>;
   frozenColumnCountRef: React.MutableRefObject<number>;
@@ -28,6 +30,7 @@ export function useGridCellOverlay({
   selectionOverlayRef,
   hScrollRef,
   gridScrollerRef,
+  scroll,
   visibleColumnsRef,
   rowsRef,
   frozenColumnCountRef,
@@ -39,12 +42,13 @@ export function useGridCellOverlay({
   activeCellRef,
   editingCellRef,
 }: UseGridCellOverlayProps) {
-  // The overlay lives inside gridContentScrollerInner so it scrolls with the
-  // rows at compositor speed (no JS-driven repositioning on scroll). Both
-  // vertical and horizontal scroll are handled by the compositor. Only frozen
-  // columns (position:sticky) need a JS correction on horizontal scroll, and
-  // a clip-path is applied to prevent non-frozen overlays from painting over
-  // the frozen area.
+  // The overlay lives inside gridContentScrollerInner. Horizontal scroll
+  // still moves it natively (programmatic scrollLeft on the scroller), but
+  // vertical scroll is JS-driven: the overlay's Y must subtract the current
+  // scroll offset and is re-positioned on every offset change (see
+  // useCellOverlaySync). Frozen columns (position:sticky) need a JS
+  // correction on horizontal scroll, and a clip-path prevents non-frozen
+  // overlays from painting over the frozen area.
   const updateSelectionOverlay = useCallback(() => {
     const overlay = selectionOverlayRef.current;
     if (!overlay) return;
@@ -85,7 +89,7 @@ export function useGridCellOverlay({
 
     const drh = dataRowHeightRef.current;
     const virtualRowIdxForOverlay = mapToVirtualIndexRef.current(rowIdx);
-    const cellY = virtualRowIdxForOverlay * drh;
+    const cellY = virtualRowIdxForOverlay * drh - scroll.getOffset();
 
     const handle = overlay.firstElementChild as HTMLElement | null;
 
@@ -132,7 +136,7 @@ export function useGridCellOverlay({
     } else {
       overlay.style.clipPath = "";
     }
-  }, [selectionOverlayRef, hScrollRef, visibleColumnsRef, rowsRef, frozenColumnCountRef, freezeWidthRef, columnWidthsRef, dataRowHeightRef, mapToVirtualIndexRef, jumpCacheRef, activeCellRef, editingCellRef]);
+  }, [selectionOverlayRef, hScrollRef, scroll, visibleColumnsRef, rowsRef, frozenColumnCountRef, freezeWidthRef, columnWidthsRef, dataRowHeightRef, mapToVirtualIndexRef, jumpCacheRef, activeCellRef, editingCellRef]);
 
   const scrollCellIntoView = useCallback((colIdx: number, rowIdx: number) => {
     const scroller = gridScrollerRef.current;
@@ -148,10 +152,12 @@ export function useGridCellOverlay({
     const virtualRowIdx = mapToVirtualIndexRef.current(rowIdx);
     const cellTop = virtualRowIdx * drhScroll;
     const cellBottom = cellTop + drhScroll;
-    if (cellTop < scroller.scrollTop) {
-      scroller.scrollTop = cellTop;
-    } else if (cellBottom > scroller.scrollTop + scroller.clientHeight) {
-      scroller.scrollTop = cellBottom - scroller.clientHeight;
+    const offset = scroll.getOffset();
+    const viewport = scroll.getViewport();
+    if (cellTop < offset) {
+      scroll.setOffset(cellTop);
+    } else if (cellBottom > offset + viewport) {
+      scroll.setOffset(cellBottom - viewport);
     }
 
     if (colIdx >= frozenCount && hScroll) {
@@ -171,7 +177,7 @@ export function useGridCellOverlay({
         hScroll.scrollLeft = contentRight - scroller.clientWidth;
       }
     }
-  }, [gridScrollerRef, hScrollRef, visibleColumnsRef, columnWidthsRef, frozenColumnCountRef, freezeWidthRef, dataRowHeightRef, mapToVirtualIndexRef]);
+  }, [gridScrollerRef, hScrollRef, scroll, visibleColumnsRef, columnWidthsRef, frozenColumnCountRef, freezeWidthRef, dataRowHeightRef, mapToVirtualIndexRef]);
 
   return { updateSelectionOverlay, scrollCellIntoView };
 }

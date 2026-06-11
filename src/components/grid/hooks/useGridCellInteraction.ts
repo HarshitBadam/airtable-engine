@@ -8,6 +8,7 @@ import { useFindInView } from "~/components/grid/hooks/search/useFindInView";
 import { useGridKeyboard } from "~/components/grid/hooks/useGridKeyboard";
 import { useCellOverlaySync } from "~/components/grid/hooks/useCellOverlaySync";
 import type { GridColumnDef } from "~/components/grid/ui/GridRow";
+import type { GridScrollController } from "~/components/grid/hooks/layout/useGridVirtualizer";
 import type { RowItem, RowInfiniteInput } from "~/components/grid/hooks/useGridRows";
 
 type CellCoords = { rowId: string; columnId: string };
@@ -23,6 +24,7 @@ interface UseGridCellInteractionArgs {
   selectionOverlayRef: React.RefObject<HTMLDivElement | null>;
   hScrollRef: React.RefObject<HTMLDivElement | null>;
   gridScrollerRef: React.RefObject<HTMLDivElement | null>;
+  scroll: GridScrollController;
   visibleColumnsRef: React.MutableRefObject<GridColumnDef[]>;
   rowsRef: React.MutableRefObject<{ id: string; cells: unknown }[]>;
   frozenColumnCountRef: React.MutableRefObject<number>;
@@ -56,6 +58,7 @@ export function useGridCellInteraction({
   selectionOverlayRef,
   hScrollRef,
   gridScrollerRef,
+  scroll,
   visibleColumnsRef,
   rowsRef,
   frozenColumnCountRef,
@@ -92,6 +95,7 @@ export function useGridCellInteraction({
     selectionOverlayRef,
     hScrollRef,
     gridScrollerRef,
+    scroll,
     visibleColumnsRef,
     rowsRef,
     frozenColumnCountRef,
@@ -136,6 +140,7 @@ export function useGridCellInteraction({
 
   useCellOverlaySync({
     hScrollRef,
+    scroll,
     updateSelectionOverlay,
     activeCell,
     editingCell,

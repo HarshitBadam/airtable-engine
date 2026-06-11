@@ -356,7 +356,11 @@
   left: 0;
   right: 0;
   bottom: 0;
-  overflow-y: auto;
+  /* Vertical scrolling is JS-driven (transform-based windowing): a giant
+     natively-scrolled inner (~3.2M px for 100K rows) made Chrome checkerboard
+     (grey flash) during fast flings because it could not rasterize tiles in
+     time. The painted region is now always viewport-sized. */
+  overflow-y: hidden;
   overflow-x: hidden;
   background: #F7F8FC;
   box-sizing: border-box;

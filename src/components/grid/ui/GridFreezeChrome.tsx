@@ -18,9 +18,10 @@ export function GridFreezeChrome({ effectiveHeaderHeight }: GridFreezeChromoProp
     handleFreezeDragStart,
     handleFreezeLineMouseMove,
     gridScrollerRef,
+    scroll,
   } = useWorkspace();
 
-  const { vThumbRef } = useVerticalScrollbar({ gridScrollerRef });
+  const { vThumbRef } = useVerticalScrollbar({ gridScrollerRef, scroll });
 
   return (
     <>

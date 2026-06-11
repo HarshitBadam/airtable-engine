@@ -1,30 +1,34 @@
 "use client";
 
 import { useEffect } from "react";
+import type { GridScrollController } from "~/components/grid/hooks/layout/useGridVirtualizer";
 
 interface UseScrollSyncArgs {
   gridScrollerRef: React.RefObject<HTMLDivElement | null>;
   scrollableHeaderRef: React.RefObject<HTMLDivElement | null>;
   scrollShadowRef: React.RefObject<HTMLDivElement | null>;
   hScrollRef: React.RefObject<HTMLDivElement | null>;
+  scroll: GridScrollController;
 }
 
 /**
- * Wires horizontal scroll sync between the hScrollbar, grid scroller, header,
- * and scroll shadow. Also forwards horizontal wheel events from the scroller to
- * the hScrollbar so trackpad swipes move horizontally without triggering
- * browser back/forward navigation.
+ * Wires scroll input for the grid.
  *
  * Single-container architecture:
- *   Vertical: 100% native (overflow-y: auto). Zero JS, zero lag.
+ *   Vertical: JS-driven (overflow-y: hidden). Wheel deltaY feeds the scroll
+ *     controller's offset. macOS momentum still feels inertial because the OS
+ *     keeps emitting wheel events during the fling. This avoids the giant
+ *     natively-scrolled layer that caused Chrome checkerboarding (grey flash).
  *   Horizontal: overflow-x: hidden on scroller — no native horizontal scroll.
- *     hScrollbar is the sole driver of horizontal position.
+ *     hScrollbar is the sole driver of horizontal position; horizontal-dominant
+ *     wheel gestures are forwarded to it.
  */
 export function useScrollSync({
   gridScrollerRef,
   scrollableHeaderRef,
   scrollShadowRef,
   hScrollRef,
+  scroll,
 }: UseScrollSyncArgs): void {
   useEffect(() => {
     const scroller = gridScrollerRef.current;
@@ -43,19 +47,19 @@ export function useScrollSync({
       if (shadow) shadow.style.opacity = hScroll.scrollLeft > 0 ? "1" : "0";
     };
 
-    // Forward horizontal wheel/trackpad to the hScrollbar.
-    //
-    // Only intercept when the gesture is primarily horizontal. We preventDefault
-    // there to stop browser back/forward navigation and drive the custom
-    // hScrollbar. Crucially we DO NOT touch scrollTop: vertical scrolling stays
-    // 100% native so Chrome owns the fling and rasterizes in step with it.
-    // The previous version preventDefaulted on any deltaX !== 0 (true for most
-    // macOS trackpad vertical swipes) and then re-applied scrollTop manually,
-    // mixing manual and native scroll within a single gesture and causing jank.
+    // Horizontal-dominant gestures drive the hScrollbar (preventDefault stops
+    // browser back/forward navigation). Everything else is vertical: apply
+    // deltaY to the JS scroll offset. deltaMode 1 = line-based wheel (e.g.
+    // Firefox with a mouse) — convert lines to pixels.
+    const LINE_HEIGHT = 32;
     const handleScrollerWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
         e.preventDefault();
         if (hScroll) hScroll.scrollLeft += e.deltaX;
+      } else if (e.deltaY !== 0) {
+        e.preventDefault();
+        const dy = e.deltaMode === 1 ? e.deltaY * LINE_HEIGHT : e.deltaY;
+        scroll.scrollBy(dy);
       }
     };
 
@@ -65,5 +69,5 @@ export function useScrollSync({
       if (hScroll) hScroll.removeEventListener("scroll", handleHScroll);
       scroller.removeEventListener("wheel", handleScrollerWheel);
     };
-  }, [gridScrollerRef, scrollableHeaderRef, scrollShadowRef, hScrollRef]);
+  }, [gridScrollerRef, scrollableHeaderRef, scrollShadowRef, hScrollRef, scroll]);
 }

@@ -5,6 +5,7 @@ import { api } from "~/trpc/react";
 import { useGridStore, useGridStoreApi } from "~/components/grid/GridStore";
 import { reorderRowInCache } from "../../utils/sortReorder";
 import { countOccurrences } from "~/components/grid/utils/countOccurrences";
+import type { GridScrollController } from "~/components/grid/hooks/layout/useGridVirtualizer";
 import type { RowItem, RowInfiniteInput } from "../useGridRows";
 
 interface ColumnDef {
@@ -22,7 +23,7 @@ interface UseRowRefreshArgs {
   ) => "moved" | "evicted" | "skipped";
   removeProtectedRowId: (rowId: string) => void;
   isRowProtected: (rowId: string) => boolean;
-  gridScrollerRef: React.RefObject<HTMLDivElement | null>;
+  scroll: GridScrollController;
   dataRowHeightRef: React.RefObject<number>;
   columnsRef: React.RefObject<ColumnDef[]>;
   rowsRef: React.RefObject<{ id: string; cells: unknown }[]>;
@@ -45,7 +46,7 @@ export function useRowRefresh({
   reorderJumpCacheRow,
   removeProtectedRowId,
   isRowProtected,
-  gridScrollerRef,
+  scroll,
   dataRowHeightRef,
   columnsRef,
   rowsRef,
@@ -88,15 +89,13 @@ export function useRowRefresh({
       // visible data is refreshed from the server. force=true bypasses the
       // "already cached" guard so stale jump cache entries get overwritten.
       requestAnimationFrame(() => {
-        const scroller = gridScrollerRef.current;
-        if (!scroller) return;
-        const approxOffset = Math.floor(scroller.scrollTop / dataRowHeightRef.current);
+        const approxOffset = Math.floor(scroll.getOffset() / dataRowHeightRef.current);
         if (approxOffset > 0) {
           triggerJumpFetch(approxOffset, true);
         }
       });
     },
-    [utils, rowQueryInput, triggerJumpFetch, gridScrollerRef, dataRowHeightRef],
+    [utils, rowQueryInput, triggerJumpFetch, scroll, dataRowHeightRef],
   );
 
   // Targeted refresh after a cell edit changes sort/filter membership.
@@ -207,12 +206,9 @@ export function useRowRefresh({
       // Only re-fetch the jump window from server when the row wasn't
       // successfully repositioned client-side (evicted or not in cache).
       if (jumpResult !== "moved") {
-        const scroller = gridScrollerRef.current;
-        if (scroller) {
-          const approxOffset = Math.floor(scroller.scrollTop / dataRowHeightRef.current);
-          if (approxOffset > 0) {
-            triggerJumpFetch(approxOffset, true);
-          }
+        const approxOffset = Math.floor(scroll.getOffset() / dataRowHeightRef.current);
+        if (approxOffset > 0) {
+          triggerJumpFetch(approxOffset, true);
         }
       }
     },
@@ -226,7 +222,7 @@ export function useRowRefresh({
       isRowProtected,
       columnsRef,
       rowsRef,
-      gridScrollerRef,
+      scroll,
       dataRowHeightRef,
     ],
   );

@@ -143,7 +143,27 @@ only real fix is to stop making the scroll layer that tall — i.e. the
 transform-based windowed rendering below (or aggressively shrinking the scroll
 layer via the existing index-scaling mechanism).
 
-## Hypotheses NOT yet tested
+## Final fix (2026-06-11, branch `fix/transform-windowed-scroll`)
+
+Replaced native vertical scrolling with **JS-driven transform-based windowing**
+(the VS Code/Airtable approach). `.gridContentScroller` is now
+`overflow-y: hidden`; a single JS offset (in `useGridVirtualizer`, exposed as a
+`GridScrollController` via context) is the source of truth. Rows render at
+`translateY(vi.start - offset)`, the inner is viewport-sized, so Chrome never
+has a giant layer to rasterize → no checkerboard. Wheel events preventDefault
+and feed deltaY to the offset (macOS momentum keeps firing wheel events during
+inertia, so the fling still feels native). Everything that previously moved
+"for free" inside the native scroller — selection overlay, add-row block, drop
+indicator — is now repositioned by subtracting the offset and updates on every
+offset change. The custom vertical scrollbar, view scroll persistence, row
+refresh, add-row scroll-to-bottom, and drag-reorder autoscroll all go through
+the controller instead of `scrollTop`. Index-scaling (MAX_SCROLL_HEIGHT) is
+preserved on top of the windowing.
+
+Note: per-row compositor layer promotion (`will-change: transform` on each
+virtual row) was tested first as a cheaper fix and did NOT eliminate the flash.
+
+## Hypotheses NOT yet tested (historical, superseded by the fix above)
 
 1. **The `will-change: scroll-position` on the scroller** may be causing the browser to handle the 3.2M px tall content differently (tile rasterization issues). Removing it might help — or it might make things worse.
 

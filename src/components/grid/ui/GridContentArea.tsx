@@ -38,6 +38,8 @@ export function GridContentArea({
     activeSearchTerm: searchTerm,
     totalCount,
     dataRowHeight: DATA_ROW_HEIGHT,
+    scrollOffset,
+    scroll,
     virtualItems,
     totalVirtualSize: totalSize,
     mapToActualIndex,
@@ -49,6 +51,7 @@ export function GridContentArea({
   const { dragState, handleRowDragStart } = useRowDragReorder({
     canDragRows,
     gridScrollerRef,
+    scroll,
     totalCount,
     DATA_ROW_HEIGHT,
     onReorderRow: handleReorderRow,
@@ -60,11 +63,16 @@ export function GridContentArea({
       className={styles.gridContentScroller}
       style={{ top: effectiveHeaderHeight }}
     >
+      {/* No longer full content height — vertical position is JS-driven and
+          rows are placed at (vi.start - scrollOffset), so the painted area is
+          always viewport-sized (fixes Chrome checkerboard on fast flings).
+          minWidth is kept: horizontal scroll is still native-ish via
+          programmatic scrollLeft, which needs real horizontal overflow. */}
       <div
         className={styles.gridContentScrollerInner}
         style={{
           minWidth: freezeWidth + scrollableColumnsWidth + 93 + 60,
-          height: totalSize + DATA_ROW_HEIGHT + 103,
+          height: "100%",
           position: "relative",
         }}
       >
@@ -81,7 +89,7 @@ export function GridContentArea({
                 left: 0,
                 width: "100%",
                 height: vi.size,
-                transform: `translateY(${vi.start}px)`,
+                transform: `translateY(${vi.start - scrollOffset}px)`,
                 contain: "layout style paint",
               }}
             >
@@ -126,9 +134,10 @@ export function GridContentArea({
             style={{
               position: "absolute",
               top:
-                dragState.currentDropIndex > dragState.fromIndex
+                (dragState.currentDropIndex > dragState.fromIndex
                   ? (dragState.currentDropIndex + 1) * DATA_ROW_HEIGHT - 1
-                  : dragState.currentDropIndex * DATA_ROW_HEIGHT - 1,
+                  : dragState.currentDropIndex * DATA_ROW_HEIGHT - 1) -
+                scrollOffset,
               width: freezeWidth + scrollableColumnsWidth + 1,
             }}
           />
@@ -143,7 +152,7 @@ export function GridContentArea({
           style={{
             background: "transparent",
             position: "absolute",
-            top: totalSize,
+            top: totalSize - scrollOffset,
             left: 0,
             width: "100%",
           }}

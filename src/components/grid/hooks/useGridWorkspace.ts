@@ -112,6 +112,19 @@ export function useGridWorkspace({
   } = useGridRows(tableId);
   const rowsRef = useLatestRef(rows);
 
+  const {
+    virtualItems,
+    mapToActualIndex,
+    totalVirtualSize,
+    mapToVirtualIndexRef,
+    scrollOffset,
+    scroll,
+  } = useGridVirtualizer({
+    totalCount,
+    dataRowHeight,
+    gridScrollerRef,
+  });
+
   const { refreshRows, handleCellMembershipChange, handleCellValueChange } =
     useRowRefresh({
       rowQueryInput,
@@ -119,7 +132,7 @@ export function useGridWorkspace({
       reorderJumpCacheRow,
       removeProtectedRowId,
       isRowProtected,
-      gridScrollerRef,
+      scroll,
       dataRowHeightRef,
       columnsRef,
       rowsRef,
@@ -164,7 +177,7 @@ export function useGridWorkspace({
 
   useViewScrollPersistence({
     activeViewId: activeViewIdFromStore,
-    gridScrollerRef,
+    scroll,
     rowQueryInput,
     clearJumpCache,
   });
@@ -190,15 +203,8 @@ export function useGridWorkspace({
     defaultColWidth: COLUMN_WIDTH,
   });
 
-  const { virtualItems, mapToActualIndex, totalVirtualSize, mapToVirtualIndexRef } =
-    useGridVirtualizer({
-      totalCount,
-      dataRowHeight,
-      gridScrollerRef,
-    });
-
   const { handleNextMatch, handlePrevMatch, currentMatchIdx } = useGridCellInteraction({
-    selectionOverlayRef, hScrollRef, gridScrollerRef, visibleColumnsRef, rowsRef,
+    selectionOverlayRef, hScrollRef, gridScrollerRef, scroll, visibleColumnsRef, rowsRef,
     frozenColumnCountRef, freezeWidthRef, columnWidthsRef, dataRowHeightRef,
     mapToVirtualIndexRef, jumpCacheRef,
     tableId, activeSearchTerm, visibleColumns, rows, jumpCache,
@@ -233,6 +239,7 @@ export function useGridWorkspace({
     scrollableHeaderRef,
     scrollShadowRef,
     hScrollRef,
+    scroll,
   });
 
   useInfiniteScroll({
@@ -257,7 +264,7 @@ export function useGridWorkspace({
     isValidTable,
     rowQueryInput,
     totalCount: totalCount ?? null,
-    gridScrollerRef,
+    scroll,
     visibleColumnsRef,
     rowsRef: rowsRef as React.RefObject<RowItem[]>,
     addToJumpCache,
@@ -340,6 +347,8 @@ export function useGridWorkspace({
     totalVirtualSize,
     totalCount,
     dataRowHeight,
+    scrollOffset,
+    scroll,
     mapToActualIndex,
     getRowAtIndex,
 
