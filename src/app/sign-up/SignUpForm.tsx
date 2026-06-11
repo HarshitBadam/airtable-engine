@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import {
   AuthShell,
@@ -53,31 +54,53 @@ export function SignUpForm() {
       <OrDivider size="small" wide />
 
       <div className={styles.providerButtonsWrapper}>
-        <AuthProviderButton provider="sso" variant="sign-up" fullWidth />
+        <AuthProviderButton
+          provider="sso"
+          variant="sign-up"
+          fullWidth
+          onClick={() =>
+            toast(
+              "Single Sign-On is currently unavailable. Please use Google to continue.",
+            )
+          }
+        />
         <AuthProviderButton provider="google" variant="sign-up" fullWidth onClick={handleGoogleSignIn} />
-        <AuthProviderButton provider="apple" variant="sign-up" fullWidth />
+        <AuthProviderButton
+          provider="apple"
+          variant="sign-up"
+          fullWidth
+          onClick={() =>
+            toast(
+              "Apple sign-in is currently unavailable. Please use Google to continue.",
+            )
+          }
+        />
       </div>
 
       <div className={styles.termsText}>
         <p className={styles.termsTextParagraph}>
           By creating an account, you agree to the{" "}
-          <Link
-            href="https://www.airtable.com/company/tos"
-            target="_blank"
-            rel="noopener noreferrer"
+          <a
+            href="#"
             className={authStyles.authLink}
+            onClick={(e) => {
+              e.preventDefault();
+              toast("This feature is currently not available");
+            }}
           >
             Terms of Service
-          </Link>{" "}
+          </a>{" "}
           and{" "}
-          <Link
-            href="https://www.airtable.com/company/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
+          <a
+            href="#"
             className={authStyles.authLink}
+            onClick={(e) => {
+              e.preventDefault();
+              toast("This feature is currently not available");
+            }}
           >
             Privacy Policy
-          </Link>
+          </a>
           .
         </p>
         <p className={styles.cookiesText}>
@@ -85,7 +108,10 @@ export function SignUpForm() {
           <a
             href="#"
             className={`${authStyles.authLink} ${styles.cookieHereLink}`}
-            onClick={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.preventDefault();
+              toast("This feature is currently not available");
+            }}
           >
             here
           </a>

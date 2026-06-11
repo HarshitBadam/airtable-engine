@@ -43,14 +43,19 @@ export function useScrollSync({
       if (shadow) shadow.style.opacity = hScroll.scrollLeft > 0 ? "1" : "0";
     };
 
-    // Forward horizontal wheel/trackpad to hScrollbar.
-    // Must preventDefault on horizontal delta to stop browser back/forward navigation.
-    // Vertical-only events (deltaX === 0) are left untouched for native smooth scroll.
+    // Forward horizontal wheel/trackpad to the hScrollbar.
+    //
+    // Only intercept when the gesture is primarily horizontal. We preventDefault
+    // there to stop browser back/forward navigation and drive the custom
+    // hScrollbar. Crucially we DO NOT touch scrollTop: vertical scrolling stays
+    // 100% native so Chrome owns the fling and rasterizes in step with it.
+    // The previous version preventDefaulted on any deltaX !== 0 (true for most
+    // macOS trackpad vertical swipes) and then re-applied scrollTop manually,
+    // mixing manual and native scroll within a single gesture and causing jank.
     const handleScrollerWheel = (e: WheelEvent) => {
-      if (e.deltaX !== 0) {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
         e.preventDefault();
         if (hScroll) hScroll.scrollLeft += e.deltaX;
-        scroller.scrollTop += e.deltaY;
       }
     };
 

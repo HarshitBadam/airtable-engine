@@ -7,6 +7,7 @@ import {
 } from "./GridIcons";
 import { LinkIcon } from "~/components/home/Icons";
 import { useSaveStatus } from "~/components/grid/hooks/useSaveStatus";
+import { toast } from "sonner";
 
 interface TopBarProps {
   baseName: string;
@@ -38,9 +39,24 @@ export function TopBar({ baseName, baseColor, baseBorderColor, baseTextColor }: 
 
         <ul className={styles.topBarCenter} style={{ '--base-color': baseColor } as React.CSSProperties}>
           <li className={`${styles.topBarNavItem} ${styles.topBarNavItemActive}`}>Data</li>
-          <li className={styles.topBarNavItem}>Automations</li>
-          <li className={styles.topBarNavItem}>Interfaces</li>
-          <li className={styles.topBarNavItem}>Forms</li>
+          <li
+            className={styles.topBarNavItem}
+            onClick={() => toast("This feature is currently not available")}
+          >
+            Automations
+          </li>
+          <li
+            className={styles.topBarNavItem}
+            onClick={() => toast("This feature is currently not available")}
+          >
+            Interfaces
+          </li>
+          <li
+            className={styles.topBarNavItem}
+            onClick={() => toast("This feature is currently not available")}
+          >
+            Forms
+          </li>
         </ul>
 
         <div className={styles.topBarRight}>
@@ -82,20 +98,32 @@ export function TopBar({ baseName, baseColor, baseBorderColor, baseTextColor }: 
             </span>
           )}
 
-          <button aria-label="History" className={styles.topBarHistoryButton}>
+          <button
+            aria-label="History"
+            className={styles.topBarHistoryButton}
+            onClick={() => toast("This feature is currently not available")}
+          >
             <IconClockCounterClockwise className={styles.topBarHistoryIcon} />
           </button>
 
-          <button aria-label="Copy link" className={styles.topBarLinkButton}>
+          <button
+            aria-label="Copy link"
+            className={styles.topBarLinkButton}
+            onClick={() => toast("This feature is currently not available")}
+          >
             <LinkIcon className={styles.topBarLinkIcon} size={16} />
           </button>
-          <button className={styles.topBarLaunchButton}>
+          <button
+            className={styles.topBarLaunchButton}
+            onClick={() => toast("This feature is currently not available")}
+          >
             <IconSidebarPlay className={styles.topBarLaunchIcon} />
             <span className={styles.topBarLaunchText}>Launch</span>
           </button>
           <button 
             className={styles.topBarShareButton}
             style={{ backgroundColor: baseColor }}
+            onClick={() => toast("This feature is currently not available")}
           >
             Share
           </button>

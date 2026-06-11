@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
 import type { useRouter } from "next/navigation";
@@ -34,6 +35,7 @@ interface UseTableManagementProps {
 }
 
 export function useTableManagement({ baseId, tableId, router, utils }: UseTableManagementProps) {
+  const queryClient = useQueryClient();
   const [isTableDropdownOpen, setIsTableDropdownOpen] = useState(false);
   const [isAddOrImportDropdownOpen, setIsAddOrImportDropdownOpen] = useState(false);
   const [isTableTitleDropdownOpen, setIsTableTitleDropdownOpen] = useState(false);
@@ -95,12 +97,20 @@ export function useTableManagement({ baseId, tableId, router, utils }: UseTableM
   });
 
   const deleteTableMut = api.table.delete.useMutation({
-    onSuccess: async (_, variables) => {
-      await utils.table.listByBase.invalidate({ baseId });
-      const remaining = tables.filter((t) => t.id !== variables.id);
-      if (remaining.length > 0) {
-        router.push(`/bases/${baseId}/tables/${remaining[0]!.id}`);
-      }
+    onSuccess: () => {
+      void utils.table.listByBase.invalidate({ baseId });
+    },
+    onError: () => {
+      void utils.table.listByBase.invalidate({ baseId });
+    },
+  });
+
+  const clearDataMut = api.row.clearData.useMutation({
+    onSuccess: () => {
+      void utils.row.infinite.invalidate();
+    },
+    onError: () => {
+      void utils.row.infinite.invalidate();
     },
   });
 
@@ -169,8 +179,32 @@ export function useTableManagement({ baseId, tableId, router, utils }: UseTableM
     setIsClearDataModalOpen(false);
   };
 
-  const handleClearData = () => {
+  const handleClearData = async () => {
     setIsClearDataModalOpen(false);
+
+    await utils.row.infinite.cancel();
+
+    queryClient.setQueriesData<{
+      pages: { items: unknown[]; totalCount: number; nextCursor: unknown }[];
+      pageParams: unknown[];
+    }>(
+      {
+        queryKey: [["row", "infinite"]],
+        predicate: (query) => {
+          const key = query.queryKey as [string[], { input?: { tableId?: string } }];
+          return key[1]?.input?.tableId === activeTableId;
+        },
+      },
+      (old) => {
+        if (!old) return old;
+        return {
+          pages: [{ items: [], totalCount: 0, nextCursor: undefined }],
+          pageParams: [old.pageParams[0]],
+        };
+      },
+    );
+
+    clearDataMut.mutate({ tableId: activeTableId });
   };
 
   const handleOpenDeleteTablePopup = (event: React.MouseEvent<HTMLLIElement>) => {
@@ -188,9 +222,15 @@ export function useTableManagement({ baseId, tableId, router, utils }: UseTableM
 
   const handleDeleteTable = () => {
     if (tables.length <= 1) return;
-    deleteTableMut.mutate({ id: activeTableId, baseId });
+    const remaining = tables.filter((t) => t.id !== activeTableId);
     setIsDeleteTablePopupOpen(false);
     setDeleteTablePopupPosition(null);
+    router.push(`/bases/${baseId}/tables/${remaining[0]!.id}`);
+    void utils.table.listByBase.cancel({ baseId });
+    utils.table.listByBase.setData({ baseId }, (old) =>
+      old ? old.filter((t) => t.id !== activeTableId) : old,
+    );
+    deleteTableMut.mutate({ id: activeTableId, baseId });
   };
 
   const { scrollProgress, hasOverflow, tabsScrollRef, scrollToEnd } = useTableTabsScroll({ tables });

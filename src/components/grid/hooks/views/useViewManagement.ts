@@ -92,6 +92,19 @@ export function useViewManagement({ tableId, isValidTable, columns, utils }: Use
     }
   }, [createViewMut.isPending]);
 
+  const duplicateViewMut = api.view.duplicate.useMutation({
+    onSuccess: (newView) => {
+      utils.view.list.setData({ tableId }, (old) => {
+        if (!old) return undefined;
+        if (old.some((v) => v.id === newView.id)) return old;
+        return [...old, { ...newView, createdAt: new Date(), updatedAt: new Date(), ranksStale: true }];
+      });
+      setActiveViewId(newView.id);
+      setIsViewDropdownOpen(false);
+      void utils.view.list.invalidate({ tableId });
+    },
+  });
+
   const deleteViewMut = api.view.delete.useMutation({
     onSuccess: () => {
       void utils.view.list.invalidate({ tableId });
@@ -284,6 +297,7 @@ export function useViewManagement({ tableId, isValidTable, columns, utils }: Use
     createViewMut,
     showViewLoadingSpinner,
     deleteViewMut,
+    duplicateViewMut,
     renameViewMut,
     isViewDropdownOpen, setIsViewDropdownOpen,
     viewDropdownRef, viewDropdownButtonRef,

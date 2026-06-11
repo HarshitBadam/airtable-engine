@@ -102,6 +102,10 @@
   width: 16px;
 }
 
+.fieldList::-webkit-scrollbar {
+  display: none;
+}
+
 .fieldList {
   box-sizing: border-box;
   color: rgb(29, 31, 37);
@@ -115,6 +119,8 @@
   min-height: 100px;
   overflow-x: auto;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: 8px 16px;
   white-space: nowrap;
   unicode-bidi: isolate;

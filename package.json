@@ -51,7 +51,6 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@playwright/test": "^1.58.2",
-    "@tailwindcss/postcss": "^4.0.15",
     "@types/node": "^20.14.10",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -60,9 +59,7 @@
     "eslint-config-next": "^15.5.19",
     "postcss": "^8.5.3",
     "prettier": "^3.5.3",
-    "prettier-plugin-tailwindcss": "^0.6.11",
     "prisma": "^6.6.0",
-    "tailwindcss": "^4.0.15",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.27.0",
     "vitest": "^4.1.7"

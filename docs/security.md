@@ -36,7 +36,7 @@ Every `protectedProcedure` passes through a rate-limit middleware ([`src/server/
 | `mutationDefault` | 240 / min | all other writes (cell edits, create/delete/rename, …) |
 | `queryDefault` | 600 / min | all reads (infinite scroll, search, lists) |
 
-- **Backends:** Upstash Redis (sliding window) when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set; otherwise a best-effort in-memory fixed-window fallback (single-instance only — see TODOs).
+- **Backends:** Upstash Redis (sliding window) when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set; otherwise a best-effort in-memory fixed-window fallback (single-instance only — see owner follow-ups).
 - **Fail-open:** infrastructure errors (e.g. Redis down) never block requests; the limiter logs and allows.
 
 ## Abuse / cost ceilings
@@ -61,7 +61,7 @@ Tunable constants in [`src/server/api/limits.ts`](../src/server/api/limits.ts):
 
 ## Transport / headers
 
-[`next.config.js`](../next.config.js) sets `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, and `Permissions-Policy` on all routes. A strict `Content-Security-Policy` is intentionally deferred (it needs per-request nonces for Next.js inline scripts; a wrong policy breaks the app) — see TODOs.
+[`next.config.js`](../next.config.js) sets `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, and `Permissions-Policy` on all routes. A strict `Content-Security-Policy` is intentionally deferred (it needs per-request nonces for Next.js inline scripts; a wrong policy breaks the app) — see owner follow-ups.
 
 ## Dependencies
 
@@ -76,16 +76,13 @@ Tunable constants in [`src/server/api/limits.ts`](../src/server/api/limits.ts):
 
 ---
 
-## TODO — owner action items
+## Owner follow-ups
 
-These require account access / decisions only the owner can make:
+These items require production account access or deployment decisions:
 
-- [ ] **Provision Upstash Redis (highest priority).** Without it, rate limiting uses the in-memory fallback, which on Vercel serverless is weak (per-instance, ephemeral). This is the gap between "best-effort" and "production-grade."
-  1. Create a free database at [console.upstash.com](https://console.upstash.com).
-  2. In the Vercel project, set env vars `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
-  3. Redeploy. (See [`.env.example`](../.env.example) for local setup.)
-- [ ] **Smoke-test after deploy while logged in:** create a base, bulk-add rows, sort, search, delete a column — confirm no `TOO_MANY_REQUESTS` toasts appear during normal use.
-- [ ] **Tune limits if needed.** If a normal session ever trips a limit, adjust the numbers in `src/server/api/rateLimit.ts` (the read bucket, `queryDefault` = 600/min, is the most likely to need raising). Row ceilings live in `src/server/api/limits.ts`.
-- [ ] **(Optional) Add a Content-Security-Policy** with Next.js nonce support once inline scripts are accounted for.
-- [ ] **(Optional) Decide on sign-up scope.** Sign-up is open to any Google account by design (portfolio). If it ever becomes private, restrict the NextAuth `signIn` callback to an email allow-list.
-- [ ] **(Optional) Schedule cleanup of stale demo data** (old/inactive accounts and their rows) so the free-tier database doesn't slowly fill from normal demo traffic.
+1. Provision Upstash Redis before treating rate limiting as production-grade. Create a free database, set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in Vercel, then redeploy. Without this, Vercel serverless instances use only the in-memory fallback.
+2. Smoke-test the deployed app while logged in: create a base, bulk-add rows, sort, search, and delete a column. Normal use should not show `TOO_MANY_REQUESTS`.
+3. Tune limits only if normal usage trips them. Start with `queryDefault` in [`src/server/api/rateLimit.ts`](../src/server/api/rateLimit.ts); row ceilings live in [`src/server/api/limits.ts`](../src/server/api/limits.ts).
+4. Add a nonce-backed `Content-Security-Policy` after Next.js inline scripts are accounted for.
+5. Decide whether sign-up should remain open to any Google account. If the app becomes private, restrict the NextAuth `signIn` callback to an email allow-list.
+6. Schedule cleanup for stale demo accounts and rows so the free-tier database does not slowly fill from normal demo traffic.

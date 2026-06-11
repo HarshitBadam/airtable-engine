@@ -1103,6 +1103,13 @@
   background-color: rgba(0, 0, 0, 0.05);
 }
 
+/* Disabled/unavailable import source */
+.addOrImportMenuItemDisabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
 /* Menu item text */
 .addOrImportMenuItemText {
   display: block;
@@ -1622,12 +1629,14 @@
 
 /* Disabled/inactive menu item (like Delete table) */
 .tableTitleDropdownItemDisabled {
-  opacity: 0.5;
+  opacity: 0.5 !important;
+  cursor: default !important;
+  pointer-events: none !important;
 }
 
-.tableTitleDropdownItemDisabled:hover {
-  background-color: transparent;
-  cursor: default;
+.tableTitleDropdownItem.tableTitleDropdownItemDisabled:hover {
+  background-color: transparent !important;
+  cursor: default !important;
 }
 
 /* Menu item icon (left side) */

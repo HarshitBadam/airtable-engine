@@ -48,13 +48,12 @@ export function FieldTypeSelector({ pickerMode, searchQuery, onSelect }: FieldTy
               return (
                 <div
                   key={agent.label}
-                  className={styles.agentItem}
+                  className={`${styles.agentItem} ${styles.disabledItem}`}
                   style={
                     coloredHover
                       ? ({ "--hover-bg": `${agent.color}14` } as React.CSSProperties)
                       : undefined
                   }
-                  onClick={() => onSelect(agent.label, agent.icon)}
                 >
                   <span className={styles.agentItemIcon} style={{ color: agent.color }}>
                     {agent.icon}

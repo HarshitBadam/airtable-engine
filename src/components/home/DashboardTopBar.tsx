@@ -11,6 +11,7 @@ import {
   AirtableWordmark,
 } from "~/components/home/Icons";
 import { AccountDropdown } from "~/components/home/AccountDropdown";
+import { toast } from "sonner";
 
 interface DashboardTopBarProps {
   sidebarExpanded: boolean;
@@ -58,7 +59,12 @@ export function DashboardTopBar({
         </div>
 
         <div className={styles.topbarCenter}>
-          <button type="button" className={styles.searchPill} aria-label="Search">
+          <button
+            type="button"
+            className={styles.searchPill}
+            aria-label="Search"
+            onClick={() => toast("This feature is currently not available")}
+          >
             <span className={styles.searchIcon}>
               <SearchIcon size={16} />
             </span>
@@ -70,7 +76,12 @@ export function DashboardTopBar({
         </div>
 
         <div className={styles.topbarRight}>
-          <button type="button" className={styles.helpButton} aria-label="Help">
+          <button
+            type="button"
+            className={styles.helpButton}
+            aria-label="Help"
+            onClick={() => toast("This feature is currently not available")}
+          >
             <HelpIcon size={16} />
             <span className={styles.helpText}>Help</span>
           </button>
@@ -80,6 +91,7 @@ export function DashboardTopBar({
               type="button"
               className={styles.bellButton}
               aria-label="Notifications"
+              onClick={() => toast("This feature is currently not available")}
             >
               <BellIcon size={17} />
             </button>

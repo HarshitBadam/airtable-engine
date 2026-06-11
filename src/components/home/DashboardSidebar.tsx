@@ -22,6 +22,7 @@ import {
 import { getBaseColor, getBaseTextColor, getBaseInitials } from "~/components/bases";
 import type { DragState } from "~/hooks/useStarredDragDrop";
 import type React from "react";
+import { toast } from "sonner";
 
 type StarredBase = { id: string; name: string };
 
@@ -50,7 +51,6 @@ export function DashboardSidebar({
   starredExpanded,
   setStarredExpanded,
   workspacesExpanded,
-  setWorkspacesExpanded,
   orderedStarredBases,
   dragState,
   dragRef,
@@ -79,7 +79,12 @@ export function DashboardSidebar({
             <button type="button" className={styles.railItem} aria-label="Starred">
               <StarIcon size={20} />
             </button>
-            <button type="button" className={styles.railItem} aria-label="Shared">
+            <button
+              type="button"
+              className={styles.railItem}
+              aria-label="Shared"
+              onClick={() => toast("This feature is currently not available")}
+            >
               <ShareIcon size={20} />
             </button>
             <button type="button" className={styles.railItem} aria-label="Workspaces">
@@ -95,6 +100,7 @@ export function DashboardSidebar({
                 type="button"
                 className={styles.railFooterItem}
                 aria-label="Templates and apps"
+                onClick={() => toast("This feature is currently not available")}
               >
                 <TemplatesIcon size={16} />
               </button>
@@ -102,6 +108,7 @@ export function DashboardSidebar({
                 type="button"
                 className={styles.railFooterItem}
                 aria-label="Marketplace"
+                onClick={() => toast("This feature is currently not available")}
               >
                 <MarketplaceIcon size={16} />
               </button>
@@ -109,6 +116,7 @@ export function DashboardSidebar({
                 type="button"
                 className={styles.railFooterItem}
                 aria-label="Import"
+                onClick={() => toast("This feature is currently not available")}
               >
                 <GlobeIcon size={16} />
               </button>
@@ -229,7 +237,11 @@ export function DashboardSidebar({
                 </section>
               )}
 
-              <button type="button" className={styles.navItem}>
+              <button
+                type="button"
+                className={styles.navItem}
+                onClick={() => toast("This feature is currently not available")}
+              >
                 <span className={styles.navIcon}>
                   <ShareIcon size={20} />
                 </span>
@@ -237,7 +249,11 @@ export function DashboardSidebar({
               </button>
 
               <div className={styles.navRow}>
-                <button type="button" className={styles.navItem}>
+                <button
+                  type="button"
+                  className={styles.navItem}
+                  onClick={() => toast("This feature is currently not available")}
+                >
                   <span className={`${styles.navIcon} ${styles.navIconWorkspaces}`}>
                     <WorkspacesIcon size={20} />
                   </span>
@@ -247,15 +263,16 @@ export function DashboardSidebar({
                   type="button"
                   className={styles.addButton}
                   aria-label="Create a workspace"
+                  onClick={() => toast("This feature is currently not available")}
                 >
                   <PlusIcon size={16} />
                 </button>
                 <button
                   type="button"
                   className={`${styles.disclosureButton} ${workspacesExpanded ? styles.disclosureExpanded : styles.disclosureCollapsed}`}
-                  aria-label={workspacesExpanded ? "Collapse workspaces" : "Expand workspaces"}
+                  aria-label="Workspaces"
                   aria-expanded={workspacesExpanded}
-                  onClick={() => setWorkspacesExpanded(!workspacesExpanded)}
+                  onClick={() => toast("This feature is currently not available")}
                 >
                   <ChevronDownIcon size={20} />
                 </button>
@@ -264,26 +281,33 @@ export function DashboardSidebar({
 
             <div className={styles.sidebarBottom}>
               <div className={styles.bottomLinksWrap}>
-                <button type="button" className={styles.bottomLink}>
+                <button
+                  type="button"
+                  className={styles.bottomLink}
+                  onClick={() => toast("This feature is currently not available")}
+                >
                   <span className={styles.bottomLinkIcon}>
                     <TemplatesIcon size={16} />
                   </span>
                   <span className={styles.bottomLinkText}>Templates and apps</span>
                 </button>
 
-                <a
-                  href="https://airtable.com/marketplace"
+                <button
+                  type="button"
                   className={styles.bottomLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => toast("This feature is currently not available")}
                 >
                   <span className={styles.bottomLinkIcon}>
                     <MarketplaceIcon size={16} />
                   </span>
                   <span className={styles.bottomLinkText}>Marketplace</span>
-                </a>
+                </button>
 
-                <button type="button" className={styles.bottomLink}>
+                <button
+                  type="button"
+                  className={styles.bottomLink}
+                  onClick={() => toast("This feature is currently not available")}
+                >
                   <span className={styles.bottomLinkIcon}>
                     <ImportIcon size={16} />
                   </span>

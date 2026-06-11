@@ -24,6 +24,7 @@ export function GridBarViewSelector() {
     activeViewId,
     canDeleteView,
     deleteViewMut,
+    duplicateViewMut,
   } = workspace;
 
   return (
@@ -80,6 +81,7 @@ export function GridBarViewSelector() {
               activeViewId={activeViewId}
               canDeleteView={canDeleteView}
               deleteViewMut={deleteViewMut}
+              duplicateViewMut={duplicateViewMut}
               startRenamingView={startRenamingView}
             />
           )}

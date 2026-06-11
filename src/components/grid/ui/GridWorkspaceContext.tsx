@@ -93,6 +93,7 @@ export interface ViewsState {
   createViewMut: { isPending: boolean; mutate: (args: { tableId: string; name: string; config: ViewConfigInput }) => void };
   showViewLoadingSpinner: boolean;
   deleteViewMut: { mutate: (input: { viewId: string }) => void };
+  duplicateViewMut: { mutate: (input: { viewId: string }) => void };
   renameViewMut: { mutate: (input: { viewId: string; name?: string; config?: ViewConfigInput }) => void };
   isViewDropdownOpen: boolean;
   setIsViewDropdownOpen: React.Dispatch<React.SetStateAction<boolean>>;

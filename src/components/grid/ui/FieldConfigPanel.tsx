@@ -185,7 +185,7 @@ export function FieldConfigPanel({
             </div>
           )}
           <div className={styles.configActionsInner}>
-            <button type="button" className={styles.configAddDescBtn}>
+            <button type="button" disabled className={styles.configAddDescBtn}>
               <span className={styles.configAddDescBtnIcon}>
                 <PlusIcon />
               </span>
@@ -203,7 +203,7 @@ export function FieldConfigPanel({
         </div>
       ) : (
         <div className={styles.configActions}>
-          <button type="button" className={styles.configAddDescBtn}>
+          <button type="button" disabled className={styles.configAddDescBtn}>
             <span className={styles.configAddDescBtnIcon}>
               <PlusIcon />
             </span>
@@ -222,7 +222,7 @@ export function FieldConfigPanel({
 
       {!isEditMode && (
         <div className={styles.configFooter}>
-          <div className={styles.configAutomateSection}>
+          <div className={styles.configAutomateSection} style={{ opacity: 0.5 }}>
             <span
               className={styles.configAutomateIcon}
               style={baseColor ? { color: baseColor } : undefined}
@@ -236,7 +236,7 @@ export function FieldConfigPanel({
               <InfoIcon />
             </span>
           </div>
-          <button type="button" className={styles.configConvertBtn}>
+          <button type="button" disabled className={styles.configConvertBtn}>
             <span className={styles.configConvertBtnText}>Convert</span>
           </button>
         </div>

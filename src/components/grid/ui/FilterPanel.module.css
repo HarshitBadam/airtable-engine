@@ -347,6 +347,10 @@
 /* max-height is set dynamically via JS so the panel keeps a 104px gap
    from the bottom of the viewport.  Falls back to a generous static
    value if JS hasn't run yet. */
+.filterRowsContainer::-webkit-scrollbar {
+  display: none;
+}
+
 .filterRowsContainer {
   display: block;
   box-sizing: border-box;
@@ -354,6 +358,8 @@
   max-height: 425px;
   overflow-x: auto;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: 12px 16px 8px 16px;
   margin: 0;
   font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -881,11 +887,17 @@
   opacity: 0.5;
 }
 
+.filterSubItemList::-webkit-scrollbar {
+  display: none;
+}
+
 /* Scrollable item list */
 .filterSubItemList {
   max-height: 250px;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: 0 0 4px 0;
 
   /* Custom scrollbar */

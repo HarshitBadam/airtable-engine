@@ -1079,6 +1079,13 @@
   background-color: rgba(0, 0, 0, 0.05);
 }
 
+/* Disabled/unavailable view-menu item */
+.viewDropdownItemDisabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
 /* Icon inside dropdown items (16x16 with 8px right margin) */
 .viewDropdownItemIcon {
   box-sizing: border-box;

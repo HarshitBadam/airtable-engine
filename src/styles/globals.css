@@ -1,7 +1,67 @@
-@import "tailwindcss";
 @import "./tokens.css";
 
-/* Inter Display font from rsms.me */
+/* ── Preflight reset (replaces Tailwind's preflight) ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  tab-size: 4;
+}
+
+body {
+  line-height: inherit;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+p, h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+}
+
+ol, ul {
+  list-style: none;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* ── Inter Display font from rsms.me ── */
 @font-face {
   font-family: 'Inter Display';
   font-style: normal;
@@ -10,21 +70,12 @@
   src: url('https://rsms.me/inter/font-files/InterDisplay.var.woff2') format('woff2');
 }
 
-/* Lock scroll at top: prevent overscroll / bounce when at top */
 html,
 body {
   overscroll-behavior-y: none;
 }
 
-@theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-
-  /* Airtable Auth - Custom breakpoint */
-  --breakpoint-atPromo: 1152px;
-}
-
-/* Airtable Auth - Global tokens */
+/* ── Global tokens ── */
 :root {
   /* Colors */
   --at-text: #1d1f25;

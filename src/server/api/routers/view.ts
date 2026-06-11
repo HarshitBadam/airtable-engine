@@ -84,6 +84,37 @@ export const viewRouter = createTRPCRouter({
       });
     }),
 
+  duplicate: protectedProcedure
+    .input(z.object({ viewId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const view = await ctx.db.view.findFirst({
+        where: { id: input.viewId, table: { base: { ownerId: ctx.session.user.id } } },
+        select: { id: true, tableId: true, name: true, config: true },
+      });
+      if (!view) throw new TRPCError({ code: "NOT_FOUND", message: "View not found" });
+
+      const siblings = await ctx.db.view.findMany({
+        where: { tableId: view.tableId },
+        select: { name: true },
+      });
+      const existingNames = new Set(siblings.map(s => s.name));
+      let newName = `${view.name} 2`;
+      let num = 2;
+      while (existingNames.has(newName)) {
+        num++;
+        newName = `${view.name} ${num}`;
+      }
+
+      return ctx.db.view.create({
+        data: {
+          tableId: view.tableId,
+          name: newName,
+          config: view.config as object,
+        },
+        select: { id: true, name: true, config: true },
+      });
+    }),
+
   delete: protectedProcedure
     .input(z.object({ viewId: z.string() }))
     .mutation(async ({ ctx, input }) => {

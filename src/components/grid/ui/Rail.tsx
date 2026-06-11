@@ -14,6 +14,7 @@ import {
 } from "./GridIcons";
 import { AccountDropdownContent } from "~/components/home/AccountDropdownContent";
 import type { AccountDropdownStyles } from "~/components/home/AccountDropdownContent";
+import { toast } from "sonner";
 
 const railStyles: AccountDropdownStyles = {
   header: styles.railAccountDropdownHeader!,
@@ -55,17 +56,27 @@ export function Rail() {
           <IconBackArrow className={styles.backArrowIcon} />
           <span className={styles.railTooltip}>Back to home</span>
         </button>
-        <button className={styles.railSecondIcon} title="Omni">
+        <button
+          className={styles.railSecondIcon}
+          title="Omni"
+          onClick={() => toast("This feature is currently not available")}
+        >
           <IconOmni />
         </button>
       </div>
 
       <div className={styles.railBottom}>
-        <button className={styles.railHelpButton}>
+        <button
+          className={styles.railHelpButton}
+          onClick={() => toast("This feature is currently not available")}
+        >
           <IconHelp />
           <span className={styles.railTooltip}>Help</span>
         </button>
-        <button className={styles.railBellButton}>
+        <button
+          className={styles.railBellButton}
+          onClick={() => toast("This feature is currently not available")}
+        >
           <IconBell />
           <span className={styles.railTooltip}>Notifications</span>
         </button>

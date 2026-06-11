@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Image from "next/image";
+import { toast } from "sonner";
 import styles from "./CreateModal.module.css";
 import { CloseIcon, ChevronDownIcon } from "./Icons";
 
@@ -49,7 +50,16 @@ export function CreateModal({ isOpen, isCreating, onClose, onCreateBase }: Creat
 
         <div className={styles.modalContent}>
           <div className={styles.modalOptions}>
-            <div className={styles.modalOptionCard}>
+            <div
+              className={styles.modalOptionCard}
+              onClick={(e) => {
+                e.stopPropagation();
+                toast("This feature is currently not available");
+              }}
+              role="button"
+              tabIndex={0}
+              style={{ cursor: "pointer" }}
+            >
               <Image
                 src="/image.png"
                 alt="Build an app with Omni"

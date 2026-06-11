@@ -8,6 +8,7 @@ import {
 } from "./GridIcons";
 import { getBaseToolbarColor } from "~/components/bases/useBases";
 import { useGridTableState } from "~/components/grid/hooks/useGridTableState";
+import { toast } from "sonner";
 import { TableTab } from "./TableTab";
 import { TableRenamePopup } from "./TableRenamePopup";
 import { AddOrImportDropdown } from "./AddOrImportDropdown";
@@ -267,7 +268,10 @@ export function TableToolbar() {
       </div>
 
       <div className={styles.tableToolbarSpacer} />
-      <button className={styles.tableToolbarRightButton}>
+      <button
+        className={styles.tableToolbarRightButton}
+        onClick={() => toast("This feature is currently not available")}
+      >
         <span className={styles.tableToolbarRightButtonText}>Tools</span>
         <svg
           className={styles.tableToolbarRightButtonIcon}

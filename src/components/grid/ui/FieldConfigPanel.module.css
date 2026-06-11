@@ -238,6 +238,10 @@
   padding: 0;
 }
 
+.configMiddleScrollable::-webkit-scrollbar {
+  display: none;
+}
+
 /* Scrollable middle section (Number type) */
 .configMiddleScrollable {
   animation-duration: 0.4s;
@@ -251,6 +255,8 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   transition: all 0.25s ease-in;
 }
 
@@ -818,6 +824,13 @@
   background-color: rgb(246, 248, 252);
 }
 
+.configAddDescBtn:disabled,
+.configConvertBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
 .configConvertBtnText {
   display: block;
   font-size: 11px;
@@ -901,6 +914,10 @@
   color: rgb(97, 102, 112);
 }
 
+.numDropdownItemsList::-webkit-scrollbar {
+  display: none;
+}
+
 /* Scrollable items list inside popup */
 .numDropdownItemsList {
   box-sizing: border-box;
@@ -915,6 +932,8 @@
   min-width: 0;
   overflow-x: auto;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: 0 12px 12px 12px;
   position: relative;
   width: 100%;

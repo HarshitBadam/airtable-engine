@@ -21,6 +21,12 @@
     rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.createFieldPanel::-webkit-scrollbar {
+  display: none;
 }
 
 .searchHeader {

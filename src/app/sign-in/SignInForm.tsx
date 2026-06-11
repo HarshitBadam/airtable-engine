@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import {
   AuthShell,
@@ -40,12 +41,26 @@ export function SignInForm() {
       <OrDivider />
 
       <div className={styles.providerButtonsWrapper}>
-        <AuthProviderButton provider="sso" />
+        <AuthProviderButton
+          provider="sso"
+          onClick={() =>
+            toast(
+              "Single Sign-On is currently unavailable. Please use Google to continue.",
+            )
+          }
+        />
         <div className={styles.providerButtonSpacingWrapper}>
           <AuthProviderButton provider="google" onClick={handleGoogleSignIn} />
         </div>
         <div className={styles.providerButtonSpacingWrapperLast}>
-          <AuthProviderButton provider="apple" />
+          <AuthProviderButton
+            provider="apple"
+            onClick={() =>
+              toast(
+                "Apple sign-in is currently unavailable. Please use Google to continue.",
+              )
+            }
+          />
         </div>
       </div>
 
@@ -62,7 +77,10 @@ export function SignInForm() {
         <a
           href="#"
           className={`${authStyles.authLink} ${styles.cookieHereLink}`}
-          onClick={(e) => e.preventDefault()}
+          onClick={(e) => {
+            e.preventDefault();
+            toast("This feature is currently not available");
+          }}
         >
           here
         </a>

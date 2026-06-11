@@ -93,6 +93,17 @@
 .colHeaderMenuItemDisabled {
   opacity: 0.5;
   cursor: default;
+  pointer-events: none;
+}
+
+/* Hide the menu's scrollbar while keeping it scrollable */
+.colHeaderMenuScroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.colHeaderMenuScroll::-webkit-scrollbar {
+  display: none;
 }
 
 .colHeaderMenuItemContent {
