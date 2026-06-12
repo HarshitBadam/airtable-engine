@@ -2,6 +2,13 @@
 
 **A spreadsheet that stays sub-second at a million rows — scroll, jump, sort, filter, and search with no loading spinners.**
 
+![1M rows, 0.2 ms jumps](https://img.shields.io/badge/1M_rows-0.2_ms_jumps-46a758)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white)
+![tRPC](https://img.shields.io/badge/tRPC-11-2596BE?logo=trpc&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma&logoColor=white)
+
 An Airtable-style grid with Google sign-in, bases and tables, dynamic TEXT and NUMBER columns, keyboard cell editing, and database-level search, filter, sort, and saved views. The whole engineering challenge is keeping every one of those interactions fast as a table grows from 25 rows to over a million — [The challenge](#the-challenge) covers why that's hard, and [How it works](#how-it-works) covers how each layer solves it.
 
 > Built solo. The hard parts: floating-point row ordering, keyset pagination, materialized sort ranks (`ViewRowRank`), hand-written SQL on the hot read/write paths, and a two-source virtualized client.
@@ -55,48 +62,80 @@ Every layer is built so cost scales with the visible window, not the table size 
 
 A read request flows from a virtualized client, through a typed tRPC layer, into hand-written SQL that always lands on an index. The read path picks one of three strategies based on the view:
 
-```
-Browser — virtualized grid (only visible rows in the DOM)
-   │  getRowAtIndex(N)
-   ├── contiguous pages ──► infinite query  (scrolling from the top)
-   └── far-off windows ───► jump cache       (scrollbar jumps)
-                                  │
-                                  ▼  tRPC  (end-to-end typed · batched · streamed)
-                         ┌─────────────────────────────────────────────┐
-                         │ Read procedures                             │
-                         │   infinite     → keyset cursor (no OFFSET)  │
-                         │   windowFetch  → pick a tier:               │
-                         │     Tier 1  unsorted    → rowIndex estimate │
-                         │     Tier 2  saved sort  → ViewRowRank lookup│
-                         │     Tier 3  filter/srch → deferred join +   │
-                         │                           cursor anchors    │
-                         └─────────────────────────────────────────────┘
-                                  │  hand-written SQL ($queryRawUnsafe)
-                                  ▼
-                         PostgreSQL
-                           • expression indexes on JSONB cell paths
-                           • materialized ViewRowRank for saved sorts
-                           • cached rowCount / nextRowIndex counters
+```mermaid
+flowchart TD
+    Grid["Browser: virtualized grid<br/>(only the visible rows live in the DOM)"]
+
+    subgraph API["tRPC read procedures (end-to-end typed, hand-written SQL)"]
+        Inf["infinite<br/>keyset cursor, no OFFSET"]
+        WF["windowFetch<br/>positional jump, picks a tier"]
+    end
+
+    Grid -- "scroll from the top" --> Inf
+    Grid -- "scrollbar jump" --> WF
+
+    WF -- "no sort / filter / search" --> T1["Tier 1: O(log N)<br/>rowIndex interpolation + B-tree seek"]
+    WF -- "saved sorted view, fresh ranks" --> T2["Tier 2: O(log N)<br/>ViewRowRank, rank BETWEEN"]
+    WF -- "ad-hoc sort / filter / search<br/>(or stale ranks)" --> T3["Tier 3: O(remaining offset)<br/>deferred join + cursor anchors"]
+
+    PG[("PostgreSQL<br/>expression indexes on JSONB cell paths<br/>materialized ViewRowRank for saved sorts<br/>cached rowCount / nextRowIndex counters")]
+
+    Inf --> PG
+    T1 --> PG
+    T2 --> PG
+    T3 --> PG
+
+    classDef client fill:#f6f8fa,stroke:#8c959f,color:#1f2328
+    classDef proc fill:#eef1f4,stroke:#57606a,color:#1f2328
+    classDef tier1 fill:#e6f4ff,stroke:#0090ff,stroke-width:2px,color:#1f2328
+    classDef tier2 fill:#e9f6ec,stroke:#46a758,stroke-width:2px,color:#1f2328
+    classDef tier3 fill:#fdeee2,stroke:#f76b15,stroke-width:2px,color:#1f2328
+    classDef db fill:#f3eefb,stroke:#8250df,stroke-width:1.5px,color:#1f2328
+    class Grid client
+    class Inf,WF proc
+    class T1 tier1
+    class T2 tier2
+    class T3 tier3
+    class PG db
 ```
 
 ## Performance
 
-Measured on a single table, server-side query latency (the time the read procedure spends in Postgres), so the numbers reflect the strategy rather than network or render time.
-
-<!-- TODO: replace the — placeholders with real measurements before publishing.
-     Generate bulk data with `batch-benchmark.ts`, then time `windowFetch` /
-     `infinite` at each depth (e.g. log Date.now() around the query, or use
-     EXPLAIN ANALYZE). Keep the machine/Postgres line accurate. -->
+Server-side query latency for the exact SQL each read procedure runs, measured with `EXPLAIN (ANALYZE, BUFFERS)` — pure Postgres execution time, so the numbers reflect the query strategy rather than network or render time. Reads are the median of 15 warm runs (2 discarded warmups, `ANALYZE` after seeding); writes are wall clock. Jumps target the middle of the table. Reproduce with `npx tsx latency-benchmark.ts`; full results with p95s land in `benchmark-results/`.
 
 | Operation | 1K rows | 100K rows | 1M rows |
 | --- | --- | --- | --- |
-| Scroll one page (keyset) | — ms | — ms | — ms |
-| Jump to middle, unsorted (Tier 1) | — ms | — ms | — ms |
-| Jump into a saved sorted view (Tier 2) | — ms | — ms | — ms |
-| Jump into a filtered/searched view (Tier 3) | — ms | — ms | — ms |
-| Bulk insert 200K rows | — | — | — s |
+| Scroll one page (keyset) | 0.2 ms | 0.2 ms | 0.2 ms |
+| Jump to middle, unsorted (Tier 1) | 0.2 ms | 0.2 ms | 0.2 ms |
+| Jump to middle of a saved sorted view (Tier 2) | 0.9 ms | 1.0 ms | 1.1 ms |
+| Jump to middle, ad-hoc sort (Tier 3 + cursor anchor) | 3.3 ms | 177 ms | 61 ms |
+| Jump to middle of a filtered view (Tier 3) | 0.2 ms | 6.1 ms | 145 ms |
+| Search, first page of matches | 0.8 ms | 14.5 ms | 15.7 ms |
+| Duplicate one row (midpoint insert) | 1.7 ms | 2.4 ms | 3.7 ms |
+| Duplicate a field (backfill every row) | 22 ms | 4.4 s | 82 s |
+| Bulk insert 200K rows | 4.3 s | 5.7 s | 9.8 s |
 
-_Measured on `<CPU / RAM>`, PostgreSQL `<version>`, local Docker. Methodology: `batch-benchmark.ts` for bulk loads; per-tier window-fetch timings averaged over N runs._
+The claim worth proving is not the absolute milliseconds but the **shape of the curve**: jump cost must not grow with depth. Sweeping jump depth across a 1M-row table:
+
+![Jump latency vs depth on a 1M-row table — Tier 1 and Tier 2 stay flat at 0.2–2 ms while naive OFFSET climbs to 203 ms and ad-hoc Tier 3 to 1.6 s](benchmark-results/offset-sweep.svg)
+
+<details>
+<summary>Raw sweep numbers</summary>
+
+| Jump depth → | 1K | 10K | 100K | 500K | 999K |
+| --- | --- | --- | --- | --- | --- |
+| Naive `OFFSET` (what the tiers replace) | 0.3 ms | 1.6 ms | 17 ms | 102 ms | 203 ms |
+| Tier 1 — `rowIndex` seek | 0.2 ms | 0.2 ms | 0.2 ms | 0.2 ms | 0.2 ms |
+| Tier 2 — `ViewRowRank` lookup | 1.0 ms | 1.1 ms | 1.1 ms | 2.0 ms | 1.1 ms |
+| Tier 3 — ad-hoc sort, no anchor | 1.7 ms | 5.9 ms | 215 ms | 1.4 s | 1.6 s |
+
+Full data: [`offset-sweep.csv`](benchmark-results/offset-sweep.csv). Chart regenerates via `npx tsx render-sweep-chart.ts`.
+
+</details>
+
+Tier 1 and Tier 2 are flat at any depth — that's the point of the architecture. Tier 3 (an ad-hoc sort the user just applied) is the honest worst case and grows with offset; the client's cursor anchors collapse it back down (1.2 s → 61 ms for a mid-table jump at 1M rows), and saving the sort promotes the view to Tier 2 permanently. One-time costs at 1M rows: sort-index build 4.9 s, view-rank computation 14.8 s — both deliberately deferred off the read path.
+
+_Measured on Apple M2, 8 GB RAM, PostgreSQL 17.7 (local). Methodology and queries: [`latency-benchmark.ts`](latency-benchmark.ts) — it mirrors the procedures' SQL verbatim, seeds each size with the same `generate_series` bulk loader the app uses, and cleans up after itself._
 
 ## Tech stack
 
@@ -132,6 +171,8 @@ src/
   hooks/                cross-cutting React hooks
 stress-test.ts          concurrency and data-integrity harness (npx tsx)
 batch-benchmark.ts      bulk-insert batch-size sweep (npx tsx)
+latency-benchmark.ts    server-side latency benchmark — source of the Performance tables (npx tsx)
+render-sweep-chart.ts   renders benchmark-results/offset-sweep.csv into the latency chart SVG
 ```
 
 ## Scripts
@@ -144,6 +185,9 @@ pnpm check        # next lint + tsc --noEmit
 pnpm test         # Vitest unit tests (SQL builders)
 pnpm test:e2e     # Playwright E2E
 pnpm db:studio    # Prisma Studio
+
+npx tsx latency-benchmark.ts   # regenerate the Performance tables (seeds 1K/100K/1M, ~4 min)
+npx tsx stress-test.ts         # concurrency + data-integrity suite (needs pnpm dev running)
 ```
 
 ## Docs

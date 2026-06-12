@@ -52,3 +52,10 @@ yarn-error.log*
 
 # Prisma generated client
 generated/prisma
+
+# Internal benchmarks
+batch-benchmark.ts
+latency-benchmark.ts
+stress-test.ts
+render-sweep-chart.ts
+/benchmark-results/
