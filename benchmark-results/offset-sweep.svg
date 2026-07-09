@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="480" viewBox="0 0 1000 480" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<rect width="1000" height="480" rx="8" fill="#ffffff" stroke="#d0d7de"/>
+<text x="70" y="30" font-size="17" font-weight="600" fill="#1f2328">Jump latency as the jump gets deeper, on a 1,000,000-row table</text>
+<text x="70" y="49" font-size="12" fill="#57606a">Server-side query execution time. Median of 5 warm runs, log scale.</text>
+<line x1="70" y1="404.0" x2="740" y2="404.0" stroke="#eaeef2"/>
+<text x="62" y="408.0" font-size="11" fill="#57606a" text-anchor="end">0.1 ms</text>
+<line x1="70" y1="324.5" x2="740" y2="324.5" stroke="#eaeef2"/>
+<text x="62" y="328.5" font-size="11" fill="#57606a" text-anchor="end">1 ms</text>
+<line x1="70" y1="245.0" x2="740" y2="245.0" stroke="#eaeef2"/>
+<text x="62" y="249.0" font-size="11" fill="#57606a" text-anchor="end">10 ms</text>
+<line x1="70" y1="165.5" x2="740" y2="165.5" stroke="#eaeef2"/>
+<text x="62" y="169.5" font-size="11" fill="#57606a" text-anchor="end">100 ms</text>
+<line x1="70" y1="85.9" x2="740" y2="85.9" stroke="#eaeef2"/>
+<text x="62" y="89.9" font-size="11" fill="#57606a" text-anchor="end">1,000 ms</text>
+<line x1="70.0" y1="404" x2="70.0" y2="409" stroke="#8c959f"/>
+<text x="70.0" y="424" font-size="11" fill="#57606a" text-anchor="middle">0</text>
+<line x1="237.7" y1="404" x2="237.7" y2="409" stroke="#8c959f"/>
+<text x="237.7" y="424" font-size="11" fill="#57606a" text-anchor="middle">250,000</text>
+<line x1="405.3" y1="404" x2="405.3" y2="409" stroke="#8c959f"/>
+<text x="405.3" y="424" font-size="11" fill="#57606a" text-anchor="middle">500,000</text>
+<line x1="573.0" y1="404" x2="573.0" y2="409" stroke="#8c959f"/>
+<text x="573.0" y="424" font-size="11" fill="#57606a" text-anchor="middle">750,000</text>
+<line x1="740.0" y1="404" x2="740.0" y2="409" stroke="#8c959f"/>
+<text x="740.0" y="424" font-size="11" fill="#57606a" text-anchor="middle">999,000</text>
+<line x1="70" y1="62" x2="70" y2="404" stroke="#8c959f"/>
+<line x1="70" y1="404" x2="740" y2="404" stroke="#8c959f"/>
+<text x="405" y="448" font-size="12" fill="#57606a" text-anchor="middle">Jump depth: which row the user jumped to (row offset into the table)</text>
+<polyline points="70.0,378.4 70.7,376.8 76.7,378.4 103.5,371.0 137.1,376.8 237.7,378.4 405.3,378.4 573.0,378.4 740.0,378.4" fill="none" stroke="#0090ff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="70.0" cy="378.4" r="3" fill="#0090ff"/>
+<circle cx="70.7" cy="376.8" r="3" fill="#0090ff"/>
+<circle cx="76.7" cy="378.4" r="3" fill="#0090ff"/>
+<circle cx="103.5" cy="371.0" r="3" fill="#0090ff"/>
+<circle cx="137.1" cy="376.8" r="3" fill="#0090ff"/>
+<circle cx="237.7" cy="378.4" r="3" fill="#0090ff"/>
+<circle cx="405.3" cy="378.4" r="3" fill="#0090ff"/>
+<circle cx="573.0" cy="378.4" r="3" fill="#0090ff"/>
+<circle cx="740.0" cy="378.4" r="3" fill="#0090ff"/>
+<text x="752" y="370.4" font-size="13" font-weight="700" fill="#0090ff">Tier 1</text>
+<text x="752" y="384.4" font-size="11" fill="#57606a">rowIndex seek</text>
+<text x="752" y="398.4" font-size="12" font-weight="600" fill="#3a4149">0.2 ms</text>
+<polyline points="70.0,320.9 70.7,323.1 76.7,322.8 103.5,296.9 137.1,322.8 237.7,287.5 405.3,301.2 573.0,313.6 740.0,320.0" fill="none" stroke="#46a758" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="70.0" cy="320.9" r="3" fill="#46a758"/>
+<circle cx="70.7" cy="323.1" r="3" fill="#46a758"/>
+<circle cx="76.7" cy="322.8" r="3" fill="#46a758"/>
+<circle cx="103.5" cy="296.9" r="3" fill="#46a758"/>
+<circle cx="137.1" cy="322.8" r="3" fill="#46a758"/>
+<circle cx="237.7" cy="287.5" r="3" fill="#46a758"/>
+<circle cx="405.3" cy="301.2" r="3" fill="#46a758"/>
+<circle cx="573.0" cy="313.6" r="3" fill="#46a758"/>
+<circle cx="740.0" cy="320.0" r="3" fill="#46a758"/>
+<text x="752" y="312.0" font-size="13" font-weight="700" fill="#46a758">Tier 2</text>
+<text x="752" y="326.0" font-size="11" fill="#57606a">ViewRowRank lookup</text>
+<text x="752" y="340.0" font-size="12" font-weight="600" fill="#3a4149">1 ms</text>
+<polyline points="70.0,383.7 70.7,366.1 76.7,308.0 103.5,253.6 137.1,226.6 237.7,195.7 405.3,164.7 573.0,150.2 740.0,141.1" fill="none" stroke="#e5484d" stroke-width="2.5" stroke-dasharray="7 5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="70.0" cy="383.7" r="3" fill="#e5484d"/>
+<circle cx="70.7" cy="366.1" r="3" fill="#e5484d"/>
+<circle cx="76.7" cy="308.0" r="3" fill="#e5484d"/>
+<circle cx="103.5" cy="253.6" r="3" fill="#e5484d"/>
+<circle cx="137.1" cy="226.6" r="3" fill="#e5484d"/>
+<circle cx="237.7" cy="195.7" r="3" fill="#e5484d"/>
+<circle cx="405.3" cy="164.7" r="3" fill="#e5484d"/>
+<circle cx="573.0" cy="150.2" r="3" fill="#e5484d"/>
+<circle cx="740.0" cy="141.1" r="3" fill="#e5484d"/>
+<text x="752" y="133.1" font-size="13" font-weight="700" fill="#e5484d">Naive OFFSET</text>
+<text x="752" y="147.1" font-size="11" fill="#57606a">the unoptimized baseline</text>
+<text x="752" y="161.1" font-size="12" font-weight="600" fill="#3a4149">203 ms</text>
+<polyline points="70.0,307.4 70.7,305.6 76.7,263.4 103.5,161.9 137.1,139.0 237.7,108.5 405.3,73.2 573.0,76.3 740.0,69.5" fill="none" stroke="#f76b15" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="70.0" cy="307.4" r="3" fill="#f76b15"/>
+<circle cx="70.7" cy="305.6" r="3" fill="#f76b15"/>
+<circle cx="76.7" cy="263.4" r="3" fill="#f76b15"/>
+<circle cx="103.5" cy="161.9" r="3" fill="#f76b15"/>
+<circle cx="137.1" cy="139.0" r="3" fill="#f76b15"/>
+<circle cx="237.7" cy="108.5" r="3" fill="#f76b15"/>
+<circle cx="405.3" cy="73.2" r="3" fill="#f76b15"/>
+<circle cx="573.0" cy="76.3" r="3" fill="#f76b15"/>
+<circle cx="740.0" cy="69.5" r="3" fill="#f76b15"/>
+<text x="752" y="61.5" font-size="13" font-weight="700" fill="#f76b15">Tier 3</text>
+<text x="752" y="75.5" font-size="11" fill="#57606a">ad-hoc sort, no anchor</text>
+<text x="752" y="89.5" font-size="12" font-weight="600" fill="#3a4149">1.6 s</text>
+</svg>
