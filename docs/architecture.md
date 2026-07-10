@@ -1,70 +1,90 @@
 # Architecture
 
-The application has one awkward requirement: the scrollbar must be able to land anywhere in a table without loading the rows before it.
+A scrollbar jump must land anywhere in a million-row table without loading the rows above it. That requirement drives the design.
 
-That rules out a few common shortcuts. `OFFSET 800000` still makes Postgres walk 800,000 entries. Sending the table to the browser moves the same problem into memory. Integer positions make an insert near the top rewrite everything below it.
+Three common shortcuts fail:
 
-The design separates those concerns:
+- `OFFSET 800000` still makes PostgreSQL walk 800,000 entries.
+- Sending the full table to the browser moves the problem into memory.
+- Integer positions make an insert near the top rewrite every row below it.
 
-- the browser renders a small virtual window;
-- tRPC carries the current view to the server;
-- PostgreSQL returns only that window;
-- writes maintain enough ordering metadata for later reads.
-
-## Request flow
+## System flow
 
 ```mermaid
 flowchart LR
-  GRID["Virtualized grid"] -->|"scroll"| INF["row.infinite"]
+  GRID["Virtualized React grid"] -->|"scroll"| INF["row.infinite"]
   GRID -->|"jump"| WIN["row.windowFetch"]
-
-  INF --> SQL["SQL builders"]
-  WIN --> T1["plain table seek"]
-  WIN --> T2["saved rank lookup"]
-  WIN --> T3["general query"]
-
-  T1 --> SQL
-  T2 --> SQL
-  T3 --> SQL
-  SQL --> PG[("PostgreSQL")]
+  INF --> T1["Tier 1<br/>natural order"]
+  INF --> T2["Tier 2<br/>saved ranks"]
+  INF --> T3["Tier 3<br/>general query"]
+  WIN --> T1
+  WIN --> T2
+  WIN --> T3
+  T1 --> PG[("PostgreSQL")]
+  T2 --> PG
+  T3 --> PG
 ```
 
-There are two row-reading procedures:
+Each layer has one job:
 
-- `row.infinite` continues from a known row using a keyset cursor. It is used for ordinary forward scrolling.
-- `row.windowFetch` starts at an absolute position. It is used after a scrollbar jump and chooses one of three query paths.
+| Layer       | Responsibility                                                            |
+| ----------- | ------------------------------------------------------------------------- |
+| Browser     | Render a virtual window. Manage interaction and cache bounded row windows |
+| tRPC server | Authenticate and validate the active view. Choose a read tier             |
+| PostgreSQL  | Store rows and return one ordered window                                  |
+| Write path  | Maintain the counters, positions, indexes, and ranks needed by reads      |
 
-## The three jump paths
+`row.infinite` continues from a cursor during normal scrolling. `row.windowFetch` starts from an absolute position after a distant scrollbar jump.
 
-| Path | Used when | Method |
-| --- | --- | --- |
-| Plain table | No sort, filter, or search | Estimate the target `rowIndex`, then seek into `(tableId, rowIndex)` |
-| Saved rank | A sorted view has fresh `ViewRowRank` entries | Read a range from `(viewId, rank)` |
-| General query | Filters, search, an ad-hoc sort, or stale ranks | Sort ids first, join full rows later, and use a nearby cursor anchor when available |
+## Three read tiers
 
-The first two paths have index lookup cost at any depth. The general path is the honest fallback: it can still depend on the remaining offset. The client reduces that distance by sending cursors from windows it has already seen. Measured results, including the slow path, are in [performance.md](performance.md).
+| Tier                      | Used when                                    | Method                                                     |
+| ------------------------- | -------------------------------------------- | ---------------------------------------------------------- |
+| **Tier 1: natural order** | No sort or filter                            | Continue or seek through indexed `rowIndex`                |
+| **Tier 2: saved ranks**   | Sort-only view with fresh `ViewRowRank` data | Read a `(viewId, rank)` range                              |
+| **Tier 3: general query** | Filters, live sorts, or unavailable ranks    | Keyset scrolling with a deferred join for positional jumps |
+
+Tier 1 and Tier 2 can start near the target regardless of depth. Tier 3 remains the correct fallback but can become slower for deep jumps. Stale or failed rank builds safely fall back to Tier 3. Partial ranks are never read.
+
+The current search box is find-in-view rather than a server-side row filter. The row APIs support search, but the grid uses dedicated match-count and edge-navigation procedures.
 
 ## Storage choices
 
-Rows use a floating-point `rowIndex`. Inserting between `2` and `3` produces `2.5`, so nearby rows do not move. Cell values live in a JSONB object keyed by column id, which lets users add fields without changing the database schema. Frequently needed totals such as `rowCount` are stored on the table.
+| Concern             | Stored as                 | Why                                                 |
+| ------------------- | ------------------------- | --------------------------------------------------- |
+| Natural order       | Floating-point `rowIndex` | Midpoint inserts update one row                     |
+| Cell values         | JSONB keyed by column id  | Adding a field does not alter the PostgreSQL schema |
+| Table size          | Materialized `rowCount`   | The grid avoids routine `COUNT(*)`                  |
+| Saved sort position | `ViewRowRank`             | Deep sorted jumps become indexed range reads        |
 
-Saved sorted views have an additional `ViewRowRank` table. It turns “row 800,000 in this sort” into a range lookup. Ranks are derived data: if they are stale or missing, reads use the general path instead.
+The full schema is described in [Data model](data-model.md).
 
-[Data model →](data-model.md) · [Read path →](reading-at-scale.md) · [Write path →](writing-at-scale.md)
+## Technology choices
 
-## Client and server responsibilities
+| Layer          | Technology                                                       |
+| -------------- | ---------------------------------------------------------------- |
+| Application    | Next.js 15, React 19, TypeScript                                 |
+| Grid           | TanStack Virtual and TanStack Table                              |
+| Client state   | TanStack Query for server data and Zustand for interaction state |
+| API            | tRPC 11, Zod, superjson                                          |
+| Data access    | Prisma 6 plus parameterized SQL builders                         |
+| Storage        | PostgreSQL                                                       |
+| Authentication | NextAuth with Google OAuth                                       |
+| Rate limiting  | Upstash Redis with a process-local fallback                      |
+| Tests          | Vitest and Playwright                                            |
 
-The browser owns interaction state: selection, editing, virtualization, and a bounded cache of fetched windows. TanStack Query owns server data; Zustand owns synchronous grid state.
+Prisma handles the schema and ordinary queries. SQL builders handle JSON expressions and multi-field cursors. They also support deferred joins.
 
-The server owns validation, authorization, query selection, and every database write. Prisma handles the schema and ordinary queries. The row hot paths use parameterized SQL builders because they need keyset predicates and JSON expression indexes that are cumbersome to express through Prisma.
+## Repository map
 
-Every tRPC procedure requires a session and checks ownership through the requested base or table. Rate limiting sits after authentication. See [API reference](api.md) and [configuration](configuration.md).
+```text
+prisma/                  schema and migrations
+src/app/                 Next.js routes
+src/components/grid/     grid UI, virtualization, client state
+src/server/api/          tRPC middleware and routers
+src/server/sql/          sort, filter, and cursor builders
+benchmark-results/       committed measurements
+e2e/                     Playwright tests
+```
 
-## Failure behavior
-
-- Missing or stale ranks use the general query path.
-- Missing Upstash credentials use a process-local rate limiter.
-- A rate-limit store error fails open.
-- A failed rank build leaves the view marked stale, so partial ranks are not read.
-
-These fallbacks preserve correctness. They do not all preserve the same performance, which is why the docs keep the fast paths and the general path separate.
+Continue to [Scaling engine](scaling-engine.md) for the read/write algorithms and measurements, or [Data model](data-model.md) for the schema.
