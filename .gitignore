@@ -10,6 +10,7 @@
 /e2e/grid-performance.spec.ts
 /test-results/
 /playwright-report/
+/blob-report/
 /screenshots/
 /e2e/test-*.spec.ts
 

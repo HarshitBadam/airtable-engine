@@ -138,6 +138,10 @@ export function useGridVirtualizer({
   // for us.
   useEffect(() => {
     applyOffset(scrollOffsetRef.current);
+    // The offset can remain at zero while rowCount changes from the initial
+    // empty state to the loaded total. Scrollbar geometry still needs a
+    // notification because maxScroll has changed.
+    for (const fn of subscribersRef.current) fn(scrollOffsetRef.current);
   }, [virtualCount, dataRowHeight, applyOffset]);
 
   useEffect(() => {

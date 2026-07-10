@@ -1,6 +1,6 @@
 ## Latency benchmark results
 
-Server-side query latency measured with `EXPLAIN (ANALYZE, BUFFERS)` — pure
+Server-side query latency measured with `EXPLAIN (ANALYZE, BUFFERS)`, the pure
 Postgres execution time for the exact SQL each read procedure runs, so the
 numbers reflect the query strategy rather than network or render time.
 Reads: median (p95) of 15 runs after 2 discarded warmups, warm cache,
@@ -35,4 +35,4 @@ Reads: median (p95) of 15 runs after 2 discarded warmups, warm cache,
 | One-time: build sort index (Name) | 1217 ms | 1057 ms | 4906 ms |
 | One-time: compute view ranks | 24.3 ms | 1168 ms | 14.8 s |
 
-_Measured on Apple M2, 8 GB RAM · PostgreSQL 17.7 · generated 2026-06-11 via `npx tsx latency-benchmark.ts`._
+_Measured on an Apple M2, 8 GB RAM, PostgreSQL 17.7 (local), generated 2026-06-11 via `npx tsx latency-benchmark.ts`._

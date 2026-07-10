@@ -1,99 +1,78 @@
 # Writing at scale
 
-> **TL;DR** — Inserts and reorders touch a single row via float midpoints, bulk loads push 200K rows into batched `generate_series` SQL, applying a sort rewrites `rowIndex` in a collision-free two-phase pass, and view-rank computation is serialized per view with an advisory lock so concurrent requests can't corrupt it.
+The write path maintains the values used by the read path: `rowIndex`, `rowCount`, `nextRowIndex`, `searchText`, and saved view ranks.
 
-The write path keeps the data shaped for fast reads: ordering that never renumbers, counters that stay accurate, bulk loads that finish in a serverless timeout, and materialized ranks that stay consistent under concurrent requests. This doc builds on the [data model](./data-model.md).
+| Operation | Immediate work | Follow-up state |
+| --- | --- | --- |
+| Insert or reorder | Write one midpoint `rowIndex` | Update table counters |
+| Edit a cell | Update one JSONB object | Rebuild that row's `searchText` |
+| Bulk add | Insert generated rows in chunks | Advance counters per completed chunk |
+| Duplicate a field | Create the field | Backfill its JSON key in batches |
+| Save a sort | Keep the view config | Build `ViewRowRank` under a lock |
 
-## Inserts and reorders touch one row
+## Inserts and reorders
 
-Because order is a float (see [data model](./data-model.md)), placing a row anywhere is a midpoint calculation, not a renumber. `insertAt` ([`rowMutations.ts`](../src/server/api/routers/row/rowMutations.ts)) has three cases:
+An append atomically claims `Table.nextRowIndex`. An insert above or below an existing row uses the midpoint between its neighbors. Dragging a row uses the same midpoint calculation.
 
-- **Append.** Claim the next slot from the cached counter atomically and use it:
-
-  ```sql
-  UPDATE "Table" SET "nextRowIndex" = "nextRowIndex" + 1
-  WHERE "id" = $1
-  RETURNING "nextRowIndex" - 1 AS idx
-  ```
-
-  The `UPDATE` takes a row lock, so two concurrent appends can never claim the same slot. No `MAX(rowIndex)` scan.
-
-- **Insert above.** Find the row just before the target and use the midpoint: `new = (prev + atIndex) / 2`.
-- **Insert below.** Find the row just after and use `new = (atIndex + next) / 2`.
-
-Reorder is the same midpoint logic at the drop position. Neighbor lookups and the update run in one transaction, so a concurrent reorder cannot place a row at a wrong midpoint.
-
-Every insert also bumps the table counters in the same transaction, with a guard so a midpoint insert below the current high-water mark never walks the append counter backward:
-
-```sql
-UPDATE "Table"
-SET "rowCount" = "rowCount" + 1,
-    "nextRowIndex" = GREATEST("nextRowIndex", $1)
-WHERE "id" = $2
+```text
+before: 2.0, 3.0
+insert: 2.5
 ```
 
-Float precision has a floor. After enough midpoint inserts into the same gap, two neighbors get too close to split. The write path detects that and re-spaces the affected region. In normal use it effectively never triggers, because inserts spread across the table rather than hammering one gap.
+The neighbor read and write happen in one transaction. `rowCount` is updated with the row, and `nextRowIndex` never moves backwards when a row is inserted in the middle.
 
-## Cell edits keep `searchText` honest
+Floats have finite precision. The current mutation does not rebalance a gap that can no longer produce a distinct midpoint; the unique `(tableId, rowIndex)` constraint rejects the collision. Local re-spacing is a known missing edge-case path.
 
-`updateCell` validates the value, writes it into `cells`, and rebuilds `searchText` in the same statement — the single place responsible for keeping search in sync (see [data model](./data-model.md)). Values join with a separator so adjacent fields can't accidentally form a false match.
+## Cell edits
 
-## Bulk inserts: 200K rows in batched SQL
+[`updateCell`](../src/server/api/routers/row/cellMutations.ts) validates the field type, updates the JSONB value, and rebuilds the row's `searchText`. Keeping those changes together prevents search from lagging behind the visible cell.
 
-`addMany` ([`cellMutations.ts`](../src/server/api/routers/row/cellMutations.ts)) inserts up to 200,000 rows by pushing the work into SQL with `generate_series`:
+Client updates are optimistic, but the database remains authoritative. A failed mutation restores the previous client value.
 
-```sql
-INSERT INTO "Row" ("tableId", "rowIndex", "cells", "searchText", "createdAt", "updatedAt")
-SELECT '<tableId>', <batchStart> + gs, <cells expr>, <searchText expr>, now(), now()
-FROM generate_series(0, <batchCount - 1>) AS gs
-```
+## Bulk insert
 
-`rowIndex` is `batchStart + gs` (sequential, which is what Tier 1 estimation expects); sample cell values come from pools cycled with prime-modulo indexing so combinations don't repeat quickly. No row data crosses the wire.
-
-Three details make it robust at this size:
-
-- **Batched in chunks of 10,000.** One giant statement risks a statement timeout and holds locks too long. Chunking keeps each statement bounded and lets progress survive.
-- **Counters move in the right order.** `nextRowIndex` is reserved up front so concurrent writers get non-overlapping slots, but `rowCount` increments only after batches succeed. A failed batch cannot leave `rowCount` higher than the real row count.
-- **Failure compensates.** If a batch throws, the procedure rolls `nextRowIndex` back by the number of rows that were not inserted, so the counters stay consistent with reality.
-
-The optimal batch size was not guessed. [`batch-benchmark.ts`](../batch-benchmark.ts) sweeps batch sizes against insertion throughput to pick it.
-
-## Permanent sort: a two-phase rewrite
-
-Applying a sort permanently rewrites every `rowIndex` to match the sorted order, making it the table's natural order so later reads need no sort. The problem is in-place assignment can collide with values about to be reassigned. `applyPermanentSort` ([`sortProcedures.ts`](../src/server/api/routers/row/sortProcedures.ts)) sidesteps that with two passes:
+`row.addMany` accepts at most 100,000 rows per call. It reserves a range of `rowIndex` values, then inserts generated sample rows with PostgreSQL `generate_series`.
 
 ```sql
--- Phase 1: write the new order as NEGATIVE values (cannot collide with existing positives)
-UPDATE "Row" SET "rowIndex" = -(rn::float8)
-FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY <sort>) AS rn FROM "Row" WHERE ...) subq
-WHERE "Row"."id" = subq."id";
-
--- Phase 2: flip them positive → final range 1..N
-UPDATE "Row" SET "rowIndex" = -"rowIndex" WHERE "tableId" = ... AND "rowIndex" < 0;
+INSERT INTO "Row" (...)
+SELECT ...
+FROM generate_series(0, $batchSize - 1)
 ```
 
-Writing negatives first guarantees no intermediate state collides with a value still in use. The transaction has a long timeout (120s) because it is two full-table updates, and it resets `nextRowIndex` to `rowCount + 1` so future appends land after the rewritten range.
+The work is split into batches rather than one large statement. `nextRowIndex` is reserved before insertion so concurrent writers receive different ranges; `rowCount` advances only for batches that finish. The batch-size benchmark in [`batch-benchmark.ts`](../batch-benchmark.ts) was used to choose the current chunk size.
 
-## Computing view ranks safely
+## Saved sort ranks
 
-`computeViewRanks` fills `ViewRowRank` for a saved view (enabling Tier 2 reads). It deletes old ranks then inserts `ROW_NUMBER() OVER (ORDER BY <sort>)`. Two concurrent requests could interleave and violate uniqueness, so it is serialized per view:
+`row.computeViewRanks` rebuilds the `ViewRowRank` entries for a saved sort.
 
-- The view is marked `ranksStale` first, so concurrent reads stay on Tier 3 and never read half-built ranks.
-- The delete and insert run inside a transaction holding a `pg_advisory_xact_lock` keyed on the view id. A second caller blocks until the first commits, then runs cleanly with no `ON CONFLICT` needed.
-- On success the view is marked fresh. On failure it stays stale, so the system degrades to Tier 3 instead of serving wrong ranks.
+1. The view is marked stale.
+2. A transaction takes a PostgreSQL advisory lock for that view.
+3. Old ranks are deleted and new ranks are inserted with `ROW_NUMBER()`.
+4. After that transaction commits, the view is marked fresh.
 
-Row inserts, duplicates, and reorders deliberately do not mark ranks stale: a new row has no rank entry, shows in the unranked tail on scroll, and falls to Tier 3 on a jump. Ranks recompute when the view is next loaded, keeping the common write path cheap.
+The lock prevents two rebuilds from interleaving. If the transaction fails, readers continue through the general query path instead of seeing a partial rank set.
 
-## Instant field duplication with async backfill
+New rows can exist outside the last rank build. Infinite scrolling returns those rows after the ranked section, while a positional jump can fall back to the general path. The next rank computation folds them into the saved order.
 
-Column duplication creates the `Column` immediately so the UI updates right away, then backfills the new key into every row's JSON in batches in the background ([`columnBackfill.ts`](../src/server/api/routers/column/)). Unbackfilled rows read as empty — a valid state — so the user is never blocked on a full-table write.
+## Permanent sort
 
-## Concurrency, idempotency, and the performance harness
+`row.applyPermanentSort` is a separate operation that rewrites `rowIndex` itself. It first assigns negative values in sorted order, then flips them positive. The temporary negative range avoids unique-key collisions with rows that have not moved yet.
 
-The write path assumes requests race, because in a real grid they do.
+This is a full-table write with a 120-second transaction timeout. The normal UI uses saved ranks instead; permanent sort remains available at the API layer.
 
-- **Idempotent deletes.** `deleteRow` uses `deleteMany`, which returns `count: 0` if the row is already gone (double-click, concurrent delete) instead of throwing Prisma's "record not found." `rowCount` is only decremented when a row was actually removed, and the row's `ViewRowRank` entries are cleared in the same transaction.
-- **On-demand indexing is race-safe.** `ensureSortIndex` ([`ensureColumnIndexes.ts`](../src/server/db/ensureColumnIndexes.ts)) checks for the index before creating it; if two requests both try, Postgres's duplicate-index error is caught and ignored. Indexes for unused columns are dropped, and all column indexes are cleaned up on table or base deletion.
-- **Counters self-heal.** Because `rowCount` and `nextRowIndex` are cached aggregates, the bulk and delete paths reconcile them after the fact rather than trusting that nothing ever drifted.
+## Column duplication
 
-[`stress-test.ts`](../stress-test.ts) (`npx tsx`) exercises all of this: concurrent inserts and deletes, `rowCount` vs real count, rank consistency, no lost or duplicated rows under contention. It is the evidence these patterns hold up, not just look correct.
+Duplicating a field creates its `Column` immediately with a temporary `sourceColumnId`. Reads can resolve the source value while [`column.backfill`](../src/server/api/routers/column/columnBackfill.ts) copies values into the new JSON key in batches. The source marker is cleared when the backfill completes.
+
+## Concurrency checks
+
+- Row deletion is idempotent and decrements `rowCount` only when a row was removed.
+- Rank rebuilds are serialized per view.
+- Sort-index creation tolerates two requests racing to create the same index.
+- Bulk paths reconcile cached counters after partial work.
+
+[`stress-test.ts`](../stress-test.ts) exercises concurrent writes and checks row totals, duplicate ids, and rank consistency. Run it with the development server already running:
+
+```bash
+npx tsx stress-test.ts
+```

@@ -1,0 +1,169 @@
+{
+  "generatedAt": "2026-07-10T06:26:15.707Z",
+  "environment": {
+    "appMode": "production",
+    "baseURL": "http://localhost:3000",
+    "browser": "chromium",
+    "rowCount": 1000000,
+    "passes": 3,
+    "positions": [
+      0.1,
+      0.25,
+      0.5,
+      0.75,
+      0.9
+    ]
+  },
+  "definitions": {
+    "pageLoad": "Navigation start to the first non-skeleton data cell becoming visible",
+    "jumpResponse": "Scrollbar drag start to the row.windowFetch HTTP response, including client throttle, network, auth, query, and serialization",
+    "viewportReady": "Scrollbar drag start to a non-skeleton row near the target becoming visible"
+  },
+  "summary": {
+    "pageLoadMs": {
+      "samples": 15,
+      "min": 116.2,
+      "p50": 136.2,
+      "p95": 224.9,
+      "max": 224.9
+    },
+    "jumpResponseMs": {
+      "samples": 15,
+      "min": 83,
+      "p50": 95.3,
+      "p95": 130.4,
+      "max": 130.4
+    },
+    "viewportReadyMs": {
+      "samples": 15,
+      "min": 365.7,
+      "p50": 402.6,
+      "p95": 577.7,
+      "max": 577.7
+    }
+  },
+  "pageLoadSamplesMs": [
+    224.9,
+    144,
+    138.4,
+    132.5,
+    133.4,
+    136.2,
+    117.9,
+    128.4,
+    127.6,
+    144.9,
+    146.9,
+    162.9,
+    116.2,
+    126.4,
+    184
+  ],
+  "jumpSamples": [
+    {
+      "position": 0.1,
+      "targetRow": 100001,
+      "responseMs": 130.4,
+      "viewportReadyMs": 577.7,
+      "status": 200
+    },
+    {
+      "position": 0.25,
+      "targetRow": 250001,
+      "responseMs": 107.6,
+      "viewportReadyMs": 430.3,
+      "status": 200
+    },
+    {
+      "position": 0.5,
+      "targetRow": 500001,
+      "responseMs": 92.1,
+      "viewportReadyMs": 385.4,
+      "status": 200
+    },
+    {
+      "position": 0.75,
+      "targetRow": 750000,
+      "responseMs": 95.3,
+      "viewportReadyMs": 380,
+      "status": 200
+    },
+    {
+      "position": 0.9,
+      "targetRow": 900000,
+      "responseMs": 118.6,
+      "viewportReadyMs": 412.1,
+      "status": 200
+    },
+    {
+      "position": 0.1,
+      "targetRow": 100001,
+      "responseMs": 96.4,
+      "viewportReadyMs": 374.4,
+      "status": 200
+    },
+    {
+      "position": 0.25,
+      "targetRow": 250001,
+      "responseMs": 99.9,
+      "viewportReadyMs": 394.4,
+      "status": 200
+    },
+    {
+      "position": 0.5,
+      "targetRow": 500001,
+      "responseMs": 89.5,
+      "viewportReadyMs": 382.7,
+      "status": 200
+    },
+    {
+      "position": 0.75,
+      "targetRow": 750000,
+      "responseMs": 99.2,
+      "viewportReadyMs": 402.6,
+      "status": 200
+    },
+    {
+      "position": 0.9,
+      "targetRow": 900000,
+      "responseMs": 88.2,
+      "viewportReadyMs": 365.7,
+      "status": 200
+    },
+    {
+      "position": 0.1,
+      "targetRow": 100001,
+      "responseMs": 87.2,
+      "viewportReadyMs": 398.9,
+      "status": 200
+    },
+    {
+      "position": 0.25,
+      "targetRow": 250001,
+      "responseMs": 88.2,
+      "viewportReadyMs": 498.5,
+      "status": 200
+    },
+    {
+      "position": 0.5,
+      "targetRow": 500001,
+      "responseMs": 102.7,
+      "viewportReadyMs": 413.5,
+      "status": 200
+    },
+    {
+      "position": 0.75,
+      "targetRow": 750000,
+      "responseMs": 90.4,
+      "viewportReadyMs": 568.8,
+      "status": 200
+    },
+    {
+      "position": 0.9,
+      "targetRow": 900000,
+      "responseMs": 83,
+      "viewportReadyMs": 494.9,
+      "status": 200
+    }
+  ]
+}

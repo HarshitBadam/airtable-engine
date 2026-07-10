@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "prisma migrate deploy && prisma generate && next build",
+    "benchmark:system": "playwright test e2e/system-latency.spec.ts --project=chromium",
     "check": "next lint && tsc --noEmit",
     "db:generate": "prisma migrate dev",
     "db:migrate": "prisma migrate deploy",

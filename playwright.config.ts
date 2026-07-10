@@ -4,8 +4,8 @@ import { defineConfig, devices } from "@playwright/test";
  * Playwright E2E configuration for Lyra Airtable.
  *
  * Prerequisites:
- *   1. Dev server running: `pnpm dev`
- *   2. Database seeded with test data: `pnpm test:setup`
+ *   1. App server running at BASE_URL (http://localhost:3000 by default)
+ *   2. DATABASE_URL set for the E2E global setup
  *
  * Usage:
  *   pnpm test:e2e          — run all E2E tests
