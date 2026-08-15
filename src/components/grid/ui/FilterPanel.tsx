@@ -1,9 +1,3 @@
-/*
- * FilterPanel.tsx is intentionally at the line limit. It renders the complete
- * filter UI: condition rows, group blocks, drag overlay, conjunction toggles,
- * and sub-dropdowns — all sharing tightly coupled state from FilterPanelContext.
- * Splitting by UI section would scatter co-dependent state handlers.
- */
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import styles from "./FilterPanel.module.css";
 import type { SubDropdown, FilterColumn } from "../utils/filterPanelTypes";

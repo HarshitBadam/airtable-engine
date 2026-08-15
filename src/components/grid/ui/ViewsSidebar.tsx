@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import styles from './ViewsSidebar.module.css';
+import listStyles from './ViewListItem.module.css';
 import { useGridStore } from '~/components/grid/GridStore';
 import { useWorkspace } from './GridWorkspaceContext';
 import { ViewListItem } from './ViewListItem';
@@ -207,7 +208,7 @@ export function ViewsSidebar({ tableId, onReorderViews }: ViewsSidebarProps) {
           />
         </div>
 
-        <ul className={styles.viewsSidebarViewList} ref={viewListRef}>
+        <ul className={listStyles.viewsSidebarViewList} ref={viewListRef}>
           {orderedViews.map((view, viewIndex) => (
             <ViewListItem
               key={view.id}

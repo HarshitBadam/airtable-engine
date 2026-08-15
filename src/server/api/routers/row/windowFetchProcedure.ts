@@ -1,10 +1,3 @@
-/*
- * windowFetchProcedure.ts is intentionally long (~420 lines). It mirrors the
- * three-tier strategy of infiniteProcedure.ts for window (jump) fetches,
- * adding keyset anchor probing and a full UNION ALL deferred-join path.
- * The procedure cannot be split cleanly because all tiers share the same
- * validation, filter/sort SQL builders, and count-skip optimisation.
- */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";

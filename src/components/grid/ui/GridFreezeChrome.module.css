@@ -1,0 +1,170 @@
+/* Flat translucent scroll shadow strip at freeze line */
+.freezeScrollShadow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: rgba(0, 0, 0, 0.04);
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.customVScrollTrack {
+  position: absolute;
+  right: 0;
+  width: 14px;
+  z-index: 6;
+  pointer-events: none;
+  /* Match horizontal scrollbar's padding: 3px border on each side via track inset */
+  padding-top: 3px;
+  padding-bottom: 3px;
+  box-sizing: border-box;
+}
+.customVScrollThumb {
+  position: absolute;
+  right: 2px;
+  width: 10px;
+  min-height: 30px;
+  border-radius: 7px;
+  background-color: rgba(0, 0, 0, 0.28);
+  box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px inset;
+  pointer-events: auto;
+  cursor: default;
+  opacity: 0;
+  transition: opacity 0.3s linear;
+  box-sizing: border-box;
+}
+.customVScrollThumb:hover {
+  background-color: rgba(0, 0, 0, 0.38);
+}
+
+.gridFreezeSnapPreview {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgb(43, 126, 230);
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transition: left 0.08s ease-out, opacity 0.1s ease-out;
+}
+
+.gridFreezeLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  z-index: 4;
+  cursor: grab;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+/* The thin line (always visible) */
+.gridFreezeLine::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: #cccccc;
+}
+
+/* On hover / drag: line thickens (stays #CCCCCC) */
+.gridFreezeLine:hover::before,
+.gridFreezeLine:global(.freeze-dragging)::before {
+  width: 2px;
+  left: 2px;
+}
+
+.gridFreezeLine:global(.freeze-dragging) {
+  cursor: grabbing;
+}
+
+/* Blue pill handle (real DOM element, positioned via JS) */
+.gridFreezeLinePill {
+  position: absolute;
+  left: 0;
+  width: 6px;
+  height: 24px;
+  border-radius: 3px;
+  background: rgb(43, 126, 230);
+  transform: translateY(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.gridFreezeLine:hover .gridFreezeLinePill,
+.gridFreezeLine:global(.freeze-dragging) .gridFreezeLinePill {
+  opacity: 1;
+}
+
+/* Freeze-line tooltip ("Drag to adjust the number of frozen columns") */
+.gridFreezeTooltip {
+  position: absolute;
+  left: 32px;
+  margin-top: 2px;
+  background-color: #ffffff;
+  box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 0px 1px;
+  color: rgb(128, 128, 128);
+  font-size: 14px;
+  line-height: 18px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+  opacity: 0;
+  transform: translateY(-13px);
+  transition: opacity 0.2s ease-out 0.2s;
+}
+
+/* Left-pointing arrow (white fill, layered on top of border) */
+.gridFreezeTooltip::before {
+  content: "";
+  display: block;
+  position: absolute;
+  left: -29px;
+  top: 0px;
+  width: 0;
+  height: 0;
+  border-top: 13px solid transparent;
+  border-bottom: 13px solid transparent;
+  border-right: 15px solid #ffffff;
+  border-left: 13px solid transparent;
+  box-shadow: rgb(255, 255, 255) 1px 0px 0px 0px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Left-pointing arrow border/shadow (slightly larger, behind the white fill) */
+.gridFreezeTooltip::after {
+  content: "";
+  display: block;
+  position: absolute;
+  left: -31px;
+  top: -1px;
+  width: 0;
+  height: 0;
+  border-top: 14px solid transparent;
+  border-bottom: 14px solid transparent;
+  border-right: 16px solid rgba(0, 0, 0, 0.1);
+  border-left: 14px solid transparent;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.gridFreezeLine:hover .gridFreezeTooltip {
+  opacity: 1;
+}
+
+/* Hide tooltip during drag (only show on hover, not while actively dragging) */
+.gridFreezeLine:global(.freeze-dragging) .gridFreezeTooltip {
+  opacity: 0;
+  transition-delay: 0s;
+}

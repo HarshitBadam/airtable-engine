@@ -1,5 +1,5 @@
 import React from "react";
-import styles from "./GridContainer.module.css";
+import styles from "./GridHeaderArea.module.css";
 import { ColumnHeaderCell } from "./ColumnHeader";
 import { useWorkspace } from "./GridWorkspaceContext";
 import { useGridStore } from "~/components/grid/GridStore";

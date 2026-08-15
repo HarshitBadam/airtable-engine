@@ -1,0 +1,561 @@
+/* Right section of the grid bar */
+.gridBarRight {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 47px;
+  justify-content: flex-end;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  min-height: 0px;
+  min-width: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 8px;
+  padding-top: 0px;
+  transform: translateY(-1px);
+  unicode-bidi: isolate;
+  user-select: none;
+  overflow: visible;
+}
+
+/* Search button (magnifying glass) */
+.gridBarSearchButton {
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border: none;
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 28px;
+  justify-content: center;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  user-select: none;
+  width: 28px;
+}
+
+.gridBarSearchButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.gridBarSearchIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  shape-rendering: geometricPrecision;
+}
+
+/* Find bar wrapper — relative anchor for the dropdown panel */
+.findBarWrapper {
+  position: relative;
+}
+
+/* Find bar anchor — flush below grid bar, tucked under it */
+.findBarAnchor {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 99999;
+  transform: translateY(11px);
+}
+
+/* Tools container (inner wrapper for tools) */
+.gridBarToolsOuter {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-basis: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 47px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  min-height: 0px;
+  min-width: 0px;
+  overflow: visible;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  user-select: none;
+}
+
+.gridBarToolsInner {
+  align-items: center;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  display: flex;
+  flex-grow: 1;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 26px;
+  justify-content: flex-end;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 0px;
+  unicode-bidi: isolate;
+  user-select: none;
+  overflow: visible;
+}
+
+/* Generic tool button with icon and text */
+.gridBarToolButton {
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0);
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  border: none;
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 26px;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 4px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 4px;
+  transition-behavior: normal;
+  transition-delay: 0s;
+  transition-duration: 0.085s;
+  transition-property: background-color;
+  transition-timing-function: ease-in;
+  unicode-bidi: isolate;
+  user-select: none;
+}
+
+/* Share and sync button - positioned 8px to the left */
+.gridBarShareSyncButton {
+  transform: translateX(-8px);
+}
+
+/* Color button - positioned 24px to the left */
+.gridBarColorButton {
+  transform: translateX(-24px);
+}
+
+/* Sort wrapper — relative anchor for the dropdown panel */
+.gridBarSortWrapper {
+  position: relative;
+  transform: translateX(-32px);
+}
+
+/* Sort button */
+.gridBarSortButton {
+  /* no extra transform — wrapper handles it */
+}
+
+/* Sort Panel anchor — absolutely positioned below button */
+.sortPanelAnchor {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 99999;
+  transform: translate(8px, 4px);
+}
+
+/* Group button - positioned 40px to the left */
+.gridBarGroupButton {
+  transform: translateX(-40px);
+}
+
+/* Filter wrapper — relative anchor for the dropdown panel */
+.gridBarFilterWrapper {
+  position: relative;
+  transform: translateX(-48px);
+}
+
+/* Filter button */
+.gridBarFilterButton {
+  /* no extra transform — wrapper handles it */
+}
+
+/* State when filter conditions are active (Filtered by X) */
+.gridBarFilterButtonActive.gridBarFilterButtonActive {
+  background-color: #D0F5D1;
+  border: 2px solid transparent;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.gridBarFilterButtonActive.gridBarFilterButtonActive:hover {
+  background-color: #D0F5D1;
+  border-color: #BADCBB;
+}
+
+.gridBarFilterButtonActive .gridBarToolIcon,
+.gridBarFilterButtonActive .gridBarToolText {
+  color: rgb(29, 31, 37);
+}
+
+/* Filter Panel anchor — absolutely positioned below button */
+.filterPanelAnchor {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 99999;
+  transform: translate(0px, 4px);
+}
+
+/* Hide fields wrapper — relative anchor for the dropdown panel */
+.gridBarHideFieldsWrapper {
+  position: relative;
+  transform: translateX(-56px);
+}
+
+/* Hide fields button */
+.gridBarHideFieldsButton {
+  /* no extra transform — wrapper handles it */
+}
+
+/* Hide Fields Panel anchor — absolutely positioned below button */
+.hideFieldsPanelAnchor {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 99999;
+  transform: translate(8px, 4px);
+}
+
+/* Custom tooltip styles */
+.tooltipWrapper {
+  position: relative;
+}
+
+.tooltip {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 8px);
+  transform: translateY(-50%);
+  padding: 5px 8px 4px 19px;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #ffffff;
+  background: #31353e;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.tooltipWrapper:hover .tooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+
+.tooltipText {
+  transform: translate(-10px, -0.5px);
+}
+
+.tooltipShortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 8px;
+  transform: translate(-0.5px, -0.5px);
+}
+
+.tooltipShortcutKey {
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--grid-font-family);
+  font-size: 11px;
+  font-weight: 600;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gridBarToolButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Active state when panel is open */
+.gridBarToolButtonActive {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: rgb(29, 31, 37);
+}
+
+.gridBarToolButtonActive .gridBarToolIcon,
+.gridBarToolButtonActive .gridBarToolText {
+  color: rgb(29, 31, 37);
+}
+
+/* State when fields are actually hidden (X hidden fields) */
+.gridBarHideFieldsButtonHasHidden {
+  background-color: #C4ECFF;
+  border: 2px solid transparent;
+  /* keep height consistent — border is inside the box */
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.gridBarHideFieldsButtonHasHidden:hover {
+  background-color: #C4ECFF;
+  border-color: #B0D4E5;
+}
+
+.gridBarHideFieldsButtonHasHidden .gridBarToolIcon,
+.gridBarHideFieldsButtonHasHidden .gridBarToolText {
+  color: rgb(29, 31, 37);
+}
+
+/* State when sort is active (Sorted by X field(s)) */
+.gridBarSortButtonHasSort {
+  background-color: rgb(255, 224, 204);
+  border: 2px solid transparent;
+  /* keep height consistent — border is inside the box */
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.gridBarSortButtonHasSort:hover {
+  background-color: rgb(255, 224, 204);
+  border-color: #E6C9B8;
+}
+
+.gridBarSortButtonHasSort .gridBarToolIcon,
+.gridBarSortButtonHasSort .gridBarToolText {
+  color: rgb(29, 31, 37);
+}
+
+/* Tool button icon */
+.gridBarToolIcon {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  overflow-clip-margin: content-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  shape-rendering: geometricPrecision;
+  user-select: none;
+  width: 16px;
+}
+
+/* Tool button text */
+.gridBarToolText {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 4px;
+  margin-right: 0px;
+  margin-top: 0px;
+  max-width: 384px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  padding-bottom: 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  padding-top: 0px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  user-select: none;
+}
+
+/* Row height button wrapper for tooltip */
+.gridBarRowHeightWrapper {
+  position: relative;
+}
+
+/* Row height tooltip */
+.gridBarRowHeightTooltip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(calc(-50% - 16px));
+  padding: 5px 8px 4px 8px;
+  font-family: var(--grid-font-family);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #ffffff;
+  background: #31353e;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  z-index: 99999;
+}
+
+.gridBarRowHeightWrapper:hover .gridBarRowHeightTooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+
+/* Share view button wrapper for tooltip */
+.gridBarShareViewWrapper {
+  position: relative;
+}
+
+/* Share view tooltip */
+.gridBarShareViewTooltip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(calc(-50% - 8px));
+  padding: 5px 8px 4px 8px;
+  font-family: var(--grid-font-family);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #ffffff;
+  background: #31353e;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  z-index: 99999;
+}
+
+.gridBarShareViewWrapper:hover .gridBarShareViewTooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+
+/* Row height icon-only button */
+.gridBarRowHeightButton {
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0);
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  border: none;
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: flex;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  height: 24px;
+  justify-content: center;
+  line-height: 18px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 4px;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 4px;
+  transform: translateX(-16px);
+  transition-behavior: normal;
+  transition-delay: 0s;
+  transition-duration: 0.085s;
+  transition-property: background-color;
+  transition-timing-function: ease-in;
+  unicode-bidi: isolate;
+  user-select: none;
+}
+
+.gridBarRowHeightButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+@keyframes opacityFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.gridBarSkeletonPills {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 14px;
+  margin-left: 8px;
+  animation: opacityFadeIn 0.4s ease;
+}
+
+.gridBarSkeletonPill {
+  height: 14px;
+  border-radius: 9999px;
+  background-color: rgba(0, 0, 0, 0.05);
+}

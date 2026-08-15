@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback } from "react";
 import type React from "react";
-import styles from "../../ui/GridContainer.module.css";
+import styles from "../../ui/GridRow.module.css";
 import type { GridScrollController } from "~/components/grid/hooks/layout/useGridVirtualizer";
 
 interface UseRowDragReorderParams {

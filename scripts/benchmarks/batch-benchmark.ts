@@ -4,10 +4,10 @@
  * Tests inserting 100K rows total using different internal batch sizes
  * by directly calling the SQL generate_series INSERT (same as addMany).
  *
- * Usage: npx tsx batch-benchmark.ts
+ * Usage: npx tsx scripts/benchmarks/batch-benchmark.ts
  */
 
-import { PrismaClient } from "./generated/prisma/index.js";
+import { PrismaClient } from "../../generated/prisma/index.js";
 
 const prisma = new PrismaClient();
 

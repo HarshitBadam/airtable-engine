@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import styles from './ViewsSidebar.module.css';
+import styles from './CreateView.module.css';
 
 const UpsellStarIcon = () => (
   <svg className={styles.createViewBoxUpsellStar} viewBox="0 0 16 16" fill="rgb(22, 110, 225)" aria-hidden="true" style={{ shapeRendering: 'geometricPrecision' }}>

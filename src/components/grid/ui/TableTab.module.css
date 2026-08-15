@@ -1,0 +1,281 @@
+/* Wrapper for table tab with dropdown */
+.tableTabWrapper {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+/* Note: Explicit overrides to prevent cascade from earlier .tableTab definition */
+.tableTab {
+  display: flex;
+  align-items: center;
+  position: relative;
+  box-sizing: border-box;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 0;
+  max-width: 512px;
+  height: 32px;
+  padding-left: 12px;
+  padding-right: 32px;
+  margin: 0;
+  border: none;
+  gap: 0;
+  color: #616670;
+  background: transparent;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  outline: none;
+  outline-offset: -5px;
+  transition: none;
+}
+
+/* Hide dropdown on non-active tabs */
+.tableTab:not(.tableTabActive) .tableTabDropdown {
+  display: none;
+}
+
+/* Non-active tab - less right padding since no dropdown */
+.tableTab:not(.tableTabActive) {
+  padding-right: 12px;
+}
+
+/* Spacer between consecutive non-active tabs */
+.tableTabWrapper:has(.tableTab:not(.tableTabActive)) + .tableTabWrapper:has(.tableTab:not(.tableTabActive)) .tableTab {
+  margin-left: 1px;
+}
+
+/* Spacer after last non-active tab */
+.tableTabWrapper:last-child .tableTab:not(.tableTabActive) {
+  margin-right: 1px;
+}
+
+/* Separator line between consecutive non-active tabs (not on hover) */
+/* Positioned in the 1px margin space */
+.tableTabWrapper:has(.tableTab:not(.tableTabActive):not(:hover)) + .tableTabWrapper:has(.tableTab:not(.tableTabActive):not(:hover)) .tableTab::before {
+  content: "";
+  display: block;
+  position: absolute;
+  left: -1px;
+  top: 10px;
+  width: 1px;
+  height: 12px;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Separator line after last non-active tab (not on hover) */
+.tableTabWrapper:last-child .tableTab:not(.tableTabActive):not(:hover)::after {
+  content: "";
+  display: block;
+  position: absolute;
+  right: -1px;
+  top: 10px;
+  width: 1px;
+  height: 12px;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Non-active tab hover - grey highlight with curves */
+.tableTab:not(.tableTabActive):hover {
+  color: #1D1F25;
+  background-color: rgba(0, 0, 0, 0.04);
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Left corner piece on hover for non-active tabs */
+.tableTab:not(.tableTabActive):hover::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='3' height='3' viewBox='0 0 3 3'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M3 0C3 1.65686 1.65674 3 0 3H3V0Z' fill='%23e8e5eb'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 3px 3px;
+}
+
+/* Right corner piece on hover for non-active tabs */
+.tableTab:not(.tableTabActive):hover::after {
+  content: '';
+  position: absolute;
+  right: -3px;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='3' height='3' viewBox='0 0 3 3'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M0 0C0 1.65686 1.34326 3 3 3H0V0Z' fill='%23e8e5eb'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 3px 3px;
+}
+
+/* Hide LEFT corner when active tab is immediately before (active takes priority) */
+.tableTabWrapper:has(.tableTabActive) + .tableTabWrapper .tableTab:not(.tableTabActive):hover::before {
+  display: none;
+}
+
+/* Hide left border-radius when active tab is immediately before */
+.tableTabWrapper:has(.tableTabActive) + .tableTabWrapper .tableTab:not(.tableTabActive):hover {
+  border-top-left-radius: 0;
+}
+
+/* Hide RIGHT corner when active tab is immediately after (active takes priority) */
+.tableTabWrapper:has(+ .tableTabWrapper .tableTabActive) .tableTab:not(.tableTabActive):hover::after {
+  display: none;
+}
+
+/* Hide right border-radius when active tab is immediately after */
+.tableTabWrapper:has(+ .tableTabWrapper .tableTabActive) .tableTab:not(.tableTabActive):hover {
+  border-top-right-radius: 0;
+}
+
+/* Active table tab - white background with curved corners */
+.tableTabActive {
+  background-color: white;
+  border-top-right-radius: 3px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  color: rgb(29, 31, 37);
+  font-weight: 500;
+  /* Tab shadows: dark, diffused, thin (negative spread shrinks it) */
+  box-shadow: 
+    rgba(0, 0, 0, 0.03) 0px -1px 1px 0px,    /* top */
+    rgba(0, 0, 0, 0.18) -1px 0px 3px -1px,   /* left - thin via negative spread */
+    rgba(0, 0, 0, 0.18) 1px 0px 3px -1px;    /* right - thin via negative spread */
+}
+
+/* Non-first active tab - left top corner rounded */
+.tableTabWrapper:not(:first-child) .tableTabActive {
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+
+/* Last active tab (multiple tabs) - keep right side rounded */
+.tableTabWrapper:last-child:not(:first-child) .tableTabActive {
+  border-top-right-radius: 3px;
+}
+
+
+/* Single tab case - left side flat, right side rounded */
+.tableTabWrapper:first-child:last-child .tableTabActive {
+  border-top-left-radius: 0;
+  border-top-right-radius: 3px;
+}
+
+/* Keep active tab styling on hover */
+.tableTabActive:hover {
+  background-color: white;
+  color: rgb(29, 31, 37);
+}
+
+/* Left corner piece - positioned to the left of the tab */
+/* No drop-shadow needed - the tab's box-shadow extends behind this to create continuity */
+.tableTabActive::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='3' height='3' viewBox='0 0 3 3'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M3 0C3 1.65686 1.65674 3 0 3H3V0Z' fill='white'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 3px 3px;
+}
+
+/* Right corner piece - positioned to the right of the tab */
+/* No drop-shadow needed - the tab's box-shadow extends behind this to create continuity */
+.tableTabActive::after {
+  content: '';
+  position: absolute;
+  right: -3px;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='3' height='3' viewBox='0 0 3 3'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M0 0C0 1.65686 1.34326 3 3 3H0V0Z' fill='white'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 3px 3px;
+}
+
+/* Hide left corner on first active tab (when wrapper is first child) */
+.tableTabWrapper:first-child .tableTabActive::before {
+  display: none;
+}
+
+/* Keep right corner visible on last active tab */
+.tableTabWrapper:last-child .tableTabActive::after {
+  display: block;
+}
+
+/* Table tab name text */
+.tableTabName {
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+  height: 18px;
+  color: inherit;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: inherit;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Dropdown icon container (absolute positioned) */
+.tableTabDropdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0;
+  right: 8px;
+  bottom: 0;
+  box-sizing: border-box;
+  width: 24px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgb(97, 102, 112);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  cursor: pointer;
+  user-select: none;
+  unicode-bidi: isolate;
+  outline: none;
+}
+
+.tableTabDropdown:hover {
+  color: rgb(29, 31, 37);
+}
+
+/* Dropdown chevron icon */
+.tableTabDropdownIcon {
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  color: rgb(97, 102, 112);
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  cursor: pointer;
+  user-select: none;
+}

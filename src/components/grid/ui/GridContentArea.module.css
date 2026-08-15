@@ -1,0 +1,178 @@
+.gridContentFrozen {
+  position: absolute;
+  top: 32px;
+  left: 0;
+  bottom: 0;
+  background: #F7F8FC;
+  box-sizing: border-box;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.gridContentScrollable {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  bottom: 0;
+  background: #F7F8FC;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 1;
+}
+
+/* Unified scroll container: replaces separate frozen + scrollable content panes.
+   Single container handles vertical scroll natively — no JS sync needed.
+   Horizontal scroll is driven by the custom hScrollbar below the footer.
+   Frozen cells use position:sticky to stay pinned during horizontal scroll. */
+.gridContentScroller {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* Vertical scrolling is JS-driven (transform-based windowing): a giant
+     natively-scrolled inner (~3.2M px for 100K rows) made Chrome checkerboard
+     (grey flash) during fast flings because it could not rasterize tiles in
+     time. The painted region is now always viewport-sized. */
+  overflow-y: hidden;
+  overflow-x: hidden;
+  background: #F7F8FC;
+  box-sizing: border-box;
+  /* z-index intentionally omitted (auto) so this does NOT create a stacking
+     context.  This lets the selection overlay (z-index:6, below) paint above
+     the freeze line (z-index:4, in GridFreezeChrome.module.css) which is a
+     sibling in gridBody. */
+  /* NOTE: do NOT set `will-change: scroll-position` here. On a multi-million-px
+     tall inner it makes Chrome composite the scroller and pre-rasterize tiles
+     ahead of the fling; the compositor then scrolls past un-rasterized tiles and
+     paints the layer background (grey) between rows. Default scrolling rasterizes
+     in step with the scroll and avoids the checkerboard. */
+  /* Contain the macOS rubber-band so it can't expose grey above row 1. */
+  overscroll-behavior: none;
+  /* Hide native vertical scrollbar — replaced by custom overlay thumb */
+  scrollbar-width: none; /* Firefox */
+}
+.gridContentScroller::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Inner wrapper — min-width set via inline style to match header scroll extent.
+   `contain: style` (not layout) avoids creating a stacking context so the
+   selection overlay's z-index can reach gridBody level and paint above the
+   freeze line.  Individual virtual-row wrappers already have their own
+   `contain: layout style paint` for rendering isolation. */
+.gridContentScrollerInner {
+  position: relative;
+  contain: style;
+}
+
+/* Drop indicator line shown during row drag — highlights the grid line */
+.gridDropIndicator {
+  position: absolute;
+  left: 0;
+  height: 1px;
+  background: #4500CD;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Selection overlay: inside the scroll content so it scrolls with both
+   vertical and horizontal content at compositor speed (zero lag).  z-index:6
+   paints above the freeze bar (z:4, in GridFreezeChrome.module.css), frozen
+   groups (z:2, in GridRow.module.css), and all cells.  For non-frozen cells a
+   JS clip-path clips the overlay at the freeze bar so it never paints over
+   the frozen columns. */
+.gridSelectionOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* sized via JS (width, height); positioned via transform (GPU-accelerated) */
+  border: 2px solid rgb(22, 110, 225);
+  border-radius: 2px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 6; /* above freeze line (z:4) and cells */
+  display: none; /* shown by JS when a cell is active */
+  will-change: transform; /* own GPU layer so it doesn't affect scroll compositing */
+}
+
+/* Fill handle — centered on the overlay's bottom-right grid-line corner.
+   The overlay extends 1px outside the cell, so the grid-line corner is
+   1px inside the overlay's border-box edge = in the middle of the 2px border.
+   Absolute pos relative to padding-box, so that corner is at
+   (padding-right + 1px, padding-bottom + 1px) → right: -5px, bottom: -5px. */
+.gridSelectionHandle {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border: 1px solid rgb(22, 110, 225);
+  border-radius: 2px;
+  cursor: crosshair;
+  z-index: 1;
+  pointer-events: auto;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.gridAddRowFrozen {
+  width: 100%;
+  height: 30px;
+  border-bottom: 1px solid rgb(221, 225, 227);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  background: #FFFFFF;
+}
+
+.gridAddRowFrozenInner {
+  width: 83px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.gridAddRowFrozenInner:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.gridAddRowFrozenInner:hover svg {
+  color: rgb(51, 51, 51);
+}
+
+.gridAddRowFrozenInner svg {
+  box-sizing: border-box;
+  color: rgb(84, 84, 84);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 14px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  text-align: center;
+  user-select: none;
+  width: 16px;
+}
+
+.gridAddRowScrollable {
+  height: 30px;
+  border-bottom: 1px solid rgb(221, 225, 227);
+  border-right: 1px solid rgb(221, 225, 227);
+  border-left: 1px solid rgb(221, 225, 227);
+  background: #FFFFFF;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}

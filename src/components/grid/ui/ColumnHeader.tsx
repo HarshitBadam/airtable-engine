@@ -1,5 +1,5 @@
 import React from "react";
-import styles from "./GridContainer.module.css";
+import styles from "./GridHeaderArea.module.css";
 import { HighlightedText } from "~/components/grid/utils/highlightText";
 import type { GridColumnDef } from "./GridRow";
 

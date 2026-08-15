@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import styles from './ViewsSidebar.module.css';
+import styles from './ViewListItem.module.css';
 
 interface ViewListItemProps {
   view: { id: string; name: string };

@@ -1,0 +1,312 @@
+.gridHeaderFrozen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 32px;
+  background: #FBFCFE;
+  box-sizing: border-box;
+  overflow: hidden;
+  z-index: 2;
+  display: flex;
+}
+
+.gridHeaderScrollable {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 32px;
+  background: #FBFCFE;
+  box-sizing: border-box;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.gridHeaderRowNum {
+  width: 83px;
+  flex-shrink: 0;
+  overflow: visible;
+  position: relative;
+  border-bottom: 1px solid #dde1e3;
+  box-sizing: border-box;
+}
+
+.gridHeaderRowNumInner {
+  width: 32px;
+  height: 22px;
+  padding: 8px 0 0 12px;
+  background: #FFFFFF;
+  display: flex;
+  align-items: flex-start;
+  box-sizing: content-box;
+}
+
+.gridHeaderCheckbox {
+  width: 16px;
+  height: 16px;
+  margin: 0 8px;
+  border-radius: 3px;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  background: #FFFFFF;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* The first header cell adjacent to the serial column has no visible left border
+   so the serial column merges seamlessly with the first data column. */
+.gridHeaderRowNum + .gridHeaderCell {
+  border-left-color: transparent;
+}
+
+/* Total: 180 × 32 (box-sizing: border-box)
+   Content area: 179 × 30 (after 1px left border, 1px bottom border, 1px top padding) */
+.gridHeaderCell {
+  width: 180px;
+  height: 32px;
+  padding-top: 1px;
+  border-left: 1px solid #dde1e3;
+  border-bottom: 1px solid #dde1e3;
+  background: #FFFFFF;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  overflow: hidden;
+  position: relative;
+}
+
+.gridHeaderCell:hover {
+  background: #F8F8F8;
+}
+
+/* Inner media container: 179 × 30 (matches content area).
+   Stays top-left when outer grows; shrinks with outer when outer shrinks. */
+.gridHeaderCellMedia {
+  flex: 1;
+  max-width: 100%;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 1;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Chevron dropdown icon — appears on hover, right side of header cell */
+.gridHeaderCellChevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 7px;
+  margin-top: -1px;
+  flex-shrink: 0;
+  color: #616670;
+  opacity: 0;
+  cursor: pointer;
+  align-self: center;
+}
+
+.gridHeaderCellChevron svg {
+  width: 16px;
+  height: 16px;
+}
+
+.gridHeaderCell:hover .gridHeaderCellChevron {
+  opacity: 1;
+}
+
+.gridHeaderCellChevron:hover {
+  color: #1D1F25;
+}
+
+/* Resize handle on right edge of each header cell */
+.gridHeaderCellResizeHandle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.gridHeaderCellResizeHandle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 2px;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.gridHeaderCellResizeHandle:hover::before {
+  background: rgb(43, 126, 230);
+}
+
+/* Bottom resize handle on header cells (drag to change row height) */
+.gridHeaderBottomResizeHandle {
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: row-resize;
+  z-index: 1;
+}
+
+.gridHeaderBottomResizeHandle::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 2px;
+  height: 2px;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.gridHeaderBottomResizeHandle:hover::before {
+  background: rgb(43, 126, 230);
+}
+
+
+.gridHeaderCellIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 16px;
+  padding: 0 4px 0 5px;
+  flex-shrink: 0;
+  color: rgb(29, 31, 37);
+  box-sizing: border-box;
+  position: relative;
+  top: -1px;
+}
+
+.gridHeaderCellIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.gridHeaderCellName {
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  height: 19.5px;
+  line-height: 19.5px;
+  color: rgb(29, 31, 37);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+  position: relative;
+  top: -2px;
+  left: 0px;
+}
+
+/* Wrap headers — allow header cell text to wrap instead of truncating */
+.gridHeaderCellNameWrap {
+  white-space: normal;
+  word-break: break-word;
+  text-overflow: clip;
+  height: auto;
+  line-height: 16px;
+  overflow: visible;
+  top: 0;
+}
+
+/* Wrap headers — expand the media container to fit wrapped text */
+.gridHeaderCellMediaWrap {
+  height: auto;
+  min-height: 30px;
+  align-items: flex-start;
+  padding-top: 6px;
+  padding-bottom: 4px;
+}
+
+/* Wrap headers — header cell overflow must be visible for wrapped text */
+.gridHeaderCellWrap {
+  overflow: visible;
+  height: auto;
+  align-items: flex-start;
+}
+
+/* When wrapping, chevron aligns to top instead of center */
+.gridHeaderCellWrap .gridHeaderCellChevron {
+  align-self: flex-start;
+  margin-top: 7px;
+}
+
+/* When wrapping, icon loses the negative offset */
+.gridHeaderCellWrap .gridHeaderCellIcon {
+  top: 1px;
+}
+
+/* Wrap headers — header pane overflow must be visible */
+.gridHeaderFrozenWrap {
+  overflow: visible;
+}
+.gridHeaderScrollableWrap {
+  overflow: visible;
+}
+
+.gridHeaderScrollableInner {
+  display: flex;
+  height: 32px;
+  width: max-content;
+}
+
+.gridHeaderAddCol {
+  width: 93px;
+  padding-top: 8px;
+  background: #FFFFFF;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-bottom: 1px solid #dde1e3;
+  border-right: 1px solid #dde1e3;
+  border-left: 1px solid #dde1e3;
+  box-sizing: border-box;
+  position: relative;
+  color: rgb(150, 150, 150);
+}
+
+.gridHeaderAddCol:hover {
+  color: rgb(51, 51, 51);
+}
+
+.gridHeaderSpacer {
+  width: 0;
+  height: 32px;
+  padding-right: 60px;
+  flex-shrink: 0;
+  box-sizing: content-box;
+  background: #FBFBFD;
+  border-bottom: 1px solid #dde1e3;
+}
+
+/* Sorted column tint — header cells */
+.gridHeaderCellSorted {
+  background-color: #FCF8F8;
+}
+
+.gridHeaderCellSorted:hover {
+  background-color: #FCF8F8;
+}
+
+/* Header cell active state (menu open) — keep hover bg + chevron visible */
+.gridHeaderCellMenuOpen {
+  background: #F8F8F8;
+}
+.gridHeaderCellMenuOpen .gridHeaderCellChevron {
+  opacity: 1;
+}

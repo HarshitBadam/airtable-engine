@@ -1,0 +1,224 @@
+@keyframes bulkAddBounceIn {
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Full-screen overlay */
+.bulkAddOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Dialog card */
+.bulkAddDialog {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 420px;
+  max-width: 420px;
+  padding: 28px 32px 24px;
+  overflow: hidden;
+  background-color: rgb(255, 255, 255);
+  border-radius: 8px;
+  color: rgb(29, 31, 37);
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19.5px;
+  pointer-events: all;
+  animation: bulkAddBounceIn 0.2s ease;
+  box-shadow:
+    rgba(0, 0, 0, 0.24) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.16) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.06) 0px 3px 4px 0px,
+    rgba(0, 0, 0, 0.06) 0px 6px 8px 0px,
+    rgba(0, 0, 0, 0.08) 0px 12px 16px 0px,
+    rgba(0, 0, 0, 0.06) 0px 18px 32px 0px;
+}
+
+/* Close button (X) — top right */
+.bulkAddCloseBtn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  color: rgb(97, 102, 112);
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.bulkAddCloseBtn:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: rgb(29, 31, 37);
+}
+
+.bulkAddCloseBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Title */
+.bulkAddTitle {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 26px;
+  color: rgb(29, 31, 37);
+}
+
+/* Description text — fixed height prevents dialog shift when text changes */
+.bulkAddDescription {
+  margin: 0 0 24px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  color: rgb(97, 102, 112);
+  min-height: 40px;
+}
+
+/* Count badge — inline colored pill, e.g. "100,000 rows" */
+.bulkAddCountBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+/* Populate toggle — inline in action row */
+.bulkAddToggleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.bulkAddToggleLabel {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgb(97, 102, 112);
+  user-select: none;
+}
+
+.bulkAddToggle {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background-color: rgba(0, 0, 0, 0.15);
+  transition: background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.bulkAddToggleOn {
+  background-color: var(--pill-base-color, #7D37EF);
+}
+
+.bulkAddToggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+}
+
+.bulkAddToggleOn .bulkAddToggleThumb {
+  transform: translateX(14px);
+}
+
+/* Action row — toggle left, buttons right */
+.bulkAddActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0;
+}
+
+.bulkAddButtons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Cancel button */
+.bulkAddCancelBtn {
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 22px;
+  text-align: center;
+  border: none;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.05);
+  color: rgb(29, 31, 37);
+  transition: background-color 0.1s ease;
+}
+
+.bulkAddCancelBtn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Confirm button — colored with base color */
+.bulkAddConfirmBtn {
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 18px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 22px;
+  text-align: center;
+  border: none;
+  border-radius: 6px;
+  color: rgb(255, 255, 255);
+  transition: filter 0.1s ease, box-shadow 0.1s ease;
+  box-shadow:
+    rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+    rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+    rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+}
+
+.bulkAddConfirmBtn:hover {
+  filter: brightness(0.9);
+}
+
+.bulkAddConfirmBtn:active {
+  filter: brightness(0.82);
+}

@@ -84,6 +84,8 @@ src/components/grid/     grid UI, virtualization, client state
 src/server/api/          tRPC middleware and routers
 src/server/sql/          sort, filter, and cursor builders
 benchmark-results/       committed measurements
+scripts/benchmarks/      latency, batch-size, and offset-sweep-chart scripts
+scripts/stress/          concurrency stress-test suite
 e2e/                     Playwright tests
 ```
 

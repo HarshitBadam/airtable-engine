@@ -1,5 +1,5 @@
 import React from "react";
-import styles from "./GridContainer.module.css";
+import styles from "./GridFreezeChrome.module.css";
 import { useWorkspace } from "./GridWorkspaceContext";
 import { useVerticalScrollbar } from "~/components/grid/hooks/layout/useVerticalScrollbar";
 

@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import styles from "./GridContainer.module.css";
+import styles from "./GridRow.module.css";
 import { useGridStore } from "~/components/grid/GridStore";
 import { useShallow } from "zustand/react/shallow";
 import type { NumberFormatConfig } from "~/shared/numberUtils";

@@ -1,11 +1,12 @@
 /**
- * Renders benchmark-results/offset-sweep.csv (produced by latency-benchmark.ts)
+ * Renders benchmark-results/offset-sweep.csv (produced by scripts/benchmarks/latency-benchmark.ts)
  * into a log-scale SVG line chart at benchmark-results/offset-sweep.svg.
  *
  * No dependencies — pure SVG string assembly, so the chart is reproducible
  * alongside the benchmark itself.
  *
- * Usage: npx tsx render-sweep-chart.ts
+ * Usage (run from the repository root so benchmark-results/ resolves correctly):
+ *   npx tsx scripts/benchmarks/render-sweep-chart.ts
  */
 
 import { readFileSync, writeFileSync } from "node:fs";

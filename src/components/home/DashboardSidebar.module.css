@@ -565,6 +565,168 @@
   min-width: 0;
 }
 
+/* Starred entry (rendered both inline in the list and in the drag preview portal) */
+.starredEntry {
+  display: flex;
+  align-items: center;
+  width: 275px;
+  height: 35.5px;
+  padding: 0 12px 0 11px;
+  margin-bottom: 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--home-text-primary);
+  text-decoration: none;
+  transition: transform 0s linear;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.starredEntry:hover {
+  background-color: var(--home-hover-bg);
+}
+
+.starredEntryLogo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--home-bg);
+  position: relative;
+}
+
+.starredEntryTitle {
+  flex-grow: 1;
+  width: 215px;
+  max-width: 100%;
+  height: 35.5px;
+  padding: 8px 0 8px 8px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19.5px;
+  color: var(--home-text-primary);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.starredEntryAppLabel {
+  display: none;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16.5px;
+  color: var(--home-text-tertiary);
+  white-space: nowrap;
+  transform: translate(-1px, 1px);
+}
+
+.starredEntry:hover .starredEntryAppLabel {
+  display: flex;
+}
+
+.starredEntry:hover .starredEntryTitle {
+  width: auto;
+  flex-grow: 0;
+}
+
+.starredEntryStar {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: -4px -4px -4px 4px;
+  padding: 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  user-select: none;
+  transform: translate(-1px, 0px);
+}
+
+.starredEntry:hover .starredEntryStar {
+  display: flex;
+}
+
+.starredEntryStar:hover {
+  background-color: var(--home-hover-bg);
+}
+
+.starredEntryDragHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  margin-left: 4px;
+  margin-right: -8px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 3px;
+  cursor: grab;
+  opacity: 0;
+  transform: translate(-1px, 0px);
+}
+
+.starredEntry:hover .starredEntryDragHandle {
+  opacity: 1;
+}
+
+/* Wrapper around each item — handles the sliding transform */
+.starredEntryWrapper {
+  transition: transform 200ms ease;
+}
+
+/* Ghost: the faded placeholder left behind at the original position */
+.starredEntryGhost {
+  opacity: 0.35;
+  transition: none !important;
+}
+
+/* Floating clone that follows the pointer (position: fixed set inline) */
+.starredEntryFloating {
+  pointer-events: none;
+}
+
+/* The lifted item appearance — shadow + visible hover elements */
+.starredEntryLifted {
+  background-color: var(--home-bg);
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+              rgba(0, 0, 0, 0.12) 0px 4px 12px 0px;
+  border-radius: 3px;
+  cursor: grabbing;
+}
+
+.starredEntryLifted .starredEntryAppLabel {
+  display: flex;
+}
+
+.starredEntryLifted .starredEntryTitle {
+  width: auto;
+  flex-grow: 0;
+}
+
+.starredEntryLifted .starredEntryStar {
+  display: flex;
+}
+
+.starredEntryLifted .starredEntryDragHandle {
+  opacity: 1;
+  cursor: grabbing;
+}
+
 /* Sidebar Bottom - pushed to bottom with flexible whitespace above */
 .sidebarBottom {
   display: flex;

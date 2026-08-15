@@ -1,0 +1,344 @@
+/* Frozen cell group within each row — sticks to left during horizontal scroll */
+.gridRowFrozenGroup {
+  display: flex;
+  flex-shrink: 0;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #FFFFFF;
+}
+.gridRow:hover .gridRowFrozenGroup {
+  background: #F8F8F8;
+}
+
+/* Row container (frozen pane) */
+.gridRow {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  contain: layout style paint;
+}
+
+.gridRowScrollable {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+}
+
+.gridRow:hover .gridRowNumCell {
+  background: #F8F8F8;
+}
+.gridRow:hover .gridDataCell {
+  background: #F8F8F8;
+}
+
+/* Delete animation — smooth slide-up collapse */
+.gridRowDeleting {
+  overflow: hidden;
+  max-height: 32px;
+  opacity: 1;
+  animation: rowSlideUp 200ms ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes rowSlideUp {
+  0% {
+    max-height: 32px;
+    opacity: 1;
+  }
+  100% {
+    max-height: 0;
+    opacity: 0;
+  }
+}
+
+.gridRowNumCell {
+  width: 83px;
+  height: 32px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgb(221, 225, 227);
+  box-sizing: border-box;
+  background: #FFFFFF;
+  position: relative;
+  transition: height 0.15s ease-out;
+}
+
+.gridRowNumOuter {
+  width: 44px;
+  height: 32px;
+  padding-top: 7px;
+  display: flex;
+  justify-content: flex-end;
+  text-align: center;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 2;
+}
+
+.gridRowNumInner {
+  width: 32px;
+  height: 25px;
+  display: block;
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: center;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ── Row-number hover overlay ────────────────────────────────────────── */
+/* Absolutely positioned on top of the serial cell; hidden by default.  */
+.gridRowNumHoverOverlay {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 84px;
+  height: 32px;
+  background: #FFFFFF;
+  border-bottom: 1px solid rgb(221, 225, 227);
+  box-sizing: border-box;
+  z-index: 2;
+  align-items: flex-start;
+  user-select: none;
+  font-size: 0px;
+  color: rgb(29, 31, 37);
+}
+
+/* Show overlay + hide row number on row hover */
+.gridRow:hover .gridRowNumHoverOverlay {
+  display: flex;
+  background: #F8F8F8;
+}
+.gridRow:hover .gridRowNumOuter {
+  visibility: hidden;
+}
+
+/* Left section: drag handle + checkbox */
+.gridRowNumHoverLeft {
+  display: flex;
+  align-items: flex-start;
+  width: 44px;
+  height: 32px;
+  padding-top: 7px;
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  font-size: 12px;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+/* Drag handle (6 dots) */
+.gridRowNumDragIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  flex-grow: 0;
+  cursor: grab;
+  color: rgb(97, 102, 112);
+  fill: rgb(97, 102, 112);
+  display: inline;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+/* Checkbox */
+.gridRowNumCheckbox {
+  width: 16px;
+  height: 16px;
+  background: #FFFFFF;
+  border-radius: 3px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+              rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+              rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin-left: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  padding: 0;
+}
+
+/* Pill-shaped spacer between left section and expand button */
+.gridRowNumHoverSpacer {
+  width: 4px;
+  height: 23px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+  flex-grow: 0;
+}
+
+/* Expand/open-record button */
+.gridRowNumExpandBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #FFFFFF;
+  border-radius: 3px;
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 0px 1px 0px,
+              rgba(0, 0, 0, 0.08) 0px 0px 2px 0px,
+              rgba(0, 0, 0, 0.08) 0px 1px 3px 0px;
+  cursor: pointer;
+  margin-right: 6px;
+  margin-top: 3px;
+  flex-shrink: 0;
+  color: rgb(29, 31, 37);
+  font-size: 11px;
+}
+
+.gridRowNumExpandBtn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  flex-shrink: 0;
+  flex-grow: 0;
+  flex-basis: auto;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+}
+
+/* Drag handle disabled state (sorts/filters active) */
+.gridRowNumDragDisabled {
+  cursor: default !important;
+  opacity: 0.35;
+}
+
+/* The first data cell adjacent to the serial number cell has no visible left border. */
+.gridRowNumCell + .gridDataCell {
+  border-left-color: transparent;
+}
+
+.gridDataCell {
+  height: 32px;
+  flex-shrink: 0;
+  border-left: 1px solid rgb(221, 225, 227);
+  border-bottom: 1px solid rgb(221, 225, 227);
+  box-sizing: border-box;
+  background: #FFFFFF;
+  cursor: default;
+  overflow: hidden;
+  transition: height 0.15s ease-out;
+  contain: layout style paint;
+}
+
+/* Last cell in each scrollable row gets a right border */
+.gridRowScrollable .gridDataCell:last-child {
+  border-right: 1px solid rgb(221, 225, 227);
+}
+
+/* Last scrollable cell in unified rows (direct child of gridRow, not inside frozenGroup) */
+.gridRow > .gridDataCell:last-child {
+  border-right: 1px solid rgb(221, 225, 227);
+}
+
+/* Active cell — minimal marker class. Selection border is drawn by the overlay. */
+.gridDataCellActive {
+  /* no visual border — the overlay at .gridBody level handles the selection rectangle */
+  outline: none;
+}
+
+/* Find current cell — deep yellow so it wins over sort/filter tints */
+.gridDataCellFindCurrent,
+.gridDataCell[data-find-current="true"] {
+  background-color: #FFD66B !important;
+}
+
+/* Sorted column tint — data cells get a warm orange tint */
+.gridDataCellSorted {
+  background-color: rgb(255, 242, 234);
+}
+
+/* Maintain tint on row hover for sorted cells */
+.gridRow:hover .gridDataCellSorted {
+  background-color: rgb(255, 242, 234);
+}
+
+/* Number cells turn blue when their cell is active */
+.gridDataCellActive .gridCellNumber {
+  color: rgb(22, 110, 225);
+}
+
+.gridCellContent {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  flex-basis: auto;
+  overflow: hidden;
+}
+
+.gridCellText {
+  width: 100%;
+  height: 19.5px;
+  line-height: 19.5px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  color: rgb(29, 31, 37);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.gridCellNumber {
+  width: 100%;
+  height: 19.5px;
+  line-height: 19.5px;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  color: rgb(29, 31, 37);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.gridCellEditor {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  border: none;
+  outline: none;
+  background: #FFFFFF;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: rgb(29, 31, 37);
+  box-sizing: border-box;
+}
+
+/* Right-aligned editor for number columns.
+   Content shifts up 1px to compensate for the editing overlay's
+   bottom border thickening inward (upward) on NUMBER cells. */
+.gridCellEditorNumber {
+  text-align: right;
+  padding-top: 5px;
+  padding-bottom: 7px;
+}
+
+.skeletonBar {
+  background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

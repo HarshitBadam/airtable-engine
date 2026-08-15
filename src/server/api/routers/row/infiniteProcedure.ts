@@ -1,11 +1,3 @@
-/*
- * infiniteProcedure.ts is intentionally long (~420 lines). It implements a
- * three-tier infinite-scroll strategy: rowIndex B-tree estimation (Tier 1),
- * ViewRowRank frozen-sort fast path (Tier 2), and keyset-cursor OFFSET query
- * (Tier 3). Each tier has its own branching path, and the shared validation,
- * cursor-anchor logic, UNION ALL optimisation, and count query cannot be
- * cleanly extracted without duplicating significant shared state.
- */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure } from "../../trpc";

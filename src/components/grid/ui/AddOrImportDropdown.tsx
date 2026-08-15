@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from './TableToolbar.module.css';
+import styles from './AddOrImportDropdown.module.css';
 
 interface AddOrImportDropdownProps {
   dropdownRef: React.RefObject<HTMLUListElement | null>;

@@ -1,5 +1,6 @@
 import React from "react";
-import styles from "./GridContainer.module.css";
+import styles from "./GridContentArea.module.css";
+import rowStyles from "./GridRow.module.css";
 import { GridRow } from "./GridRow";
 import { GridSkeletonRow } from "./GridSkeletonRow";
 import { useWorkspace } from "./GridWorkspaceContext";
@@ -148,7 +149,7 @@ export function GridContentArea({
         </div>
 
         <div
-          className={styles.gridRow}
+          className={rowStyles.gridRow}
           style={{
             background: "transparent",
             position: "absolute",

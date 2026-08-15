@@ -3,7 +3,7 @@
  *
  * Measures the exact SQL the read procedures run (mirrored from
  * windowFetchProcedure.ts / infiniteProcedure.ts / rowMutations.ts /
- * cellMutations.ts / columnBackfill.ts) using EXPLAIN (ANALYZE, BUFFERS),
+ * addManyProcedure.ts / columnBackfill.ts) using EXPLAIN (ANALYZE, BUFFERS),
  * so the numbers are pure Postgres execution time — no network, no tRPC,
  * no serialization. This isolates the query strategy from the hosting stack.
  *
@@ -28,16 +28,16 @@
  *
  * Output: console + benchmark-results/latency-results.md + offset-sweep.csv
  *
- * Usage:
- *   npx tsx latency-benchmark.ts                  # full run (1K, 100K, 1M)
- *   npx tsx latency-benchmark.ts --sizes 1000     # smoke test
- *   npx tsx latency-benchmark.ts --runs 30        # more samples per op
- *   npx tsx latency-benchmark.ts --keep           # skip cleanup
+ * Usage (run from the repository root so benchmark-results/ resolves correctly):
+ *   npx tsx scripts/benchmarks/latency-benchmark.ts                  # full run (1K, 100K, 1M)
+ *   npx tsx scripts/benchmarks/latency-benchmark.ts --sizes 1000     # smoke test
+ *   npx tsx scripts/benchmarks/latency-benchmark.ts --runs 30        # more samples per op
+ *   npx tsx scripts/benchmarks/latency-benchmark.ts --keep           # skip cleanup
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
-import { PrismaClient } from "./generated/prisma/index.js";
+import { PrismaClient } from "../../generated/prisma/index.js";
 
 const prisma = new PrismaClient();
 
@@ -61,7 +61,7 @@ function parseArgs() {
 const { sizes: SIZES, runs: RUNS, keep: KEEP } = parseArgs();
 const WARMUPS = 2;
 const PAGE_LIMIT = 1000; // production default for infinite/windowFetch
-const INSERT_BATCH = 10_000; // matches addMany (cellMutations.ts)
+const INSERT_BATCH = 10_000; // matches addManyProcedure.ts
 const BULK_INSERT_COUNT = 200_000;
 const BACKFILL_BATCH = 50_000; // matches columnBackfill.ts
 
@@ -140,7 +140,7 @@ async function wallClock<T>(fn: () => Promise<T>): Promise<{ ms: number; result:
 }
 
 // ---------------------------------------------------------------------------
-// Seeding (mirrors addMany's generate_series batches, cellMutations.ts)
+// Seeding (mirrors addManyProcedure.ts generate_series batches)
 // ---------------------------------------------------------------------------
 
 const FIRST_NAMES = [
@@ -754,7 +754,7 @@ function buildMarkdown(all: SizeResults[], pgVersion: string): string {
     ``,
     header, sep, ...oneTimeRows,
     ``,
-    `_Measured on ${cpu}, ${ram} GB RAM · ${pgVersion} · generated ${new Date().toISOString().slice(0, 10)} via \`npx tsx latency-benchmark.ts\`._`,
+    `_Measured on ${cpu}, ${ram} GB RAM · ${pgVersion} · generated ${new Date().toISOString().slice(0, 10)} via \`npx tsx scripts/benchmarks/latency-benchmark.ts\`._`,
     ``,
   ].join("\n");
 }

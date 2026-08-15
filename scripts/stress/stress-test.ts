@@ -19,7 +19,7 @@
  *  15.  Connection pool exhaustion test
  *
  * Usage:
- *   npx tsx stress-test.ts
+ *   npx tsx scripts/stress/stress-test.ts
  *
  * Prerequisites:
  *   - PostgreSQL running with the lyra-airtable database
@@ -39,7 +39,7 @@ const SESSION_COOKIE = `authjs.session-token=${SESSION_TOKEN}`;
 // Imports
 // ---------------------------------------------------------------------------
 
-import { PrismaClient } from "./generated/prisma/index.js";
+import { PrismaClient } from "../../generated/prisma/index.js";
 
 const prisma = new PrismaClient();
 

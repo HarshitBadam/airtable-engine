@@ -1,20 +1,38 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import styles from "./FieldConfigPanel.module.css";
+import styles from "./NumberFormatConfig.module.css";
 import { useClickOutside } from "~/hooks/useClickOutside";
 
 const ClearIcon = () => (
-  <svg viewBox="0 0 12 12" fill="currentColor" width="12" height="12" style={{ shapeRendering: "geometricPrecision" }}>
-    <path fillRule="evenodd" d="M6 0C2.68629 0 0 2.68629 0 6C0 9.31371 2.68629 12 6 12C9.31371 12 12 9.31371 12 6C12 2.68629 9.31371 0 6 0ZM4.35355 3.64645C4.15829 3.45118 3.84171 3.45118 3.64645 3.64645C3.45118 3.84171 3.45118 4.15829 3.64645 4.35355L5.29289 6L3.64645 7.64645C3.45118 7.84171 3.45118 8.15829 3.64645 8.35355C3.84171 8.54882 4.15829 8.54882 4.35355 8.35355L6 6.70711L7.64645 8.35355C7.84171 8.54882 8.15829 8.54882 8.35355 8.35355C8.54882 8.15829 8.54882 7.84171 8.35355 7.64645L6.70711 6L8.35355 4.35355C8.54882 4.15829 8.54882 3.84171 8.35355 3.64645C8.15829 3.45118 7.84171 3.45118 7.64645 3.64645L6 5.29289L4.35355 3.64645Z" />
+  <svg
+    viewBox="0 0 12 12"
+    fill="currentColor"
+    width="12"
+    height="12"
+    style={{ shapeRendering: "geometricPrecision" }}
+  >
+    <path
+      fillRule="evenodd"
+      d="M6 0C2.68629 0 0 2.68629 0 6C0 9.31371 2.68629 12 6 12C9.31371 12 12 9.31371 12 6C12 2.68629 9.31371 0 6 0ZM4.35355 3.64645C4.15829 3.45118 3.84171 3.45118 3.64645 3.64645C3.45118 3.84171 3.45118 4.15829 3.64645 4.35355L5.29289 6L3.64645 7.64645C3.45118 7.84171 3.45118 8.15829 3.64645 8.35355C3.84171 8.54882 4.15829 8.54882 4.35355 8.35355L6 6.70711L7.64645 8.35355C7.84171 8.54882 8.15829 8.54882 8.35355 8.35355C8.54882 8.15829 8.54882 7.84171 8.35355 7.64645L6.70711 6L8.35355 4.35355C8.54882 4.15829 8.54882 3.84171 8.35355 3.64645C8.15829 3.45118 7.84171 3.45118 7.64645 3.64645L6 5.29289L4.35355 3.64645Z"
+    />
   </svg>
 );
 
 const ChevronDown = () => (
-  <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16" style={{ shapeRendering: "geometricPrecision" }}>
-    <path fillRule="nonzero" d="M4.14645 5.64645C4.34171 5.45118 4.65829 5.45118 4.85355 5.64645L8 8.79289L11.1464 5.64645C11.3417 5.45118 11.6583 5.45118 11.8536 5.64645C12.0488 5.84171 12.0488 6.15829 11.8536 6.35355L8.35355 9.85355C8.15829 10.0488 7.84171 10.0488 7.64645 9.85355L4.14645 6.35355C3.95118 6.15829 3.95118 5.84171 4.14645 5.64645Z" />
+  <svg
+    viewBox="0 0 16 16"
+    fill="currentColor"
+    width="16"
+    height="16"
+    style={{ shapeRendering: "geometricPrecision" }}
+  >
+    <path
+      fillRule="nonzero"
+      d="M4.14645 5.64645C4.34171 5.45118 4.65829 5.45118 4.85355 5.64645L8 8.79289L11.1464 5.64645C11.3417 5.45118 11.6583 5.45118 11.8536 5.64645C12.0488 5.84171 12.0488 6.15829 11.8536 6.35355L8.35355 9.85355C8.15829 10.0488 7.84171 10.0488 7.64645 9.85355L4.14645 6.35355C3.95118 6.15829 3.95118 5.84171 4.14645 5.64645Z"
+    />
   </svg>
 );
-interface DropdownOption {
+export interface DropdownOption {
   label: string;
   value?: string;
 }
@@ -50,7 +68,6 @@ export const largeNumberOptions: DropdownOption[] = [
   { label: "Million", value: "M" },
   { label: "Billion", value: "B" },
 ];
-
 
 export function NumberDropdown({
   headingLabel,
@@ -237,10 +254,3 @@ export function computeExample(
   }
   return `${intFormatted}${suffix}`;
 }
-
-
-export const fieldDescriptions: Record<string, string> = {
-  "Single line text": "Enter text, or prefill each new cell with a default value.",
-  Number: "Enter a number, or prefill each new cell with a default value.",
-};
-

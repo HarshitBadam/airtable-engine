@@ -1,5 +1,5 @@
 import React from "react";
-import styles from "./GridBar.module.css";
+import styles from "./GridBarTools.module.css";
 import { HideFieldsPanel } from "./HideFieldsPanel";
 import { SortPanel } from "./SortPanel";
 import { FindBar } from "./FindBar";

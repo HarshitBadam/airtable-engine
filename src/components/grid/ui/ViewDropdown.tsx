@@ -1,6 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import styles from "./GridBar.module.css";
+import styles from "./ViewDropdown.module.css";
 
 interface ViewDropdownProps {
   viewDropdownButtonRef: React.RefObject<HTMLDivElement | null>;

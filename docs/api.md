@@ -89,8 +89,8 @@ Writes, all mutations.
 | `reorder`            | [`rowMutations.ts`](../src/server/api/routers/row/rowMutations.ts)     | Drag-reorder via midpoint                                                                                |
 | `delete`             | [`rowMutations.ts`](../src/server/api/routers/row/rowMutations.ts)     | Idempotent single-row delete                                                                             |
 | `clearData`          | [`rowMutations.ts`](../src/server/api/routers/row/rowMutations.ts)     | Delete every row in a table. Heavy                                                                       |
-| `updateCell`         | [`cellMutations.ts`](../src/server/api/routers/row/cellMutations.ts)   | Edit a cell and rebuild `searchText`                                                                     |
-| `addMany`            | [`cellMutations.ts`](../src/server/api/routers/row/cellMutations.ts)   | Bulk insert up to 100,000 rows via `generate_series`. Heavy                                              |
+| `updateCell`         | [`updateCellProcedure.ts`](../src/server/api/routers/row/updateCellProcedure.ts) | Edit a cell and rebuild `searchText`                                                                     |
+| `addMany`            | [`addManyProcedure.ts`](../src/server/api/routers/row/addManyProcedure.ts)       | Bulk insert up to 100,000 rows via `generate_series`. Heavy                                              |
 | `computeViewRanks`   | [`sortProcedures.ts`](../src/server/api/routers/row/sortProcedures.ts) | Build `ViewRowRank` for a saved sort. Advisory-locked with a 120s timeout. Heavy                         |
 | `applyPermanentSort` | [`sortProcedures.ts`](../src/server/api/routers/row/sortProcedures.ts) | Rewrite every `rowIndex` into sorted order. 120s timeout. The UI calls `computeViewRanks` instead. Heavy |
 

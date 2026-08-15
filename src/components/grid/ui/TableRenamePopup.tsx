@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import styles from './TableToolbar.module.css';
+import styles from './TableRenamePopup.module.css';
 
 interface TableRenamePopupProps {
   popupRef: React.RefObject<HTMLDivElement | null>;

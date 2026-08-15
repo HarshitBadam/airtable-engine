@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import styles from "./GridBar.module.css";
+import styles from "./RowHeightMenu.module.css";
 import type { RowHeightPreset } from "~/shared/grid";
 
 interface RowHeightMenuProps {

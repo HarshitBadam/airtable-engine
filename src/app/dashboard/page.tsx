@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./DashboardPage.module.css";
 import basesStyles from "~/components/bases/bases.module.css";
+import sidebarStyles from "~/components/home/DashboardSidebar.module.css";
 import {
   ChevronDownIcon,
   ListViewIcon,
@@ -66,7 +67,7 @@ export default function DashboardPage() {
   const { handleCreateBase, isCreating, pendingBaseId } = useCreateBaseAndNavigate(createBase);
 
   const { dragState, dragRef, startStarredDrag, getStarredItemStyle, getFloatingStyle, orderedStarredBases } =
-    useStarredDragDrop(starredBases, basesStyles.starredEntryWrapper);
+    useStarredDragDrop(starredBases, sidebarStyles.starredEntryWrapper);
 
   const filterLabels: Record<FilterOption, string> = {
     today: "Today",

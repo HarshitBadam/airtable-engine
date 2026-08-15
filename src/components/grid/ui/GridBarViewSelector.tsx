@@ -1,5 +1,5 @@
 import React from "react";
-import styles from "./GridBar.module.css";
+import styles from "./GridBarViewSelector.module.css";
 import { ViewDropdown } from "./ViewDropdown";
 import { useWorkspace } from "./GridWorkspaceContext";
 

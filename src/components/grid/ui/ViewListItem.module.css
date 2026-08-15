@@ -1,0 +1,317 @@
+.viewsSidebarViewList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  transform: translateY(11px);
+
+  /* Fill remaining sidebar height and scroll when items overflow */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* Custom vertical scrollbar (matches project style) */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+}
+
+.viewsSidebarViewList::-webkit-scrollbar {
+  width: 10px;
+  background: transparent;
+}
+
+.viewsSidebarViewList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.viewsSidebarViewList::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.28);
+  border-radius: 7px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.viewsSidebarViewList::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.38);
+}
+
+.viewsSidebarViewItem {
+  background-color: transparent;
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 32.25px;
+  justify-content: center;
+  line-height: 18px;
+  list-style: none;
+  margin: 0;
+  padding: 8px 12px;
+  pointer-events: all;
+  position: relative;
+  user-select: none;
+  width: 263px;
+}
+
+.viewsSidebarViewItemActive {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.viewsSidebarViewItem:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Item currently being dragged — must come AFTER :hover and active to win cascade */
+.viewsSidebarViewItem.viewsSidebarViewItemDragging,
+.viewsSidebarViewItem.viewsSidebarViewItemDragging:hover {
+  background-color: #ffffff !important;
+  cursor: grabbing !important;
+}
+
+/* Dragging: keep grid icon visible, hide star, show actions (3-dots + 6-dots) */
+.viewsSidebarViewItemDragging .viewsSidebarViewItemGridIcon,
+.viewsSidebarViewItemDragging:hover .viewsSidebarViewItemGridIcon {
+  display: block !important;
+}
+.viewsSidebarViewItemDragging .viewsSidebarViewItemStarIcon,
+.viewsSidebarViewItemDragging:hover .viewsSidebarViewItemStarIcon {
+  display: none !important;
+}
+.viewsSidebarViewItemDragging .viewsSidebarViewItemActions,
+.viewsSidebarViewItemDragging:hover .viewsSidebarViewItemActions {
+  display: flex !important;
+}
+
+/* Inner row - always present, holds content */
+.viewsSidebarViewItemRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Grid feature icon in the view item */
+.viewsSidebarViewItemGridIcon {
+  box-sizing: border-box;
+  color: #156EE1;
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style: none;
+  overflow: hidden;
+  pointer-events: all;
+  shape-rendering: geometricPrecision;
+  user-select: none;
+  width: 16px;
+  margin-right: 8px;
+}
+
+/* View name text */
+.viewsSidebarViewItemText {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: block;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 500;
+  height: 16.25px;
+  line-height: 16.25px;
+  list-style: none;
+  max-width: 100%;
+  overflow: hidden;
+  pointer-events: all;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.viewsSidebarViewItemStarIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: pointer;
+  display: none;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  height: 16px;
+  width: 16px;
+  margin-right: 8px;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  user-select: none;
+}
+
+.viewsSidebarViewItemStarIconFavorited {
+  color: #FFBA06;
+  fill: #FFBA06;
+}
+
+.viewsSidebarViewItemActions {
+  display: none;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  transform: translateX(-3px);
+}
+
+/* Overflow (three dots) icon */
+.viewsSidebarViewItemOverflowIcon {
+  box-sizing: border-box;
+  color: rgb(97, 102, 112);
+  cursor: pointer;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style: none;
+  overflow: hidden;
+  pointer-events: all;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  user-select: none;
+  width: 16px;
+  transform: translateX(-5px);
+}
+
+/* Drag handle (DotsSixVertical) icon */
+.viewsSidebarViewItemDragIcon {
+  box-sizing: border-box;
+  color: rgb(29, 31, 37);
+  cursor: grab;
+  display: block;
+  flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  font-family: var(--grid-font-family);
+  font-size: 13px;
+  font-weight: 400;
+  height: 16px;
+  line-height: 18px;
+  list-style: none;
+  overflow: hidden;
+  pointer-events: all;
+  shape-rendering: geometricPrecision;
+  white-space: nowrap;
+  user-select: none;
+  width: 16px;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  transform: translateX(-1px);
+}
+
+/* Hover state: show star, actions, hide grid icon */
+.viewsSidebarViewItem:hover .viewsSidebarViewItemStarIcon {
+  display: block;
+}
+
+.viewsSidebarViewItem:hover .viewsSidebarViewItemGridIcon {
+  display: none;
+}
+
+.viewsSidebarViewItem:hover .viewsSidebarViewItemActions {
+  display: flex;
+}
+
+/* Sidebar inline rename state: item stays in "hover" grey, grid icon stays visible, star/actions hidden. */
+.viewsSidebarViewItemRenaming {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding-right: 8px;
+}
+
+.viewsSidebarViewItemRenaming:hover .viewsSidebarViewItemStarIcon {
+  display: none;
+}
+
+.viewsSidebarViewItemRenaming:hover .viewsSidebarViewItemGridIcon {
+  display: block;
+}
+
+.viewsSidebarViewItemRenaming:hover .viewsSidebarViewItemActions {
+  display: none;
+}
+
+/* Sidebar rename input — matches Airtable inline rename.
+   flex:1 fills all available space; parent padding-right is removed when renaming. */
+.viewsSidebarViewItemRenameInput {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  border: 2px solid #BFBFBF;
+  border-radius: 2px;
+  box-sizing: border-box;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 16.25px;
+  color: rgb(29, 31, 37);
+  padding: 0 2px;
+  margin-left: -4px;
+  outline: none;
+  background: #FFFFFF;
+}
+
+@keyframes tooltipFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.viewRenameTooltipPortal {
+  position: fixed;
+  margin-top: 16px;
+  background-color: rgb(255, 242, 250);
+  border-radius: 3px;
+  box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 0px 2px;
+  color: rgb(177, 15, 65);
+  display: block;
+  font-family: -apple-system, system-ui, "system-ui", "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  max-width: 300px;
+  overflow-wrap: break-word;
+  padding: 8px;
+  z-index: 1000000000;
+  white-space: nowrap;
+  animation: tooltipFadeIn 0.3s ease;
+}
+
+.viewRenameTooltipContent {
+  position: relative;
+  color: rgb(177, 15, 65);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  overflow-wrap: break-word;
+}
+
+.viewRenameTooltipContent::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -18px;
+  left: 72px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid rgb(177, 15, 65);
+  border-top: 0 solid transparent;
+}

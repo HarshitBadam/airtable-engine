@@ -1,6 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import styles from "./GridContainer.module.css";
+import styles from "./DupFieldDialog.module.css";
 
 export interface DupFieldDialogInfo {
   colId: string;
