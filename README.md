@@ -8,8 +8,6 @@ Airtable Engine is an Airtable-style spreadsheet designed to keep tables with mi
 
 At one million rows, a deep scrollbar jump brings real rows to the screen in **403 ms median** and **578 ms p95** across 15 production-build runs. The request completes in **95 ms median** and **130 ms p95**. PostgreSQL takes **0.2 ms median** for a plain-table seek and **1.1 ms median** for a saved-rank lookup. An unanchored ad-hoc sort takes **1.22 s median**. See the [scaling engine](docs/scaling-engine.md) and [full benchmark results](benchmark-results/latency-results.md).
 
----
-
 ## Run it locally
 
 You need Node 20+, pnpm, Docker, and a Google OAuth client.
@@ -31,11 +29,10 @@ pnpm dev
 
 `start-database.sh` starts PostgreSQL in Docker. The image tag is currently unpinned; if you already have Postgres, use that connection in `.env` instead. Google OAuth setup and the required variables are covered in [deployment.md](docs/deployment.md).
 
----
-
 ## Documentation
 
 Start with Architecture for the big picture, then Scaling engine for the read and write paths.
+
 
 | Document                                           | What it covers                              |
 | -------------------------------------------------- | ------------------------------------------- |
@@ -46,6 +43,12 @@ Start with Architecture for the big picture, then Scaling engine for the read an
 | [API reference](docs/api.md)                       | tRPC routers and procedures                 |
 | [Deployment and configuration](docs/deployment.md) | Environment variables, limits, and hosting  |
 
+
+## License
+
+This project is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+
 ---
 
 > **Origin.** This began as a solo technical assessment for [Lyra](https://www.lyratechnologies.ai/) ([certificate](https://www.lyratechnologies.ai/certificate/5TYDQNOY)). The original brief was an Airtable clone; the large-table read path, rank table, SQL builders, and jump cache were developed after that.
+

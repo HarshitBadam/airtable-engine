@@ -2,6 +2,7 @@
   "name": "lyra-airtable",
   "version": "0.1.0",
   "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
   "scripts": {
     "build": "prisma migrate deploy && prisma generate && next build",
