@@ -53,11 +53,37 @@ Row caps:
 ## Build and start
 
 ```bash
-prisma migrate deploy && prisma generate && next build
+pnpm build
 pnpm start
 ```
 
-The build environment needs database access because migrations run first.
+The application build generates Prisma Client but does not connect to or migrate a database.
+Run migrations as a separate, deliberate release step from a trusted environment:
+
+```bash
+# Review the target and pending migrations before changing the database.
+pnpm db:migrate:status
+
+# Runs the repository safety check before Prisma's production deploy command.
+pnpm db:migrate:deploy
+```
+
+Take a database backup and review every pending migration before the deploy step. `DIRECT_URL`
+is required for these migration commands, but it is not required by `pnpm build`. Do not run
+the deploy command automatically for every application build or preview deployment.
+
+### Destructive migration policy
+
+`pnpm db:migrate:check` rejects data-deleting and destructive schema statements in new Prisma
+migrations. The three February 2026 reset migrations remain in history because production
+revisions containing them were successfully deployed; their exact checksums are recorded in
+`prisma/migration-safety-baseline.json`. They are immutable historical exceptions, not examples
+for future migrations.
+
+Never add a data reset to `prisma/migrations` or extend the historical baseline for one. Keep
+manual reset SQL outside automatic migration history, require an operator to select the target,
+take a backup, and execute it separately. Removing or editing a migration that may already exist
+in `_prisma_migrations` can break Prisma's deployment history.
 
 ## Development and long operations
 

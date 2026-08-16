@@ -1,0 +1,16 @@
+{
+  "historicalDestructiveMigrations": {
+    "20260218000000_reset_all_user_data": {
+      "sha256": "8fc662264e9d879c4c5920a53ee37d7c49a2fed595b73aeaf5242643f7484216",
+      "reason": "Retained immutable migration history from a production deployment."
+    },
+    "20260218100000_reset_all_user_data_v2": {
+      "sha256": "f19d5bb762709f155acdd269ff9eef9113f68f11d3909aa093fc7eaae41bfa16",
+      "reason": "Retained immutable migration history from a production deployment."
+    },
+    "20260218200000_reset_all_user_data_v3": {
+      "sha256": "327e11ad6d1b59be98643a5b02f869f16b776e106662b434e40ff07f1144448d",
+      "reason": "Retained immutable migration history from a production deployment."
+    }
+  }
+}

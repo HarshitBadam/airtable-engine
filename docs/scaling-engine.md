@@ -28,7 +28,10 @@ For a jump, the server estimates the target position:
 estimated = min + offset × (max - min) / (rowCount - 1)
 ```
 
-It then seeks through the `(tableId, rowIndex)` B-tree. This stays fast for append-heavy tables. Uneven midpoint inserts can make the estimate approximate rather than exact.
+It then seeks through the `(tableId, rowIndex)` B-tree. Dense append-heavy
+tables take the direct seek. For uneven midpoint inserts, the server validates
+the estimate's rank, corrects the remaining distance, and falls back to an
+exact offset query if the correction cannot produce a complete window.
 
 ## Tier 2: saved ranks
 
@@ -63,7 +66,10 @@ This deferred join keeps the sort input compact. Normal Tier 3 scrolling replace
 
 An OR of equality checks on one field can be rewritten as ordered `UNION ALL` branches. PostgreSQL can then merge index scans instead of sorting the full matched set.
 
-The API accepts a nearby cursor anchor to reduce a deep offset, but the current grid does not send anchors.
+The grid sends the nearest earlier loaded sorted row as a cursor anchor. The
+anchor carries the absolute offset immediately after that row plus its
+multi-field sort values and `rowIndex`; Tier 3 keyset-seeks past it and applies
+only the remaining offset.
 
 ## Query safety
 
@@ -132,11 +138,12 @@ The advisory lock serializes rebuilds for one view. `ranksStale` prevents reader
 | ----------------------------------------- | ----------------------------- |
 | One-million-row jump to real rows visible | **403 ms median**, 578 ms p95 |
 | Same jump request latency                 | **95 ms median**, 130 ms p95  |
-| Tier 1 database seek at 1M rows           | **0.2 ms median**             |
-| Tier 2 saved-rank lookup at 1M rows       | **1.1 ms median**             |
-| Unanchored Tier 3 ad-hoc jump at 1M rows  | **1.22 s median**             |
+| Tier 1 database seek at 1M rows           | **0.7 ms median**, 1.2 ms p95 |
+| Tier 2 saved-rank lookup at 1M rows       | **2.0 ms median**, 3.5 ms p95 |
+| Anchored Tier 3 ad-hoc jump at 1M rows    | **51 ms median**, 137 ms p95  |
+| Unanchored Tier 3 ad-hoc jump at 1M rows  | **1.33 s median**, 2.22 s p95 |
 
-The first two values are browser-visible production-build measurements. The remaining values isolate PostgreSQL. At one million rows, field duplication took 82 seconds and building saved ranks took 14.8 seconds.
+The first two values are browser-visible production-build measurements. The remaining values isolate PostgreSQL. The client request-shape tests verify that sorted grid jumps include the nearest safe loaded-row anchor. At one million rows, field duplication took 99.8 seconds and building saved ranks took 19.1 seconds.
 
 Full read, write, and one-time benchmark output is in [latency-results.md](../benchmark-results/latency-results.md).
 

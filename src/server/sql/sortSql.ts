@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Sort as SortInput } from "~/shared/grid";
+import { buildSortedCursor } from "~/shared/sortCursor";
 import { escapeLiteral, type SqlParam } from "./escape";
 
 export const sortedCursorSchema = z.object({
@@ -81,7 +82,8 @@ export function buildMultiSortCursorSql(
   cursor: SortedCursorInput,
   params: SqlParam[],
 ): string {
-  const rowIndexOp = sorts.length > 0 && sorts[0]!.direction === "desc" ? "<" : ">";
+  const rowIndexOp =
+    sorts.length > 0 && sorts[0]!.direction === "desc" ? "<" : ">";
 
   const orClauses: string[] = [];
 
@@ -118,7 +120,9 @@ export function buildMultiSortCursorSql(
           andParts.push(`(${sortExpr} > $${params.length})`);
         } else {
           params.push(cursorVal);
-          andParts.push(`(${sortExpr} IS NULL OR ${sortExpr} < $${params.length})`);
+          andParts.push(
+            `(${sortExpr} IS NULL OR ${sortExpr} < $${params.length})`,
+          );
         }
       }
     } else {
@@ -187,7 +191,8 @@ export function buildMultiSortBeforeCursorSql(
   cursor: SortedCursorInput,
   params: SqlParam[],
 ): string {
-  const rowIndexOp = sorts.length > 0 && sorts[0]!.direction === "desc" ? ">" : "<";
+  const rowIndexOp =
+    sorts.length > 0 && sorts[0]!.direction === "desc" ? ">" : "<";
 
   const orClauses: string[] = [];
 
@@ -221,7 +226,9 @@ export function buildMultiSortBeforeCursorSql(
       } else {
         if (sort.direction === "asc") {
           params.push(cursorVal);
-          andParts.push(`(${sortExpr} IS NULL OR ${sortExpr} < $${params.length})`);
+          andParts.push(
+            `(${sortExpr} IS NULL OR ${sortExpr} < $${params.length})`,
+          );
         } else {
           params.push(cursorVal);
           andParts.push(`(${sortExpr} > $${params.length})`);
@@ -256,42 +263,20 @@ export function buildMultiSortBeforeCursorSql(
   return `${indexCondHint} AND (\n      ${orClauses.join("\n      OR ")}\n    )`;
 }
 
-function normalizeSortValueFromCells(
-  sort: SortInput,
-  cellsUnknown: unknown,
-): string | number | null {
-  const cells = (cellsUnknown ?? {}) as Record<string, unknown>;
-  const raw = cells[sort.columnId];
-
-  if (raw == null) return null;
-
-  if (sort.type === "NUMBER") {
-    const n = typeof raw === "number" ? raw : Number(raw);
-    return Number.isNaN(n) ? null : n;
-  }
-
-  // TEXT: empty string treated as null (matches NULLIF in SQL).
-  if (typeof raw === "string") return raw === "" ? null : raw;
-  if (typeof raw === "number" || typeof raw === "boolean") return String(raw);
-  try {
-    return JSON.stringify(raw);
-  } catch {
-    return null;
-  }
-}
-
 export function normalizeSortValuesFromCells(
   sorts: SortInput[],
   cellsUnknown: unknown,
 ): (string | number | null)[] {
-  return sorts.map((sort) => normalizeSortValueFromCells(sort, cellsUnknown));
+  return buildSortedCursor(sorts, {
+    rowIndex: 0,
+    cells: cellsUnknown,
+  }).sortValues;
 }
 
-/**
- * ORDER BY for raw SQL using a custom table alias (e.g. "r" or "t" inside
- * a CTE). `applyPermanentSort` and `computeViewRanks` both need this.
- */
-export function buildSortOrderByForAlias(sorts: SortInput[], alias: string): string {
+export function buildSortOrderByForAlias(
+  sorts: SortInput[],
+  alias: string,
+): string {
   const parts: string[] = [];
 
   for (const sort of sorts) {
@@ -305,7 +290,8 @@ export function buildSortOrderByForAlias(sorts: SortInput[], alias: string): str
     parts.push(`${expr} ${sort.direction.toUpperCase()} ${nulls}`);
   }
 
-  const rowIndexDir = sorts.length > 0 && sorts[0]!.direction === "desc" ? "DESC" : "ASC";
+  const rowIndexDir =
+    sorts.length > 0 && sorts[0]!.direction === "desc" ? "DESC" : "ASC";
   parts.push(`${alias}."rowIndex" ${rowIndexDir}`);
   return parts.join(", ");
 }
