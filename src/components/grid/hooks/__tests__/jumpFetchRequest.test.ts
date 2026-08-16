@@ -27,7 +27,7 @@ describe("buildJumpFetchRequest", () => {
         [475, row("nearest-window", 900, "N", "42")],
         [500, row("target", 901, "O", 43)],
       ]),
-      protectedRowIds: new Set(),
+      protectedRowIds: new Set<string>(),
       query: { sorts },
     });
 
@@ -68,6 +68,33 @@ describe("buildJumpFetchRequest", () => {
         sortValues: [null, null],
       },
     });
+  });
+
+  it("passes a rowIndex anchor for an already-loaded filtered view", () => {
+    const args = {
+      tableId: "table-1",
+      offset: 500,
+      limit: 1000,
+      rows: [row("first-match", 4, "A", 1)],
+      jumpCache: new Map([
+        [420, row("older-match", 2104, "B", 2)],
+        [475, row("nearest-match", 2379, "C", 3)],
+      ]),
+      protectedRowIds: new Set<string>(),
+      query: {
+        filters: [{ columnId: "status", op: "equals" as const, value: "Done" }],
+        conjunction: "and" as const,
+      },
+    };
+    const request = buildJumpFetchRequest(args);
+
+    expect(request.anchor).toEqual({
+      anchorOffset: 476,
+      cursor: { rowIndex: 2379, sortValues: [] },
+    });
+    expect(
+      buildJumpFetchRequest({ ...args, allowAnchor: false }).anchor,
+    ).toBeUndefined();
   });
 
   it("does not anchor from optimistic or unsorted rows", () => {

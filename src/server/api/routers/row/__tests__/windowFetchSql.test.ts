@@ -42,4 +42,25 @@ describe("buildWindowFetchSql", () => {
 
     expect(result.params).toEqual(["table-1", 1000, 500]);
   });
+
+  it("keyset-seeks from a validated filtered-row anchor", () => {
+    const result = buildWindowFetchSql({
+      tableId: "table-1",
+      offset: 500,
+      limit: 1000,
+      search: undefined,
+      useTree: undefined,
+      filterTree: undefined,
+      filters: [{ columnId: "status", op: "equals", value: "Done" }],
+      conjunction: "and",
+      sorts: [],
+      anchor: {
+        anchorOffset: 476,
+        cursor: { rowIndex: 2379, sortValues: [] },
+      },
+    });
+
+    expect(result.params).toEqual(["table-1", "Done", 2379, 1000, 24]);
+    expect(result.sql).toContain(`"Row"."rowIndex" > $3`);
+  });
 });

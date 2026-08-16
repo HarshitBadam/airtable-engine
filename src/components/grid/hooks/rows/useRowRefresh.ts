@@ -15,7 +15,11 @@ interface ColumnDef {
 
 interface UseRowRefreshArgs {
   rowQueryInput: RowInfiniteInput;
-  triggerJumpFetch: (idx: number, force?: boolean) => void;
+  triggerJumpFetch: (
+    idx: number,
+    force?: boolean,
+    allowAnchor?: boolean,
+  ) => void;
   reorderJumpCacheRow: (
     rowId: string,
     sorts: { columnId: string; direction: "asc" | "desc" }[],
@@ -31,7 +35,11 @@ interface UseRowRefreshArgs {
 
 export interface UseRowRefreshResult {
   refreshRows: (rowCountDelta?: number) => void;
-  handleCellMembershipChange: (rowId: string, columnId: string, value: string | number | null) => void;
+  handleCellMembershipChange: (
+    rowId: string,
+    columnId: string,
+    value: string | number | null,
+  ) => void;
   handleCellValueChange: (
     rowId: string,
     columnId: string,
@@ -89,9 +97,11 @@ export function useRowRefresh({
       // visible data is refreshed from the server. force=true bypasses the
       // "already cached" guard so stale jump cache entries get overwritten.
       requestAnimationFrame(() => {
-        const approxOffset = Math.floor(scroll.getOffset() / dataRowHeightRef.current);
+        const approxOffset = Math.floor(
+          scroll.getOffset() / dataRowHeightRef.current,
+        );
         if (approxOffset > 0) {
-          triggerJumpFetch(approxOffset, true);
+          triggerJumpFetch(approxOffset, true, false);
         }
       });
     },
@@ -123,7 +133,9 @@ export function useRowRefresh({
     (rowId: string, columnId: string, _value: string | number | null) => {
       const store = gridStoreApi.getState();
       const effectiveSorts =
-        store.autoSort && store.sorts.length > 0 ? store.sorts : store.permanentSorts;
+        store.autoSort && store.sorts.length > 0
+          ? store.sorts
+          : store.permanentSorts;
 
       // Newly-inserted row grace period (Airtable behaviour):
       // Protected rows stay pinned at their insertion point until the user
@@ -149,7 +161,11 @@ export function useRowRefresh({
             }
           };
           collectFilterTreeCols(
-            store.filterTree.items as { kind?: string; columnId?: string; items?: unknown[] }[],
+            store.filterTree.items as {
+              kind?: string;
+              columnId?: string;
+              items?: unknown[];
+            }[],
           );
         }
 
@@ -161,29 +177,44 @@ export function useRowRefresh({
       if (effectiveSorts.length === 0) {
         removeProtectedRowId(rowId);
         void utils.row.infinite.invalidate(rowQueryInput);
+        const approxOffset = Math.floor(
+          scroll.getOffset() / dataRowHeightRef.current,
+        );
+        if (approxOffset > 0) {
+          triggerJumpFetch(approxOffset, true, false);
+        }
         return;
       }
 
       const colTypes = new Map(
         columnsRef.current.map((c) => [c.id, c.type as "TEXT" | "NUMBER"]),
       );
-      const sorts = effectiveSorts.map((s: { columnId: string; direction: "asc" | "desc" }) => ({
-        columnId: s.columnId,
-        direction: s.direction,
-      }));
+      const sorts = effectiveSorts.map(
+        (s: { columnId: string; direction: "asc" | "desc" }) => ({
+          columnId: s.columnId,
+          direction: s.direction,
+        }),
+      );
 
       // Clear this row's optimistic protection — it has been committed on a
       // conditioned column and the reorder will place it at its correct position.
       removeProtectedRowId(rowId);
 
-      const isInInfinitePages = rowsRef.current.some((r) => (r as RowItem).id === rowId);
+      const isInInfinitePages = rowsRef.current.some(
+        (r) => (r as RowItem).id === rowId,
+      );
 
       if (isInInfinitePages) {
         // Tier 1A: Client-side reorder within loaded infinite pages.
         // Instant visual feedback — binary search + splice.
         utils.row.infinite.setInfiniteData(rowQueryInput, (old) => {
           if (!old) return old;
-          const { data: reordered } = reorderRowInCache(old, rowId, sorts, colTypes);
+          const { data: reordered } = reorderRowInCache(
+            old,
+            rowId,
+            sorts,
+            colTypes,
+          );
           return reordered as typeof old;
         });
       }
@@ -206,9 +237,11 @@ export function useRowRefresh({
       // Only re-fetch the jump window from server when the row wasn't
       // successfully repositioned client-side (evicted or not in cache).
       if (jumpResult !== "moved") {
-        const approxOffset = Math.floor(scroll.getOffset() / dataRowHeightRef.current);
+        const approxOffset = Math.floor(
+          scroll.getOffset() / dataRowHeightRef.current,
+        );
         if (approxOffset > 0) {
-          triggerJumpFetch(approxOffset, true);
+          triggerJumpFetch(approxOffset, true, false);
         }
       }
     },
@@ -240,7 +273,8 @@ export function useRowRefresh({
       if (!term) return;
       const oldStr = oldValue != null ? String(oldValue) : "";
       const newStr = newValue != null ? String(newValue) : "";
-      const delta = countOccurrences(newStr, term) - countOccurrences(oldStr, term);
+      const delta =
+        countOccurrences(newStr, term) - countOccurrences(oldStr, term);
       if (delta !== 0) addFindCountDelta(delta);
     },
     [gridStoreApi, addFindCountDelta],

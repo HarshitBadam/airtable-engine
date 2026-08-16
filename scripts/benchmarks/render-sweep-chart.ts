@@ -23,11 +23,41 @@ interface Series {
 }
 
 // label = short tier name (bold, colored); sub = description (gray, line 2).
-const SERIES_META: Record<string, { label: string; sub: string; color: string; dash?: string; order: number }> = {
-  naive_offset: { label: "Naive OFFSET", sub: "the unoptimized baseline", color: "#e5484d", dash: "7 5", order: 2 },
-  tier1_rowindex_seek: { label: "Tier 1", sub: "rowIndex seek", color: "#0090ff", order: 0 },
-  tier2_viewrowrank: { label: "Tier 2", sub: "ViewRowRank lookup", color: "#46a758", order: 1 },
-  tier3_sorted_deferred_join: { label: "Tier 3", sub: "ad-hoc sort, no anchor", color: "#f76b15", order: 3 },
+const SERIES_META: Record<
+  string,
+  { label: string; sub: string; color: string; dash?: string; order: number }
+> = {
+  naive_offset: {
+    label: "Naive OFFSET",
+    sub: "the unoptimized baseline",
+    color: "#e5484d",
+    dash: "7 5",
+    order: 2,
+  },
+  tier1_rowindex_seek: {
+    label: "Tier 1",
+    sub: "rowIndex seek",
+    color: "#0090ff",
+    order: 0,
+  },
+  tier2_viewrowrank: {
+    label: "Tier 2",
+    sub: "ViewRowRank lookup",
+    color: "#46a758",
+    order: 1,
+  },
+  tier3_sorted_deferred_join: {
+    label: "Tier 3",
+    sub: "ad-hoc sort, no anchor",
+    color: "#f76b15",
+    order: 3,
+  },
+  tier3_filtered_anchor: {
+    label: "Tier 3",
+    sub: "filtered, cursor anchor",
+    color: "#8e4ec6",
+    order: 4,
+  },
 };
 
 // --- Parse -----------------------------------------------------------------
@@ -47,7 +77,13 @@ for (const r of rows) {
   if (!meta) continue;
   let s = byPath.get(r.path);
   if (!s) {
-    s = { label: meta.label, sub: meta.sub, color: meta.color, dash: meta.dash, points: [] };
+    s = {
+      label: meta.label,
+      sub: meta.sub,
+      color: meta.color,
+      dash: meta.dash,
+      points: [],
+    };
     byPath.set(r.path, s);
   }
   s.points.push({ offset: r.offset, ms: r.ms });
@@ -134,7 +170,9 @@ function nudge(target: number): number {
 }
 
 for (const s of series) {
-  const pts = s.points.map((p) => `${x(p.offset).toFixed(1)},${y(p.ms).toFixed(1)}`).join(" ");
+  const pts = s.points
+    .map((p) => `${x(p.offset).toFixed(1)},${y(p.ms).toFixed(1)}`)
+    .join(" ");
   const dash = s.dash ? ` stroke-dasharray="${s.dash}"` : "";
   parts.push(
     `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.5"${dash} stroke-linejoin="round" stroke-linecap="round"/>`,
@@ -146,7 +184,10 @@ for (const s of series) {
   }
   const last = s.points[s.points.length - 1]!;
   const blockTop = nudge(y(last.ms) - 8);
-  const lastMs = last.ms >= 1000 ? `${(last.ms / 1000).toFixed(1)} s` : `${last.ms < 1 ? last.ms.toFixed(1) : Math.round(last.ms)} ms`;
+  const lastMs =
+    last.ms >= 1000
+      ? `${(last.ms / 1000).toFixed(1)} s`
+      : `${last.ms < 1 ? last.ms.toFixed(1) : Math.round(last.ms)} ms`;
   const lx = PLOT.right + 12;
   parts.push(
     `<text x="${lx}" y="${blockTop.toFixed(1)}" font-size="13" font-weight="700" fill="${s.color}">${s.label}</text>`,
@@ -158,4 +199,6 @@ for (const s of series) {
 parts.push(`</svg>`);
 
 writeFileSync(SVG_PATH, parts.join("\n") + "\n");
-console.log(`Wrote ${SVG_PATH} (${series.length} series, ${rows.length} data points)`);
+console.log(
+  `Wrote ${SVG_PATH} (${series.length} series, ${rows.length} data points)`,
+);

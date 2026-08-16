@@ -6,7 +6,7 @@ Airtable Engine is an Airtable-style spreadsheet designed to keep tables with mi
 >
 > The bulk-add control is the quickest way to create a large table and try a deep scrollbar jump. See the [product snapshots](docs/screenshots.md#scrollbar-jump).
 
-At one million rows, a deep scrollbar jump brings real rows to the screen in **403 ms median** and **578 ms p95** across 15 production-build runs. The request completes in **95 ms median** and **130 ms p95**. PostgreSQL takes **0.7 ms median** for a plain-table seek and **2.0 ms median** for a saved-rank lookup. An ad-hoc sorted jump takes **51 ms median** with the cursor anchor sent by the grid, versus **1.33 s median** without one. See the [scaling engine](docs/scaling-engine.md) and [full benchmark results](benchmark-results/latency-results.md).
+At one million rows, a deep scrollbar jump brings real rows to the screen in **403 ms median** and **578 ms p95** across 15 production-build runs. The request completes in **95 ms median** and **130 ms p95**. PostgreSQL takes **0.2 ms median** for a plain-table seek and **1.2 ms median** for a saved-rank lookup. Cursor-anchored jumps take **48.9 ms median** for an ad-hoc sort and **76.9 ms median** for a filtered view. See the [scaling engine](docs/scaling-engine.md) and [full benchmark results](benchmark-results/latency-results.md).
 
 ## Run it locally
 

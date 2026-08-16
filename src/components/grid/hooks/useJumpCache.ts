@@ -20,7 +20,11 @@ interface UseJumpCacheResult {
   jumpCacheRef: React.MutableRefObject<Map<number, RowItem>>;
   jumpCacheGenRef: React.MutableRefObject<number>;
   protectedRowIdsRef: React.MutableRefObject<Set<string>>;
-  triggerJumpFetch: (offset: number, force?: boolean) => void;
+  triggerJumpFetch: (
+    offset: number,
+    force?: boolean,
+    allowAnchor?: boolean,
+  ) => void;
   clearJumpCache: () => void;
   getRowAtIndex: (absoluteIndex: number) => RowItem | null;
   getRowById: (rowId: string) => RowItem | null;

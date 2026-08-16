@@ -129,11 +129,15 @@ async function bench(label: string, queries: Query[]): Promise<Stat> {
     samples.push(total);
   }
   const s = stats(samples);
-  console.log(`    ${label.padEnd(46)} median ${fmtMs(s.median).padStart(9)}   p95 ${fmtMs(s.p95).padStart(9)}`);
+  console.log(
+    `    ${label.padEnd(46)} median ${fmtMs(s.median).padStart(9)}   p95 ${fmtMs(s.p95).padStart(9)}`,
+  );
   return s;
 }
 
-async function wallClock<T>(fn: () => Promise<T>): Promise<{ ms: number; result: T }> {
+async function wallClock<T>(
+  fn: () => Promise<T>,
+): Promise<{ ms: number; result: T }> {
   const t0 = performance.now();
   const result = await fn();
   return { ms: performance.now() - t0, result };
@@ -144,28 +148,80 @@ async function wallClock<T>(fn: () => Promise<T>): Promise<{ ms: number; result:
 // ---------------------------------------------------------------------------
 
 const FIRST_NAMES = [
-  "Garnet", "Valentine", "Moses", "Lavinia", "Carley", "Anderson", "Sammie",
-  "Lea", "Melissa", "Akeem", "Waino", "Riley", "Coy", "Cheyenne", "Christelle",
-  "Elliott", "Judson", "Hollie", "Einar", "Leopoldo", "Brody", "Eladio",
-  "Frederic", "Jacky", "Ozella", "Cody", "Jordane", "Larry", "Alyce",
+  "Garnet",
+  "Valentine",
+  "Moses",
+  "Lavinia",
+  "Carley",
+  "Anderson",
+  "Sammie",
+  "Lea",
+  "Melissa",
+  "Akeem",
+  "Waino",
+  "Riley",
+  "Coy",
+  "Cheyenne",
+  "Christelle",
+  "Elliott",
+  "Judson",
+  "Hollie",
+  "Einar",
+  "Leopoldo",
+  "Brody",
+  "Eladio",
+  "Frederic",
+  "Jacky",
+  "Ozella",
+  "Cody",
+  "Jordane",
+  "Larry",
+  "Alyce",
 ]; // 29 (prime)
 
 const LAST_NAMES = [
-  "Lang", "Franey", "Roob", "Blick", "Crooks", "Schowalter", "Swaniawski",
-  "Dibbert", "Lindgren", "Tremblay", "Brown", "Keebler", "Stoltenberg",
-  "Langosh", "Fadel", "Hauck", "Hand", "Prosacco", "Witting", "Graham",
-  "Monahan", "Bechtelar", "Upton",
+  "Lang",
+  "Franey",
+  "Roob",
+  "Blick",
+  "Crooks",
+  "Schowalter",
+  "Swaniawski",
+  "Dibbert",
+  "Lindgren",
+  "Tremblay",
+  "Brown",
+  "Keebler",
+  "Stoltenberg",
+  "Langosh",
+  "Fadel",
+  "Hauck",
+  "Hand",
+  "Prosacco",
+  "Witting",
+  "Graham",
+  "Monahan",
+  "Bechtelar",
+  "Upton",
 ]; // 23 (prime)
 
 const PHRASES = [
-  "Decentralized demand-driven knowledge base", "Reactive national database",
-  "User-friendly real-time knowledge user", "Polarised heuristic core",
-  "Grass-roots regional access", "Cross-platform analyzing algorithm",
-  "Sustainable optimal infrastructure", "Compatible immersive infrastructure",
-  "Digitized high-level functionalities", "Polarised modular alliance",
-  "Immersive mobile instruction set", "Sustainable national capability",
-  "Business-focused motivating adapter", "Persistent value-added network",
-  "Implemented motivating hub", "Organic value-added framework",
+  "Decentralized demand-driven knowledge base",
+  "Reactive national database",
+  "User-friendly real-time knowledge user",
+  "Polarised heuristic core",
+  "Grass-roots regional access",
+  "Cross-platform analyzing algorithm",
+  "Sustainable optimal infrastructure",
+  "Compatible immersive infrastructure",
+  "Digitized high-level functionalities",
+  "Polarised modular alliance",
+  "Immersive mobile instruction set",
+  "Sustainable national capability",
+  "Business-focused motivating adapter",
+  "Persistent value-added network",
+  "Implemented motivating hub",
+  "Organic value-added framework",
   "Seamless executive task-force",
 ]; // 17 (prime)
 
@@ -187,7 +243,10 @@ interface Col {
   type: "TEXT" | "NUMBER";
 }
 
-async function createBenchTable(userId: string, label: string): Promise<BenchTable> {
+async function createBenchTable(
+  userId: string,
+  label: string,
+): Promise<BenchTable> {
   const base = await prisma.base.create({
     data: {
       name: `Latency Bench ${label}`,
@@ -228,10 +287,17 @@ async function createBenchTable(userId: string, label: string): Promise<BenchTab
       tableId: table.id,
       name: "Grid view",
       config: {
-        search: "", filters: [], filterConjunction: "and", sorts: [],
-        permanentSorts: [], autoSort: true, hiddenColumnIds: [],
-        columnOrderIds: table.columns.map((c) => c.id), rowOrderIds: [],
-        rowHeightPreset: "short", wrapHeaders: false,
+        search: "",
+        filters: [],
+        filterConjunction: "and",
+        sorts: [],
+        permanentSorts: [],
+        autoSort: true,
+        hiddenColumnIds: [],
+        columnOrderIds: table.columns.map((c) => c.id),
+        rowOrderIds: [],
+        rowHeightPreset: "short",
+        wrapHeaders: false,
       },
     },
   });
@@ -240,7 +306,11 @@ async function createBenchTable(userId: string, label: string): Promise<BenchTab
 }
 
 /** Same INSERT shape as addMany: generate_series, jsonb_build_object, searchText. */
-async function insertRows(t: BenchTable, startIndex: number, count: number): Promise<void> {
+async function insertRows(
+  t: BenchTable,
+  startIndex: number,
+  count: number,
+): Promise<void> {
   for (let offset = 0; offset < count; offset += INSERT_BATCH) {
     const batchCount = Math.min(INSERT_BATCH, count - offset);
     const batchStart = startIndex + offset;
@@ -251,12 +321,18 @@ async function insertRows(t: BenchTable, startIndex: number, count: number): Pro
     const statusExpr = sqlArrayPick(STATUSES, idx);
     const amountExpr = idx;
 
-    const cellsExpr = `jsonb_build_object(` +
+    const cellsExpr =
+      `jsonb_build_object(` +
       `'${escapeLiteral(t.cols.name.id)}', ${nameExpr}, ` +
       `'${escapeLiteral(t.cols.notes.id)}', ${notesExpr}, ` +
       `'${escapeLiteral(t.cols.status.id)}', ${statusExpr}, ` +
       `'${escapeLiteral(t.cols.amount.id)}', ${amountExpr})`;
-    const searchExpr = [nameExpr, notesExpr, statusExpr, `${amountExpr}::text`].join(` || chr(31) || `);
+    const searchExpr = [
+      nameExpr,
+      notesExpr,
+      statusExpr,
+      `${amountExpr}::text`,
+    ].join(` || chr(31) || `);
 
     await prisma.$executeRawUnsafe(`
       INSERT INTO "Row" ("tableId", "rowIndex", "cells", "searchText", "createdAt", "updatedAt")
@@ -268,11 +344,13 @@ async function insertRows(t: BenchTable, startIndex: number, count: number): Pro
 
 async function syncCounters(tableId: string): Promise<number> {
   const rows = await prisma.$queryRawUnsafe<{ cnt: number }[]>(
-    `SELECT COUNT(*)::int AS cnt FROM "Row" WHERE "tableId" = $1`, tableId,
+    `SELECT COUNT(*)::int AS cnt FROM "Row" WHERE "tableId" = $1`,
+    tableId,
   );
   const cnt = rows[0]?.cnt ?? 0;
   const maxRows = await prisma.$queryRawUnsafe<{ mx: number | null }[]>(
-    `SELECT MAX("rowIndex")::float8 AS mx FROM "Row" WHERE "tableId" = $1`, tableId,
+    `SELECT MAX("rowIndex")::float8 AS mx FROM "Row" WHERE "tableId" = $1`,
+    tableId,
   );
   const mx = maxRows[0]?.mx ?? null;
   await prisma.table.update({
@@ -303,27 +381,34 @@ async function createSortIndex(tableId: string, colId: string): Promise<void> {
 /** Same as computeViewRanks (sortProcedures.ts), sorted by Name ASC. */
 async function computeRanks(t: BenchTable): Promise<void> {
   const v = escapeLiteral(t.viewId);
-  await prisma.$executeRawUnsafe(`DELETE FROM "ViewRowRank" WHERE "viewId" = '${v}'`);
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM "ViewRowRank" WHERE "viewId" = '${v}'`,
+  );
   await prisma.$executeRawUnsafe(`
     INSERT INTO "ViewRowRank" ("viewId", "rank", "rowId")
     SELECT '${v}', ROW_NUMBER() OVER (ORDER BY ${sortExpr(t.cols.name.id, "r")} ASC NULLS FIRST, r."rowIndex" ASC)::int, r."id"
     FROM "Row" r WHERE r."tableId" = '${escapeLiteral(t.tableId)}'
   `);
-  await prisma.view.update({ where: { id: t.viewId }, data: { ranksStale: false } });
+  await prisma.view.update({
+    where: { id: t.viewId },
+    data: { ranksStale: false },
+  });
 }
 
 // --- Read-path query builders (each returns the constituent queries) -------
 
 /** infinite, no sort/filter (infiniteProcedure.ts Tier-less fast path). */
 function qScrollPage(t: BenchTable, cursorRowIndex: number): Query[] {
-  return [{
-    sql: `SELECT "Row"."id", "Row"."rowIndex", "Row"."cells", "Row"."createdAt", "Row"."updatedAt"
+  return [
+    {
+      sql: `SELECT "Row"."id", "Row"."rowIndex", "Row"."cells", "Row"."createdAt", "Row"."updatedAt"
           FROM "Row"
           WHERE "Row"."tableId" = $1 AND "Row"."rowIndex" > $2
           ORDER BY "Row"."rowIndex" ASC
           LIMIT $3`,
-    params: [t.tableId, cursorRowIndex, PAGE_LIMIT + 1],
-  }];
+      params: [t.tableId, cursorRowIndex, PAGE_LIMIT + 1],
+    },
+  ];
 }
 
 /** windowFetch Tier 1: MIN/MAX edge lookups + interpolated seek. */
@@ -369,8 +454,9 @@ function qTier2(t: BenchTable, offset: number): Query[] {
 function qTier3Sorted(t: BenchTable, offset: number): Query[] {
   const e = sortExpr(t.cols.name.id);
   const er = sortExpr(t.cols.name.id, "r");
-  return [{
-    sql: `SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
+  return [
+    {
+      sql: `SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
           FROM (
             SELECT "Row"."id" FROM "Row"
             WHERE "Row"."tableId" = $1
@@ -379,20 +465,23 @@ function qTier3Sorted(t: BenchTable, offset: number): Query[] {
           ) sub
           JOIN "Row" r ON r."id" = sub."id"
           ORDER BY ${er} ASC NULLS FIRST, r."rowIndex" ASC`,
-    params: [t.tableId, PAGE_LIMIT, offset],
-  }];
+      params: [t.tableId, PAGE_LIMIT, offset],
+    },
+  ];
 }
 
 /** Tier 3 sorted with a cursor anchor (buildMultiSortCursorSql, single ASC sort). */
 function qTier3SortedAnchored(
-  t: BenchTable, offset: number,
+  t: BenchTable,
+  offset: number,
   anchor: { offset: number; sortValue: string; rowIndex: number },
 ): Query[] {
   const e = sortExpr(t.cols.name.id);
   const er = sortExpr(t.cols.name.id, "r");
   const effectiveOffset = offset - anchor.offset;
-  return [{
-    sql: `SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
+  return [
+    {
+      sql: `SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
           FROM (
             SELECT "Row"."id" FROM "Row"
             WHERE "Row"."tableId" = $1
@@ -403,18 +492,25 @@ function qTier3SortedAnchored(
           ) sub
           JOIN "Row" r ON r."id" = sub."id"
           ORDER BY ${er} ASC NULLS FIRST, r."rowIndex" ASC`,
-    params: [
-      t.tableId, anchor.sortValue, anchor.sortValue, anchor.sortValue,
-      anchor.rowIndex, PAGE_LIMIT, effectiveOffset,
-    ],
-  }];
+      params: [
+        t.tableId,
+        anchor.sortValue,
+        anchor.sortValue,
+        anchor.sortValue,
+        anchor.rowIndex,
+        PAGE_LIMIT,
+        effectiveOffset,
+      ],
+    },
+  ];
 }
 
 /** windowFetch Tier 3, equals filter on Status, rowIndex order, deferred join. */
 function qTier3Filtered(t: BenchTable, offset: number): Query[] {
   const e = sortExpr(t.cols.status.id);
-  return [{
-    sql: `SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
+  return [
+    {
+      sql: `SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
           FROM (
             SELECT "Row"."id" FROM "Row"
             WHERE "Row"."tableId" = $1 AND (${e} = $2)
@@ -423,59 +519,105 @@ function qTier3Filtered(t: BenchTable, offset: number): Query[] {
           ) sub
           JOIN "Row" r ON r."id" = sub."id"
           ORDER BY r."rowIndex" ASC`,
-    params: [t.tableId, "Done", PAGE_LIMIT, offset],
-  }];
+      params: [t.tableId, "Done", PAGE_LIMIT, offset],
+    },
+  ];
+}
+
+function qTier3FilteredAnchored(
+  t: BenchTable,
+  offset: number,
+  anchor: { offset: number; rowIndex: number },
+): Query[] {
+  const expression = sortExpr(t.cols.status.id);
+  return [
+    {
+      sql: `SELECT r."id", r."rowIndex", r."cells", r."createdAt", r."updatedAt"
+            FROM (
+              SELECT "Row"."id" FROM "Row"
+              WHERE "Row"."tableId" = $1
+                AND (${expression} = $2)
+                AND "Row"."rowIndex" > $3
+              ORDER BY "Row"."rowIndex" ASC
+              LIMIT $4 OFFSET $5
+            ) sub
+            JOIN "Row" r ON r."id" = sub."id"
+            ORDER BY r."rowIndex" ASC`,
+      params: [
+        t.tableId,
+        "Done",
+        anchor.rowIndex,
+        PAGE_LIMIT,
+        offset - anchor.offset,
+      ],
+    },
+  ];
 }
 
 /** Search first page (searchText ILIKE, rowIndex order — buildBaseWhere). */
 function qSearch(t: BenchTable, term: string): Query[] {
-  return [{
-    sql: `SELECT "Row"."id", "Row"."rowIndex", "Row"."cells", "Row"."createdAt", "Row"."updatedAt"
+  return [
+    {
+      sql: `SELECT "Row"."id", "Row"."rowIndex", "Row"."cells", "Row"."createdAt", "Row"."updatedAt"
           FROM "Row"
           WHERE "Row"."tableId" = $1 AND "Row"."searchText" ILIKE $2 ESCAPE '\\' AND "Row"."rowIndex" > $3
           ORDER BY "Row"."rowIndex" ASC
           LIMIT $4`,
-    params: [t.tableId, `%${term}%`, 0, PAGE_LIMIT + 1],
-  }];
+      params: [t.tableId, `%${term}%`, 0, PAGE_LIMIT + 1],
+    },
+  ];
 }
 
 /** The naive baseline every tier replaces. */
 function qNaiveOffset(t: BenchTable, offset: number): Query[] {
-  return [{
-    sql: `SELECT ${ROW_SELECT} FROM "Row"
+  return [
+    {
+      sql: `SELECT ${ROW_SELECT} FROM "Row"
           WHERE "tableId" = $1 ORDER BY "rowIndex" ASC
           LIMIT $2 OFFSET $3`,
-    params: [t.tableId, PAGE_LIMIT, offset],
-  }];
+      params: [t.tableId, PAGE_LIMIT, offset],
+    },
+  ];
 }
 
 // --- Write-path mirrors -----------------------------------------------------
 
 /** duplicateAt (rowMutations.ts): neighbour lookup + midpoint insert + counter. */
-async function duplicateOneRow(t: BenchTable, midRowIndex: number): Promise<number> {
+async function duplicateOneRow(
+  t: BenchTable,
+  midRowIndex: number,
+): Promise<number> {
   const { ms } = await wallClock(async () => {
-    const src = await prisma.$queryRawUnsafe<{ id: string; rowIndex: number; cells: unknown; searchText: string }[]>(
+    const src = await prisma.$queryRawUnsafe<
+      { id: string; rowIndex: number; cells: unknown; searchText: string }[]
+    >(
       `SELECT "id", "rowIndex", "cells", "searchText" FROM "Row"
        WHERE "tableId" = $1 AND "rowIndex" >= $2 ORDER BY "rowIndex" ASC LIMIT 1`,
-      t.tableId, midRowIndex,
+      t.tableId,
+      midRowIndex,
     );
     const source = src[0]!;
     await prisma.$transaction(async (tx) => {
       const nextRes = await tx.$queryRawUnsafe<{ nxt: number | null }[]>(
         `SELECT MIN("rowIndex")::float8 AS nxt FROM "Row" WHERE "tableId" = $1 AND "rowIndex" > $2`,
-        t.tableId, source.rowIndex,
+        t.tableId,
+        source.rowIndex,
       );
       const nxt = nextRes[0]?.nxt;
-      const insertIndex = nxt != null ? (source.rowIndex + nxt) / 2 : source.rowIndex + 1;
+      const insertIndex =
+        nxt != null ? (source.rowIndex + nxt) / 2 : source.rowIndex + 1;
       await tx.row.create({
         data: {
-          tableId: t.tableId, rowIndex: insertIndex,
-          cells: (source.cells ?? {}) as object, searchText: source.searchText ?? "",
+          tableId: t.tableId,
+          rowIndex: insertIndex,
+          cells: (source.cells ?? {}) as object,
+          searchText: source.searchText ?? "",
         },
       });
       await tx.$executeRawUnsafe(
         `UPDATE "Table" SET "rowCount" = "rowCount" + 1, "nextRowIndex" = GREATEST("nextRowIndex", $1) WHERE "id" = $2`,
-        Math.ceil(insertIndex) + 1, t.tableId,
+        Math.ceil(insertIndex) + 1,
+        t.tableId,
       );
     });
   });
@@ -486,8 +628,11 @@ async function duplicateOneRow(t: BenchTable, midRowIndex: number): Promise<numb
 async function duplicateField(t: BenchTable): Promise<number> {
   const newCol = await prisma.column.create({
     data: {
-      tableId: t.tableId, name: "Name copy", type: "TEXT",
-      order: 90 + Math.floor(Math.random() * 1000), sourceColumnId: t.cols.name.id,
+      tableId: t.tableId,
+      name: "Name copy",
+      type: "TEXT",
+      order: 90 + Math.floor(Math.random() * 1000),
+      sourceColumnId: t.cols.name.id,
     },
   });
   const tId = escapeLiteral(t.tableId);
@@ -508,7 +653,10 @@ async function duplicateField(t: BenchTable): Promise<number> {
       if (affected === 0) break;
       batchStart += BACKFILL_BATCH;
     }
-    await prisma.column.update({ where: { id: newCol.id }, data: { sourceColumnId: null } });
+    await prisma.column.update({
+      where: { id: newCol.id },
+      data: { sourceColumnId: null },
+    });
   });
   return ms;
 }
@@ -530,7 +678,7 @@ const READ_LABELS: Record<string, string> = {
   tier2: "Jump into a saved sorted view (Tier 2)",
   tier3Sorted: "Jump, ad-hoc sort, no anchor (Tier 3)",
   tier3Anchored: "Jump, ad-hoc sort, cursor anchor (Tier 3)",
-  tier3Filtered: "Jump into a filtered view (Tier 3)",
+  tier3Filtered: "Jump into a filtered view (Tier 3, cursor anchor)",
   search: "Search, first page of matches",
   naiveOffset: "Naive OFFSET to middle (baseline)",
 };
@@ -551,9 +699,15 @@ const ONETIME_LABELS: Record<string, string> = {
 // Per-size run
 // ---------------------------------------------------------------------------
 
-async function runSize(userId: string, size: number, isLargest: boolean): Promise<{ results: SizeResults; sweepCsv: string | null }> {
+async function runSize(
+  userId: string,
+  size: number,
+  isLargest: boolean,
+): Promise<{ results: SizeResults; sweepCsv: string | null }> {
   const label = size >= 1_000_000 ? `${size / 1_000_000}M` : `${size / 1000}K`;
-  console.log(`\n${"=".repeat(72)}\n  TABLE SIZE: ${size.toLocaleString()} rows\n${"=".repeat(72)}`);
+  console.log(
+    `\n${"=".repeat(72)}\n  TABLE SIZE: ${size.toLocaleString()} rows\n${"=".repeat(72)}`,
+  );
 
   const t = await createBenchTable(userId, label);
   const results: SizeResults = { size, reads: {}, writes: {}, oneTime: {} };
@@ -564,7 +718,9 @@ async function runSize(userId: string, size: number, isLargest: boolean): Promis
     process.stdout.write(`  Seeding ${size.toLocaleString()} rows ... `);
     const seed = await wallClock(() => insertRows(t, 1, size));
     results.oneTime.seed = seed.ms;
-    console.log(`${fmtMs(seed.ms)} (${Math.round(size / (seed.ms / 1000)).toLocaleString()} rows/s)`);
+    console.log(
+      `${fmtMs(seed.ms)} (${Math.round(size / (seed.ms / 1000)).toLocaleString()} rows/s)`,
+    );
     const rowCount = await syncCounters(t.tableId);
     await prisma.$executeRawUnsafe(`ANALYZE "Row"`);
     await prisma.$executeRawUnsafe(`ANALYZE "ViewRowRank"`);
@@ -583,24 +739,41 @@ async function runSize(userId: string, size: number, isLargest: boolean): Promis
     await prisma.$executeRawUnsafe(`ANALYZE "ViewRowRank"`);
 
     // -- Reads ------------------------------------------------------------------
-    console.log(`\n  Read latency (server-side execution time, ${RUNS} runs after ${WARMUPS} warmups):`);
+    console.log(
+      `\n  Read latency (server-side execution time, ${RUNS} runs after ${WARMUPS} warmups):`,
+    );
     const mid = Math.floor(rowCount / 2);
 
-    results.reads.scrollPage = await bench(READ_LABELS.scrollPage!, qScrollPage(t, mid));
-    results.reads.tier1 = await bench(READ_LABELS.tier1!, qTier1(t, mid, rowCount));
+    results.reads.scrollPage = await bench(
+      READ_LABELS.scrollPage!,
+      qScrollPage(t, mid),
+    );
+    results.reads.tier1 = await bench(
+      READ_LABELS.tier1!,
+      qTier1(t, mid, rowCount),
+    );
     results.reads.tier2 = await bench(READ_LABELS.tier2!, qTier2(t, mid));
-    results.reads.tier3Sorted = await bench(READ_LABELS.tier3Sorted!, qTier3Sorted(t, mid));
+    results.reads.tier3Sorted = await bench(
+      READ_LABELS.tier3Sorted!,
+      qTier3Sorted(t, mid),
+    );
 
     // Anchor 20K rows before the target (or halfway for small tables) — fetch
     // the anchor row's sort value once, exactly like the client's cursor cache.
-    const anchorOffset = Math.max(0, mid - Math.min(20_000, Math.floor(mid / 2)));
-    const anchorRow = await prisma.$queryRawUnsafe<{ id: string; rowIndex: number; cells: Record<string, unknown> }[]>(
+    const anchorOffset = Math.max(
+      0,
+      mid - Math.min(20_000, Math.floor(mid / 2)),
+    );
+    const anchorRow = await prisma.$queryRawUnsafe<
+      { id: string; rowIndex: number; cells: Record<string, unknown> }[]
+    >(
       `SELECT r."id", r."rowIndex", r."cells" FROM (
          SELECT "Row"."id" FROM "Row" WHERE "Row"."tableId" = $1
          ORDER BY ${sortExpr(t.cols.name.id)} ASC NULLS FIRST, "Row"."rowIndex" ASC
          LIMIT 1 OFFSET $2
        ) sub JOIN "Row" r ON r."id" = sub."id"`,
-      t.tableId, Math.max(0, anchorOffset - 1),
+      t.tableId,
+      Math.max(0, anchorOffset - 1),
     );
     const a = anchorRow[0]!;
     const anchor = {
@@ -613,15 +786,55 @@ async function runSize(userId: string, size: number, isLargest: boolean): Promis
       qTier3SortedAnchored(t, mid, anchor),
     );
 
-    const filteredMid = Math.floor(rowCount / 5 / 2); // 'Done' ≈ 20% of rows
-    results.reads.tier3Filtered = await bench(READ_LABELS.tier3Filtered!, qTier3Filtered(t, filteredMid));
-    results.reads.search = await bench(READ_LABELS.search!, qSearch(t, "Garnet"));
-    results.reads.naiveOffset = await bench(READ_LABELS.naiveOffset!, qNaiveOffset(t, mid));
+    const filteredMid = Math.floor(rowCount / 5 / 2);
+    const filteredAnchorOffset = Math.max(
+      0,
+      filteredMid - Math.min(20_000, Math.floor(filteredMid / 2)),
+    );
+    const [filteredAnchorRow] = await prisma.$queryRawUnsafe<
+      { rowIndex: number }[]
+    >(
+      `SELECT "Row"."rowIndex"
+       FROM "Row"
+       WHERE "Row"."tableId" = $1
+         AND ${sortExpr(t.cols.status.id)} = $2
+       ORDER BY "Row"."rowIndex" ASC
+       LIMIT 1 OFFSET $3`,
+      t.tableId,
+      "Done",
+      Math.max(0, filteredAnchorOffset - 1),
+    );
+    const filteredAnchor = {
+      offset: filteredAnchorOffset,
+      rowIndex: filteredAnchorRow!.rowIndex,
+    };
+    results.reads.tier3Filtered = await bench(
+      `${READ_LABELS.tier3Filtered!} (Δ=${(filteredMid - filteredAnchorOffset).toLocaleString()})`,
+      qTier3FilteredAnchored(t, filteredMid, filteredAnchor),
+    );
+    results.reads.search = await bench(
+      READ_LABELS.search!,
+      qSearch(t, "Garnet"),
+    );
+    results.reads.naiveOffset = await bench(
+      READ_LABELS.naiveOffset!,
+      qNaiveOffset(t, mid),
+    );
 
     // -- Offset sweep (largest size only) ----------------------------------------
     if (isLargest && rowCount >= 100_000) {
       console.log(`\n  Offset sweep (median of 5 runs per point):`);
-      const offsets = [0, 1_000, 10_000, 50_000, 100_000, 250_000, 500_000, 750_000, rowCount - PAGE_LIMIT]
+      const offsets = [
+        0,
+        1_000,
+        10_000,
+        50_000,
+        100_000,
+        250_000,
+        500_000,
+        750_000,
+        rowCount - PAGE_LIMIT,
+      ]
         .filter((o) => o >= 0 && o <= rowCount - 1)
         .filter((o, i, arr) => arr.indexOf(o) === i);
       const paths: [string, (o: number) => Query[]][] = [
@@ -631,23 +844,72 @@ async function runSize(userId: string, size: number, isLargest: boolean): Promis
         ["tier3_sorted_deferred_join", (o) => qTier3Sorted(t, o)],
       ];
       const lines = ["offset,path,median_ms"];
+      const measureSweepQueries = async (queries: Query[]) => {
+        for (const query of queries) {
+          await prisma.$queryRawUnsafe(query.sql, ...query.params);
+        }
+        const samples: number[] = [];
+        for (let run = 0; run < 5; run++) {
+          let total = 0;
+          for (const query of queries) total += await explainMs(query);
+          samples.push(total);
+        }
+        return stats(samples).median;
+      };
       for (const [name, build] of paths) {
         const medians: string[] = [];
         for (const o of offsets) {
-          const queries = build(o);
-          for (const q of queries) await prisma.$queryRawUnsafe(q.sql, ...q.params); // warmup
-          const samples: number[] = [];
-          for (let r = 0; r < 5; r++) {
-            let total = 0;
-            for (const q of queries) total += await explainMs(q);
-            samples.push(total);
-          }
-          const med = stats(samples).median;
+          const med = await measureSweepQueries(build(o));
           lines.push(`${o},${name},${med.toFixed(2)}`);
           medians.push(`${o / 1000}K=${fmtMs(med)}`);
         }
         console.log(`    ${name.padEnd(28)} ${medians.join("  ")}`);
       }
+
+      const filteredCount = Math.floor(rowCount / 5);
+      const filteredOffsets = [
+        0,
+        1_000,
+        10_000,
+        50_000,
+        100_000,
+        filteredCount - PAGE_LIMIT,
+      ]
+        .filter((offset) => offset >= 0 && offset < filteredCount)
+        .filter((offset, index, all) => all.indexOf(offset) === index);
+      const filteredMedians: string[] = [];
+      for (const offset of filteredOffsets) {
+        let queries = qTier3Filtered(t, offset);
+        if (offset > 0) {
+          const anchorOffset = Math.max(
+            0,
+            offset - Math.min(20_000, Math.floor(offset / 2)),
+          );
+          const [anchorRow] = await prisma.$queryRawUnsafe<
+            { rowIndex: number }[]
+          >(
+            `SELECT "Row"."rowIndex"
+             FROM "Row"
+             WHERE "Row"."tableId" = $1
+               AND ${sortExpr(t.cols.status.id)} = $2
+             ORDER BY "Row"."rowIndex" ASC
+             LIMIT 1 OFFSET $3`,
+            t.tableId,
+            "Done",
+            Math.max(0, anchorOffset - 1),
+          );
+          queries = qTier3FilteredAnchored(t, offset, {
+            offset: anchorOffset,
+            rowIndex: anchorRow!.rowIndex,
+          });
+        }
+        const median = await measureSweepQueries(queries);
+        lines.push(`${offset},tier3_filtered_anchor,${median.toFixed(2)}`);
+        filteredMedians.push(`${offset / 1000}K=${fmtMs(median)}`);
+      }
+      console.log(
+        `    ${"tier3_filtered_anchor".padEnd(28)} ${filteredMedians.join("  ")}`,
+      );
       sweepCsv = lines.join("\n") + "\n";
     }
 
@@ -660,17 +922,24 @@ async function runSize(userId: string, size: number, isLargest: boolean): Promis
     }
     const dupStat = stats(dupSamples);
     results.writes.duplicateRow = dupStat.median;
-    console.log(`    ${WRITE_LABELS.duplicateRow!.padEnd(46)} median ${fmtMs(dupStat.median).padStart(9)}   p95 ${fmtMs(dupStat.p95).padStart(9)}`);
+    console.log(
+      `    ${WRITE_LABELS.duplicateRow!.padEnd(46)} median ${fmtMs(dupStat.median).padStart(9)}   p95 ${fmtMs(dupStat.p95).padStart(9)}`,
+    );
 
     const backfill = await wallClock(() => duplicateField(t));
     results.writes.duplicateField = backfill.ms;
-    console.log(`    ${WRITE_LABELS.duplicateField!.padEnd(46)} ${fmtMs(backfill.ms).padStart(9)}`);
+    console.log(
+      `    ${WRITE_LABELS.duplicateField!.padEnd(46)} ${fmtMs(backfill.ms).padStart(9)}`,
+    );
 
     const nriRows = await prisma.$queryRawUnsafe<{ nri: number }[]>(
-      `SELECT "nextRowIndex"::float8 AS nri FROM "Table" WHERE "id" = $1`, t.tableId,
+      `SELECT "nextRowIndex"::float8 AS nri FROM "Table" WHERE "id" = $1`,
+      t.tableId,
     );
     const nri = nriRows[0]?.nri ?? 0;
-    const bulk = await wallClock(() => insertRows(t, Math.ceil(nri), BULK_INSERT_COUNT));
+    const bulk = await wallClock(() =>
+      insertRows(t, Math.ceil(nri), BULK_INSERT_COUNT),
+    );
     results.writes.bulkInsert200k = bulk.ms;
     console.log(
       `    ${WRITE_LABELS.bulkInsert200k!.padEnd(46)} ${fmtMs(bulk.ms).padStart(9)}   (${Math.round(BULK_INSERT_COUNT / (bulk.ms / 1000)).toLocaleString()} rows/s)`,
@@ -744,15 +1013,21 @@ function buildMarkdown(all: SizeResults[], pgVersion: string): string {
     ``,
     `### Reads`,
     ``,
-    header, sep, ...readRows,
+    header,
+    sep,
+    ...readRows,
     ``,
     `### Writes`,
     ``,
-    header, sep, ...writeRows,
+    header,
+    sep,
+    ...writeRows,
     ``,
     `### One-time costs`,
     ``,
-    header, sep, ...oneTimeRows,
+    header,
+    sep,
+    ...oneTimeRows,
     ``,
     `_Measured on ${cpu}, ${ram} GB RAM · ${pgVersion} · generated ${new Date().toISOString().slice(0, 10)} via \`npx tsx scripts/benchmarks/latency-benchmark.ts\`._`,
     ``,
@@ -764,25 +1039,42 @@ function buildMarkdown(all: SizeResults[], pgVersion: string): string {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  console.log("\n╔══════════════════════════════════════════════════════════════════╗");
-  console.log("║        LYRA AIRTABLE — SERVER-SIDE QUERY LATENCY BENCHMARK        ║");
-  console.log("╚══════════════════════════════════════════════════════════════════╝");
+  console.log(
+    "\n╔══════════════════════════════════════════════════════════════════╗",
+  );
+  console.log(
+    "║        LYRA AIRTABLE — SERVER-SIDE QUERY LATENCY BENCHMARK        ║",
+  );
+  console.log(
+    "╚══════════════════════════════════════════════════════════════════╝",
+  );
 
-  const verRows = await prisma.$queryRawUnsafe<{ version: string }[]>(`SELECT version()`);
+  const verRows =
+    await prisma.$queryRawUnsafe<{ version: string }[]>(`SELECT version()`);
   const version = verRows[0]?.version ?? "unknown";
   const pgVersion = /PostgreSQL [\d.]+/.exec(version)?.[0] ?? version;
   console.log(`  ${pgVersion}`);
-  console.log(`  Sizes: ${SIZES.map((s) => s.toLocaleString()).join(", ")} · Runs/op: ${RUNS} · Warmups: ${WARMUPS}`);
+  console.log(
+    `  Sizes: ${SIZES.map((s) => s.toLocaleString()).join(", ")} · Runs/op: ${RUNS} · Warmups: ${WARMUPS}`,
+  );
 
-  let user = await prisma.user.findFirst({ where: { email: "stress-test@lyra.local" } });
-  user ??= await prisma.user.create({ data: { email: "stress-test@lyra.local", name: "Bench User" } });
+  let user = await prisma.user.findFirst({
+    where: { email: "stress-test@lyra.local" },
+  });
+  user ??= await prisma.user.create({
+    data: { email: "stress-test@lyra.local", name: "Bench User" },
+  });
 
   const all: SizeResults[] = [];
   let sweepCsv: string | null = null;
   const largest = Math.max(...SIZES);
 
   for (const size of SIZES) {
-    const { results, sweepCsv: csv } = await runSize(user.id, size, size === largest);
+    const { results, sweepCsv: csv } = await runSize(
+      user.id,
+      size,
+      size === largest,
+    );
     all.push(results);
     if (csv) sweepCsv = csv;
   }
@@ -792,9 +1084,13 @@ async function main() {
   writeFileSync("benchmark-results/latency-results.md", md);
   if (sweepCsv) writeFileSync("benchmark-results/offset-sweep.csv", sweepCsv);
 
-  console.log(`\n${"=".repeat(72)}\n  RESULTS (paste-ready markdown)\n${"=".repeat(72)}\n`);
+  console.log(
+    `\n${"=".repeat(72)}\n  RESULTS (paste-ready markdown)\n${"=".repeat(72)}\n`,
+  );
   console.log(md);
-  console.log(`  Written to benchmark-results/latency-results.md${sweepCsv ? " and offset-sweep.csv" : ""}\n`);
+  console.log(
+    `  Written to benchmark-results/latency-results.md${sweepCsv ? " and offset-sweep.csv" : ""}\n`,
+  );
 
   await prisma.$disconnect();
 }
