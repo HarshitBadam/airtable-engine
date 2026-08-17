@@ -4,6 +4,7 @@ import { type Metadata } from "next";
 import { Geist, Inter } from "next/font/google";
 import { Toaster } from "sonner";
 
+import { StorageLimitModal } from "~/components/system/StorageLimitModal";
 import { TRPCReactProvider } from "~/trpc/react";
 import { Providers } from "./providers";
 
@@ -37,6 +38,7 @@ export default function RootLayout({
         <TRPCReactProvider>
           <Providers>{children}</Providers>
         </TRPCReactProvider>
+        <StorageLimitModal />
         <Toaster position="bottom-right" richColors />
       </body>
     </html>

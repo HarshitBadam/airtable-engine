@@ -1,18 +1,38 @@
 import {
   defaultShouldDehydrateQuery,
   MutationCache,
+  QueryCache,
   QueryClient,
 } from "@tanstack/react-query";
 import SuperJSON from "superjson";
 import { toast } from "sonner";
+import {
+  announceStorageLimit,
+  isStorageLimitError,
+} from "~/shared/storageLimit";
+
+function handleRequestError(error: unknown) {
+  if (isStorageLimitError(error)) {
+    announceStorageLimit();
+    return;
+  }
+
+  const message =
+    error instanceof Error ? error.message : "Something went wrong";
+  toast.error(message);
+}
+
+function handleQueryError(error: unknown) {
+  if (isStorageLimitError(error)) announceStorageLimit();
+}
 
 export const createQueryClient = () =>
   new QueryClient({
     mutationCache: new MutationCache({
-      onError: (error) => {
-        const message = error instanceof Error ? error.message : "Something went wrong";
-        toast.error(message);
-      },
+      onError: handleRequestError,
+    }),
+    queryCache: new QueryCache({
+      onError: handleQueryError,
     }),
     defaultOptions: {
       queries: {
