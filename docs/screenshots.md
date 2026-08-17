@@ -1,17 +1,39 @@
-# Screenshots
+# Product screenshots
 
-Screenshot assets are still pending. The shot list below keeps broken image links out of the README.
+A visual tour of Airtable Engine running against a populated million-record table.
 
-Run `pnpm dev`, use a window around 1440px wide, and save the finished PNGs under `docs/screenshots/`.
+## Bases dashboard
 
-| Screen            | Filename           | What to capture                                                              |
-| ----------------- | ------------------ | ---------------------------------------------------------------------------- |
-| Grid              | `grid.png`         | A table with text and number fields, row controls, and the view toolbar      |
-| Million-row table | `million-rows.png` | The table after using the bulk-add control                                   |
-| Scrollbar jump    | `jump.png`         | A window loaded from deep in the table through the custom vertical scrollbar |
-| Cell editing      | `cell-edit.png`    | Keyboard editing with the local value visible before the mutation completes  |
-| Sort              | `sort.png`         | A multi-field sort attached to the current view                              |
-| Filter            | `filter.png`       | Nested filter groups with AND/OR controls                                    |
-| Search            | `search.png`       | Find-in-view with previous and next match navigation                         |
-| Saved views       | `views.png`        | A view with its own filters, committed sort, field order, and hidden fields  |
-| Dashboard         | `dashboard.png`    | Bases with starred and recently opened items first                           |
+![Bases dashboard with starred and recently opened items](screenshots/dashboard.png)
+
+Bases can be starred, and recently opened work stays immediately accessible from the dashboard.
+
+## Grid at scale
+
+![Airtable-style grid containing one million records](screenshots/grid-at-scale.png)
+
+The grid fetches and renders only the visible window while preserving direct access to all 1,000,025 records.
+
+## Nested filters
+
+![Nested filter groups with AND and OR conditions](screenshots/nested-filters.png)
+
+Filter groups combine text and number conditions through nested AND/OR logic, with matching rows updated in place.
+
+## Saved views and sorting
+
+![A saved view with its sort configuration open](screenshots/saved-view-sort.png)
+
+Each view retains its own configuration, while saved sorts are committed for rank-backed jumps through the result set.
+
+## Search
+
+![Find-in-view with a highlighted match and result navigation](screenshots/search.png)
+
+Find-in-view highlights the active result, reports the full match count, and navigates to matches outside the loaded window.
+
+## Cell editing
+
+![A cell being edited inside the million-record grid](screenshots/cell-editing.png)
+
+Keyboard-driven edits appear in the local grid immediately while the mutation completes in the background.

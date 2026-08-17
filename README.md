@@ -4,7 +4,7 @@ Airtable Engine is a high-performance Airtable-style spreadsheet built to keep t
 
 > **Live:** [airtable-engine.vercel.app](https://airtable-engine.vercel.app/) (Google sign-in)
 >
-> The bulk-add control is the quickest way to create a large table and try a deep scrollbar jump. See the [product screenshots](docs/screenshots.md#scrollbar-jump).
+> The bulk-add control is the quickest way to create a large table and try a deep scrollbar jump. See the [product screenshots](docs/screenshots.md#grid-at-scale).
 
 Below are median latencies across 15 runs at one million records, for the various paths the grid depends on.
 
@@ -54,7 +54,7 @@ pnpm dev
 | **Filters** | Nested AND/OR groups compiled into a single parameterized query, anchored the same way as sorted views. |
 | **Search** | Substring matching across all cells, with a live match count and previous or next navigation that resolves off-window matches server-side. |
 | **Bases and views** | Bases group tables and surface starred and recently opened ones first, and each table carries multiple views whose filters, sort, column order, hidden fields, and row height all persist independently. |
-| **Cell editing** | Keyboard-driven mutations optimistically patch both paginated query state and the jump cache, then roll back both on failure. |
+| **Cell editing** | Keyboard-driven mutations optimistically patch both paginated query state and the jump cache. Failed writes restore paginated state, while cached jump windows refresh on the next navigation. |
 | **Interface** | Every screen is a 1:1 recreation of Airtable's, matched by overlaying the original and hand-written with no component library underneath. |
 
 
@@ -82,5 +82,5 @@ This project is licensed under the [PolyForm Noncommercial License 1.0.0](LICENS
 
 ---
 
-> **Origin.** This project was originally built as a solo technical assessment for [Lyra](https://www.lyratechnologies.ai/) ([certificate](https://www.lyratechnologies.ai/certificate/5TYDQNOY)), based on a brief to build an Airtable clone.
+> **Origin.** This project was originally built as a solo technical assessment for [Lyra](https://www.lyratechnologies.ai/), based on a brief to build an Airtable clone.
 
