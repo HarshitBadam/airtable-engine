@@ -53,7 +53,7 @@ export function StorageLimitModal() {
             className={styles.returnButton}
             onClick={() => setIsOpen(false)}
           >
-            Return to table
+            Return
           </button>
         </div>
       </div>
