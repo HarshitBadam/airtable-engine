@@ -7,7 +7,7 @@ import styles from "./StorageLimitModal.module.css";
 
 export function StorageLimitModal() {
   const [isOpen, setIsOpen] = useState(false);
-  const okButtonRef = useRef<HTMLButtonElement>(null);
+  const returnButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const openModal = () => setIsOpen(true);
@@ -18,7 +18,7 @@ export function StorageLimitModal() {
   useEffect(() => {
     if (!isOpen) return;
 
-    okButtonRef.current?.focus();
+    returnButtonRef.current?.focus();
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setIsOpen(false);
     };
@@ -29,17 +29,15 @@ export function StorageLimitModal() {
   if (!isOpen) return null;
 
   return createPortal(
-    <div className={styles.overlay}>
+    <div className={styles.overlay} onClick={() => setIsOpen(false)}>
       <div
         className={styles.modal}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="storage-limit-title"
         aria-describedby="storage-limit-description"
+        onClick={(event) => event.stopPropagation()}
       >
-        <div className={styles.icon} aria-hidden="true">
-          !
-        </div>
         <h2 id="storage-limit-title" className={styles.title}>
           Hosted demo storage limit reached
         </h2>
@@ -48,14 +46,16 @@ export function StorageLimitModal() {
           Million-row benchmarks require a larger PostgreSQL instance or a
           local setup.
         </p>
-        <button
-          ref={okButtonRef}
-          type="button"
-          className={styles.okButton}
-          onClick={() => setIsOpen(false)}
-        >
-          OK
-        </button>
+        <div className={styles.actions}>
+          <button
+            ref={returnButtonRef}
+            type="button"
+            className={styles.returnButton}
+            onClick={() => setIsOpen(false)}
+          >
+            Return to table
+          </button>
+        </div>
       </div>
     </div>,
     document.body,

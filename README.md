@@ -1,10 +1,10 @@
 # Airtable Engine
 
-Airtable Engine is a high-performance Airtable-style spreadsheet built to keep tables with millions of rows responsive, reaching sub-millisecond reads and millisecond row writes at a million rows. The browser holds only a small virtualized window while the server resolves every scroll position through a three-tier read path built on indexed keyset seeks, per-view row rank tables, JSONB rows, and cursor-anchored jumps.
+Airtable Engine is a high-performance Airtable-style spreadsheet built to keep tables with millions of rows responsive, resolving unsorted and saved-view reads in low single-digit milliseconds, ad-hoc sorted or filtered jumps in tens of milliseconds, and row writes in low single-digit milliseconds, all at a million rows. The browser holds only a small virtualized window while the server resolves every scroll position through a three-tier read path built on indexed keyset seeks, per-view row rank tables, JSONB rows, and cursor-anchored jumps.
 
 > **Live:** [airtable-engine.vercel.app](https://airtable-engine.vercel.app/) (Google sign-in)
 >
-> The bulk-add control is the quickest way to create a large table and try a deep scrollbar jump. See the [product screenshots](docs/screenshots.md#grid-at-scale).
+> The bulk-add control is the quickest way to create a large table and try a deep scrollbar jump. See the [product snapshots (screenshots)](./docs/screenshots.md#grid-at-scale).
 
 Below are median latencies across 15 runs at one million records, for the various paths the grid depends on.
 
@@ -44,18 +44,20 @@ pnpm dev
 
 ## Notable features
 
-| Feature | Engineering detail |
-| --- | --- |
-| **Deep scrolling** | A custom scrollbar maps pixel offset to a row index and fetches only that window on a composite index, with visited windows cached. |
-| **Two sort modes** | A saved sort precomputes a per-view rank table for indexed jumps, and an unsaved ad-hoc sort anchors its jumps to a cursor over a JSONB expression index. |
-| **Field duplication** | The new column points at its source field, so it is readable, sortable, and filterable while a batched backfill copies the JSONB keys behind it. |
-| **Row order** | Rows carry fractional positions, so an insert or a drag is one midpoint write instead of a renumber. |
-| **Field types** | Text and number fields share one JSONB cell store, and sorting either builds a typed expression index, collated for text and cast to double precision for numbers, so numbers sort by value rather than as text. Number fields add per-field decimal places, separators, and abbreviation, so 3456 shows as 3.5K and parses back on input. |
-| **Filters** | Nested AND/OR groups compiled into a single parameterized query, anchored the same way as sorted views. |
-| **Search** | Substring matching across all cells, with a live match count and previous or next navigation that resolves off-window matches server-side. |
-| **Bases and views** | Bases group tables and surface starred and recently opened ones first, and each table carries multiple views whose filters, sort, column order, hidden fields, and row height all persist independently. |
-| **Cell editing** | Keyboard-driven mutations optimistically patch both paginated query state and the jump cache. Failed writes restore paginated state, while cached jump windows refresh on the next navigation. |
-| **Interface** | Every screen is a 1:1 recreation of Airtable's, matched by overlaying the original and hand-written with no component library underneath. |
+
+| Feature               | Engineering detail                                                                                                                                                                                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Deep scrolling**    | A custom scrollbar maps pixel offset to a row index and fetches only that window on a composite index, with visited windows cached.                                                                                                                                                                                                        |
+| **Two sort modes**    | A saved sort precomputes a per-view rank table for indexed jumps, and an unsaved ad-hoc sort anchors its jumps to a cursor over a JSONB expression index.                                                                                                                                                                                  |
+| **Field duplication** | The new column points at its source field, so it is readable, sortable, and filterable while a batched backfill copies the JSONB keys behind it.                                                                                                                                                                                           |
+| **Row order**         | Rows carry fractional positions, so an insert or a drag is one midpoint write instead of a renumber.                                                                                                                                                                                                                                       |
+| **Field types**       | Text and number fields share one JSONB cell store, and sorting either builds a typed expression index, collated for text and cast to double precision for numbers, so numbers sort by value rather than as text. Number fields add per-field decimal places, separators, and abbreviation, so 3456 shows as 3.5K and parses back on input. |
+| **Filters**           | Nested AND/OR groups compiled into a single parameterized query, anchored the same way as sorted views.                                                                                                                                                                                                                                    |
+| **Search**            | Substring matching across all cells, with a live match count and previous or next navigation that resolves off-window matches server-side.                                                                                                                                                                                                 |
+| **Bases and views**   | Bases group tables and surface starred and recently opened ones first, and each table carries multiple views whose filters, sort, column order, hidden fields, and row height all persist independently.                                                                                                                                   |
+| **Cell editing**      | Keyboard-driven mutations optimistically patch both paginated query state and the jump cache. Failed writes restore paginated state, while cached jump windows refresh on the next navigation.                                                                                                                                             |
+| **Interface**         | Every screen is a 1:1 recreation of Airtable's, matched by overlaying the original and hand-written with no component library underneath.                                                                                                                                                                                                  |
+
 
 
 
@@ -66,7 +68,7 @@ Start with Architecture for the big picture, then Scaling engine for the read an
 
 | Document                                           | What it covers                              |
 | -------------------------------------------------- | ------------------------------------------- |
-| [Screenshots](docs/screenshots.md)                 | A short tour of the app                     |
+| [Screenshots](./docs/screenshots.md)               | A short tour of the app                     |
 | [Architecture](docs/architecture.md)               | System layers, tiers, stack, and repository |
 | [Scaling engine](docs/scaling-engine.md)           | Read and write paths with benchmark results |
 | [Data model](docs/data-model.md)                   | Prisma schema, JSONB cells, ordering, ranks |
