@@ -134,6 +134,10 @@
   width: 368px;
 }
 
+.configTopCreate .configTypeSelector {
+  margin-top: 8px;
+}
+
 .configTypeSelector:hover {
   background-color: rgb(246, 248, 252);
 }
