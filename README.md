@@ -4,7 +4,7 @@ Airtable Engine is a high-performance Airtable-style spreadsheet built to keep t
 
 > **Live:** [airtable-engine.vercel.app](https://airtable-engine.vercel.app/) (Google sign-in)
 >
-> The bulk-add control is the quickest way to create a large table and try a deep scrollbar jump. See the [product snapshots (screenshots)](./docs/screenshots.md#grid-at-scale).
+> The bulk-add control is the quickest way to create a large table and try a deep scrollbar jump. See the [product snapshots (screenshots)](./docs/screenshots.md).
 
 Below are median latencies across 15 runs at one million records, for the various paths the grid depends on.
 
