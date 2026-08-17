@@ -14,7 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      SKIP_ENV_VALIDATION: true
+      AUTH_SECRET: ci-build-secret
+      AUTH_GOOGLE_ID: ci-google-client-id
+      AUTH_GOOGLE_SECRET: ci-google-client-secret
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/airtable
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
